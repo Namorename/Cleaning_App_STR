@@ -1,3 +1,4 @@
+import { storedUrgency } from '@str-ops/shared';
 import { randomUUID } from 'expo-crypto';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -108,7 +109,8 @@ export default function NewProblemRoute() {
       problemId,
       title: draft.title.trim(),
       description: draft.description.trim(),
-      priority: draft.priority,
+      // The level as the server stores it: critical is high with the flag.
+      ...storedUrgency(draft.priority),
       taskId,
       propertyId: taskId === null ? placeId : null,
       // Set only by a pick from the catalogue; the server then names the task

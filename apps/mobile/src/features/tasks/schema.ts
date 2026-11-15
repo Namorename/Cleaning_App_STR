@@ -92,6 +92,8 @@ export const cleaningTaskSchema = z.object({
       id: z.string().uuid(),
       title: z.string(),
       priority: z.enum(['low', 'normal', 'high']),
+      // The level above high (20261115090000); absent from an older copy.
+      critical: z.boolean().catch(false).optional(),
     })
     .nullable()
     .optional(),

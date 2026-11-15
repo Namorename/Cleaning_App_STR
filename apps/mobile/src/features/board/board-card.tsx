@@ -2,7 +2,7 @@ import {
   STATUS_TONE,
   closingLines,
   jobTail,
-  problemPriorityTone,
+  problemLevel,
   problemStatusTone,
   statusIcon,
   todayInZone,
@@ -18,7 +18,7 @@ import { Icon } from '@/components/icon';
 import { Text } from '@/components/text';
 import { Spacing } from '@/constants/theme';
 import { closingRowOf } from '@/features/problems/closing';
-import { problemPlace, problemStatusText } from '@/features/problems/format';
+import { problemPlace, problemStatusText, urgencyChip } from '@/features/problems/format';
 import {
   SIGNAL_BADGE_TONE,
   shownTitle,
@@ -82,8 +82,8 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
   const isWaiting = holder === null && isLive(problem);
   const nobody = t('problems.board.nobody');
   const when = repair === null ? null : repairWhen(repair);
-  const isUrgent = problem.priority === 'high' && isLive(problem);
-  const urgent = t('supplies.priorities.urgent');
+  // «Срочно» or «Критическая» while the task is live: a closed one asks for nobody.
+  const urgent = isLive(problem) ? urgencyChip(problemLevel(problem)) : null;
   const tail = repairTail(problem, repair, new Date());
   const overdue = tail?.isOverdue === true ? t('problems.board.overdue') : null;
   const hanging = tail === null ? null : t('problems.board.hanging', { count: tail.days });
@@ -99,7 +99,7 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
     hanging,
     person ?? (isWaiting ? nobody : null),
     when,
-    isUrgent ? urgent : null,
+    urgent?.label ?? null,
     archived,
     hasUnread ? t('chat.unread') : null,
   ]
@@ -126,7 +126,9 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
         {hanging === null ? null : (
           <Badge testID="board-hanging" label={hanging} tone={STATUS_TONE['tasks.hanging']} />
         )}
-        {isUrgent ? <Badge label={urgent} tone={problemPriorityTone('high')} /> : null}
+        {urgent === null ? null : (
+          <Badge testID="board-urgent" label={urgent.label} tone={urgent.tone} />
+        )}
         {archived === null ? null : (
           <Badge
             label={archived}

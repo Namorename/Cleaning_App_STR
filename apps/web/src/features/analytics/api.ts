@@ -44,7 +44,8 @@ interface RpcArgs {
   p_assignee_ids?: string[];
   p_task_statuses?: TaskStatus[];
   p_problem_statuses?: ProblemStatus[];
-  p_priorities?: ProblemPriority[];
+  /** The urgency filter on the scale of four (20261115090000); p_priorities is the old one. */
+  p_levels?: ProblemPriority[];
   p_hide_archived?: boolean;
 }
 
@@ -60,7 +61,7 @@ export function rpcArgs({ period, filters, includeTest }: AnalyticsQuery): RpcAr
     p_assignee_ids: some(filters.personIds),
     p_task_statuses: some(filters.taskStatuses),
     p_problem_statuses: some(filters.problemStatuses),
-    p_priorities: some(filters.priorities),
+    p_levels: some(filters.priorities),
     // Off is the server's default (null, nothing hidden): only "on" is said.
     p_hide_archived: filters.hideArchived ? true : undefined,
   };

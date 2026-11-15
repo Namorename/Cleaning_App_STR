@@ -1,4 +1,4 @@
-import { problemPriorityTone } from '@str-ops/shared';
+import { problemLevelTone, type ProblemLevel } from '@str-ops/shared';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
@@ -12,8 +12,13 @@ import { BUTTON_HEIGHT, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { currentLanguage } from '@/i18n';
 
-import { categoryName, indexCategories, matchCategories, type ProblemCategory } from './categories';
-import type { ProblemPriority } from './schema';
+import {
+  categoryLevel,
+  categoryName,
+  indexCategories,
+  matchCategories,
+  type ProblemCategory,
+} from './categories';
 
 interface CategoryPickerProps {
   categories: readonly ProblemCategory[];
@@ -129,7 +134,7 @@ interface CategoryRowProps {
 
 function CategoryRow({ category, name, isSelected, onChoose }: CategoryRowProps) {
   const { t } = useTranslation();
-  const priority = category.priority;
+  const priority = categoryLevel(category);
   const priorityWord = priority === null ? null : t(`problems.priorities.${priority}`);
 
   return (
@@ -148,7 +153,8 @@ function CategoryRow({ category, name, isSelected, onChoose }: CategoryRowProps)
 }
 
 interface PriorityChipProps {
-  priority: ProblemPriority;
+  /** On the scale of four: «Критическая» is the strongest chip there is. */
+  priority: ProblemLevel;
   testID?: string;
 }
 
@@ -158,7 +164,7 @@ export function PriorityChip({ priority, testID }: PriorityChipProps) {
   return (
     <Badge
       label={t(`problems.priorities.${priority}`)}
-      tone={problemPriorityTone(priority)}
+      tone={problemLevelTone(priority)}
       testID={testID}
     />
   );

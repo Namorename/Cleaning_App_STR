@@ -1,3 +1,4 @@
+import { storedUrgency } from '@str-ops/shared';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -90,7 +91,7 @@ export default function EditProblemRoute() {
           problemId,
           title: draft.title.trim(),
           description: draft.description.trim(),
-          priority: draft.priority,
+          ...storedUrgency(draft.priority),
           categoryId: draft.categoryId,
         })
       }

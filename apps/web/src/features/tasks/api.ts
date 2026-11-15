@@ -136,7 +136,7 @@ export const TASK_CLASSES = {
 export type TaskClass = keyof typeof TASK_CLASSES;
 
 // A repair names its problem on the chip, with the problem's priority (§6).
-const CALENDAR_TASK_COLUMNS = `${TASK_COLUMNS}, problem:problem_id(title, priority)`;
+const CALENDAR_TASK_COLUMNS = `${TASK_COLUMNS}, problem:problem_id(title, priority, critical)`;
 
 /**
  * One class of tasks on the days `from` up to `to` (exclusive), for the

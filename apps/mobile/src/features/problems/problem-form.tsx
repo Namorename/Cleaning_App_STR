@@ -1,3 +1,4 @@
+import { PROBLEM_LEVELS, type ProblemLevel } from '@str-ops/shared';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { use, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,19 +16,17 @@ import type { ReportProperty } from '@/features/properties/schema';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
-import type { ProblemCategory } from './categories';
+import { categoryLevel, type ProblemCategory } from './categories';
 import { CategoryPicker, PriorityChip } from './category-picker';
 import {
   MAX_PROBLEM_DESCRIPTION,
   MAX_PROBLEM_PHOTOS,
   MAX_PROBLEM_TITLE,
-  PROBLEM_PRIORITIES,
   asksForCategory,
   draftWithCategory,
   hasTypedTitle,
   problemDraftIssue,
   type ProblemDraft,
-  type ProblemPriority,
 } from './schema';
 
 interface ProblemFormProps {
@@ -205,7 +204,7 @@ export function ProblemForm({
           <View style={styles.field}>
             <Text tone="secondary">{t('problems.priorityLabel')}</Text>
             <View style={styles.chips} accessibilityRole="radiogroup">
-              {PROBLEM_PRIORITIES.map((priority) => (
+              {PROBLEM_LEVELS.map((priority) => (
                 <PriorityOption
                   key={priority}
                   priority={priority}
@@ -264,7 +263,7 @@ function CategoryField({ categories, draft, onChange, isDisabled, styles }: Cate
   const selected = categories.find((category) => category.id === draft.categoryId);
   // Not in the list — an edit before the catalogue reached the phone — the
   // urgency the task was filed with.
-  const priority = selected !== undefined ? selected.priority : draft.priority;
+  const priority = selected !== undefined ? categoryLevel(selected) : draft.priority;
 
   return (
     <>
@@ -293,7 +292,8 @@ function CategoryField({ categories, draft, onChange, isDisabled, styles }: Cate
 }
 
 interface PriorityOptionProps {
-  priority: ProblemPriority;
+  /** On the scale of four, «Критическая» last (owner, 2026-11-15). */
+  priority: ProblemLevel;
   selected: boolean;
   disabled: boolean;
   onSelect: () => void;

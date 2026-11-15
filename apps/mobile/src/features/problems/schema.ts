@@ -1,6 +1,7 @@
+import { problemLevel, type ProblemLevel } from '@str-ops/shared';
 import { z } from 'zod';
 
-import type { ProblemCategory } from './categories';
+import { categoryLevel, type ProblemCategory } from './categories';
 import { closingFields } from './closing';
 import { shownTitle, signalSourceFields } from './signal-source';
 
@@ -38,6 +39,10 @@ export const problemSchema = z.object({
   ...signalSourceFields,
   description: z.string().nullable(),
   priority: z.enum(PROBLEM_PRIORITIES),
+  // The level above high (20261115090000): such a task reads `high` above and
+  // this beside it — `problemLevel` joins them. Absent from a copy an older
+  // build saved on the phone, and false there: it read high, as it was.
+  critical: z.boolean().catch(false).optional(),
   // The category it was filed under (20261115100000); null when its title was
   // typed. Absent from a copy an older build saved on the phone.
   category_id: z.string().uuid().nullable().catch(null).optional(),
@@ -90,8 +95,11 @@ export interface ProblemDraft {
   /** Typed by her, or the name of the category she picked. */
   title: string;
   description: string;
-  /** Chosen by her, or the category's: then only shown, never hers to change. */
-  priority: ProblemPriority;
+  /**
+   * On the scale of four: chosen by her, or the category's — then only shown,
+   * never hers to change. Sent as the server stores it (`storedUrgency`).
+   */
+  priority: ProblemLevel;
   /** The category she picked from the company's catalogue; null while she types a title. */
   categoryId: string | null;
 }
@@ -163,7 +171,7 @@ export function draftWithCategory(
     ...draft,
     categoryId: category.id,
     title: name,
-    priority: category.priority ?? draft.priority,
+    priority: categoryLevel(category) ?? draft.priority,
   };
 }
 
@@ -178,7 +186,7 @@ export function draftOfProblem(problem: Problem, language?: string): ProblemDraf
     title:
       categoryId !== null && language !== undefined ? shownTitle(problem, language) : problem.title,
     description: problem.description ?? '',
-    priority: problem.priority,
+    priority: problemLevel(problem),
     categoryId,
   };
 }

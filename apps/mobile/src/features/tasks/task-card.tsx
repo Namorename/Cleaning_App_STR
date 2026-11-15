@@ -1,4 +1,4 @@
-import { SIZE, STATUS_TONE, problemPriorityTone, taskStatusTone } from '@str-ops/shared';
+import { SIZE, STATUS_TONE, problemLevel, taskStatusTone } from '@str-ops/shared';
 import type { TFunction } from 'i18next';
 import { memo, useMemo, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,7 @@ import {
   statusTone,
   type Theme,
 } from '@/constants/theme';
+import { problemPriorityText, urgencyChip, type UrgencyChip } from '@/features/problems/format';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
@@ -69,8 +70,8 @@ const PLAY_WIDTH = 7;
 /** The states a row shows as marks; each is a word in its tone, never colour alone. */
 interface RowMarks {
   isNow: boolean;
-  /** A repair whose report the office marked high. */
-  isUrgentFix: boolean;
+  /** A repair whose report is high («Срочно») or above it («Критическая»). */
+  urgentFix: UrgencyChip | null;
   isRunning: boolean;
   isAccepted: boolean;
   hasUnread: boolean;
@@ -105,7 +106,7 @@ function rowText(task: CleaningTask, t: TFunction): RowText {
       ? urgencyText(task)
       : t('tasks.detail.fixBanner', {
           property: propertyName(task),
-          priority: t(`problems.priorities.${fix.priority}`),
+          priority: problemPriorityText(problemLevel(fix)),
         });
 
   return {
@@ -166,7 +167,10 @@ function TaskCardComponent({
   const bodyStyle = [styles.body, isStacked && styles.bodyStacked, isNow && styles.bodyNow];
   const marks: RowMarks = {
     isNow,
-    isUrgentFix: task.type === 'maintenance' && task.problem?.priority === 'high',
+    urgentFix:
+      task.type === 'maintenance' && task.problem != null
+        ? urgencyChip(problemLevel(task.problem))
+        : null,
     isRunning: isRunning(task),
     // Hers already: the list only ever holds her own work, so the status says it.
     isAccepted: task.status === 'accepted',
@@ -298,14 +302,14 @@ function MarkRow({ marks }: MarkRowProps) {
     marks.isNow ? <NowPill key="now" label={t('tasks.now')} /> : null,
     // «Срочно», as on the task screen (docs/redesign-plan.md 2.4). The reader
     // hears the urgency once, in the row's quiet line («срочность: Высокая»).
-    marks.isUrgentFix ? (
+    marks.urgentFix === null ? null : (
       <Badge
         key="urgent"
         testID="task-urgent"
-        label={t('supplies.priorities.urgent')}
-        tone={problemPriorityTone('high')}
+        label={marks.urgentFix.label}
+        tone={marks.urgentFix.tone}
       />
-    ) : null,
+    ),
     marks.isRunning ? (
       <Badge
         key="running"

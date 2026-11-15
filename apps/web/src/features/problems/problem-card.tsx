@@ -1,6 +1,6 @@
 'use client';
 
-import { STATUS_TONE, isGuestSource } from '@str-ops/shared';
+import { STATUS_TONE, isGuestSource, problemLevel } from '@str-ops/shared';
 import { Ellipsis } from 'lucide-react';
 import Link from 'next/link';
 import { useId, type DragEvent } from 'react';
@@ -71,6 +71,8 @@ export function ProblemCard({
   const titleId = useId();
   const fixTask = liveFixTask(problem);
   const tail = repairTail(problem);
+  // On the scale of four: «Критическая» is the strongest chip of the panel.
+  const level = problemLevel(problem);
   const draggable = onDragStart !== undefined && isDraggable(problem);
 
   const handleDragStart = (event: DragEvent<HTMLElement>) => {
@@ -138,12 +140,12 @@ export function ProblemCard({
           · {formatShortDay(fixTask.scheduled_date, language)}
         </span>
       )}
-      {hasUnread || problem.priority !== 'normal' || tail !== null || isGuestSource(problem.source) ? (
+      {hasUnread || level !== 'normal' || tail !== null || isGuestSource(problem.source) ? (
         <div className="flex flex-wrap items-center gap-1">
           <SourceBadge source={problem.source} />
-          {problem.priority === 'normal' ? null : (
-            <StatusBadge status={`problems.priority.${problem.priority}`}>
-              {t(`problems.priorities.${problem.priority}`)}
+          {level === 'normal' ? null : (
+            <StatusBadge status={`problems.priority.${level}`}>
+              {t(`problems.priorities.${level}`)}
             </StatusBadge>
           )}
           <RepairTail tail={tail} />

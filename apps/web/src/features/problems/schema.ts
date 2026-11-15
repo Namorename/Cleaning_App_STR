@@ -93,6 +93,11 @@ export const problemSchema = z.object({
     .default(null),
   description: z.string().nullable(),
   priority: z.enum(PROBLEM_PRIORITIES),
+  /**
+   * The level above high (20261115090000): such a task reads `high` above and
+   * this beside it — `problemLevel` joins them.
+   */
+  critical: z.boolean().catch(false).optional(),
   status: z.enum(PROBLEM_STATUSES),
   resolved_at: z.string().nullable(),
   cancelled_at: z.string().nullable(),

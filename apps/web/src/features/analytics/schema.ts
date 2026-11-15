@@ -1,4 +1,4 @@
-import { Constants, type Database } from '@str-ops/shared';
+import { Constants, type Database, type ProblemLevel } from '@str-ops/shared';
 import { z } from 'zod';
 
 import type { Period } from './period';
@@ -6,7 +6,11 @@ import type { Period } from './period';
 type Enums = Database['public']['Enums'];
 export type TaskStatus = Enums['task_status'];
 export type ProblemStatus = Enums['problem_status'];
-export type ProblemPriority = Enums['problem_priority'];
+/**
+ * A level of the urgency filter, on the scale of four (20261115090000): sent as
+ * p_levels, so «Высокая» is high alone and «Критическая» its own.
+ */
+export type ProblemPriority = ProblemLevel;
 
 /**
  * What the server's analytics functions answer (20261015110000), checked on
@@ -37,8 +41,11 @@ export const summarySchema = z.object({
   /** Cancelled in the period, outside the archive; in no other figure. */
   problems_cancelled: count,
   urgency_avg: measure,
-  /** Tasks created in the period by urgency (20261015120000). */
-  problems_by_priority: z.object({ low: count, normal: count, high: count }),
+  /**
+   * Tasks created in the period by urgency (20261015120000); critical apart from
+   * high since 20261115090000, absent before it.
+   */
+  problems_by_priority: z.object({ low: count, normal: count, high: count, critical: count.default(0) }),
 });
 export type Summary = z.infer<typeof summarySchema>;
 

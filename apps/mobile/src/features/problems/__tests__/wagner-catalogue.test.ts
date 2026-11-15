@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  categoryLevel,
   indexCategories,
   matchCategories,
   problemCategoryListSchema,
@@ -25,6 +26,17 @@ const SCRIPT = readFileSync(
 const ROW =
   /\('([0-9a-f-]{36})', '(P[1-4])',\s*(\d+), '([^']+)',\s*'(\{[^']*\})',\s*'\{([^']*)\}'\)/g;
 
+/** The script's `levels` block: ('P1', 'high'::public.problem_priority, true) */
+const LEVEL =
+  /('(P[1-4])', '(low|normal|high)'::public.problem_priority, (true|false))/g;
+
+const levels = new Map(
+  [...SCRIPT.matchAll(LEVEL)].map((match) => [
+    match[1],
+    { priority: match[2] as 'low' | 'normal' | 'high', critical: match[3] === 'true' },
+  ]),
+);
+
 interface ScriptRow {
   readonly level: string;
   readonly sortOrder: number;
@@ -39,9 +51,9 @@ const rows: ScriptRow[] = [...SCRIPT.matchAll(ROW)].map((match) => ({
     name: match[4],
     name_i18n: JSON.parse(match[5]) as Record<string, string>,
     synonyms: match[6] === '' ? [] : match[6].split(','),
-    // The urgency is the owner's decision (the script's `levels` block); the
-    // search does not read it.
-    priority: null,
+    // The urgency is the owner's decision, the script's `levels` block.
+    priority: levels.get(match[2])?.priority ?? null,
+    critical: levels.get(match[2])?.critical ?? false,
   },
 }));
 const catalogue = rows.map((row) => row.category);
@@ -60,6 +72,24 @@ describe("the client's catalogue as the script loads it", () => {
     expect([count('P1'), count('P2'), count('P3'), count('P4')]).toEqual([6, 7, 6, 8]);
     expect(rows.map((row) => row.sortOrder)).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
     expect(rows.map((row) => row.level)).toEqual([...rows.map((row) => row.level)].sort());
+  });
+
+  test('files P1 critical, P2 high, P3 normal, P4 low: as the owner mapped them on 2026-11-15', () => {
+    expect(levels.size).toBe(4);
+    const levelOf = (level: string) =>
+      [...new Set(rows.filter((row) => row.level === level).map((row) => categoryLevel(row.category)))];
+    expect([levelOf('P1'), levelOf('P2'), levelOf('P3'), levelOf('P4')]).toEqual([
+      ['critical'],
+      ['high'],
+      ['normal'],
+      ['low'],
+    ]);
+  });
+
+  test('six critical, seven high, six normal, eight low', () => {
+    const count = (level: string) =>
+      catalogue.filter((category) => categoryLevel(category) === level).length;
+    expect([count('critical'), count('high'), count('normal'), count('low')]).toEqual([6, 7, 6, 8]);
   });
 
   test('names each one in Russian, English and Czech, every name once', () => {

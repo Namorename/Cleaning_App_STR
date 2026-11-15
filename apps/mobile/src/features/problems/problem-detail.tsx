@@ -1,7 +1,7 @@
 import {
   closingLines,
   closingSourceNote,
-  problemPriorityTone,
+  problemLevel,
   problemStatusTone,
 } from '@str-ops/shared';
 import type { ReactNode } from 'react';
@@ -22,7 +22,13 @@ import { MediaStrip, type StripItem } from '@/features/media/media-strip';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import { closingRowOf } from './closing';
-import { formatReportedAt, problemPlace, problemPriorityText, problemStatusText } from './format';
+import {
+  formatReportedAt,
+  problemPlace,
+  problemPriorityText,
+  problemStatusText,
+  urgencyChip,
+} from './format';
 import { MAX_PROBLEM_PHOTOS, type Problem } from './schema';
 import {
   SIGNAL_BADGE_TONE,
@@ -108,6 +114,8 @@ export function ProblemDetail({
   const styles = useThemedStyles(createStyles);
   const source = signalSource(problem);
   const signal = signalLabel(problem, t);
+  const level = problemLevel(problem);
+  const urgent = urgencyChip(level);
   const plaques = signalBadges(problem, t);
   // Its buttons are last: scrolled to the end they stop clear of the system's
   // bar, which the screen is drawn under (components/bottom-inset.ts).
@@ -136,14 +144,11 @@ export function ProblemDetail({
         {problemPlace(problem)} · {formatReportedAt(problem.created_at)}
       </Text>
 
-      {problem.priority === 'high' ? (
-        // The word the task screen and the supply request use for the same flag.
-        <Badge
-          testID="problem-urgent"
-          label={t('supplies.priorities.urgent')}
-          tone={problemPriorityTone('high')}
-        />
-      ) : null}
+      {urgent === null ? null : (
+        // «Срочно», the word the task screen and the supply request use for the
+        // same flag; «Критическая», filled, for the level above high.
+        <Badge testID="problem-urgent" label={urgent.label} tone={urgent.tone} />
+      )}
 
       {origin}
 
@@ -157,7 +162,7 @@ export function ProblemDetail({
         </Fact>
         <Fact label={t('problems.priorityLabel')}>
           <Text align="right" style={layout.value}>
-            {problemPriorityText(problem.priority)}
+            {problemPriorityText(level)}
           </Text>
         </Fact>
         {problem.cancel_reason !== null ? (

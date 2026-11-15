@@ -1,4 +1,4 @@
-import { STATUS_TONE, problemPriorityTone, problemStatusTone } from '@str-ops/shared';
+import { STATUS_TONE, problemLevel, problemStatusTone } from '@str-ops/shared';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
@@ -8,7 +8,13 @@ import { Card } from '@/components/card';
 import { Text } from '@/components/text';
 import { Spacing } from '@/constants/theme';
 
-import { formatReportedAt, problemPlace, problemPriorityText, problemStatusText } from './format';
+import {
+  formatReportedAt,
+  problemPlace,
+  problemPriorityText,
+  problemStatusText,
+  urgencyChip,
+} from './format';
 import type { Problem } from './schema';
 import {
   SIGNAL_BADGE_TONE,
@@ -32,14 +38,15 @@ interface ProblemCardProps {
  * tone (STATUS_TONE), where one green chip used to say every status; a report
  * the office must see first carries «Срочно» in the urgent tone instead of a
  * red line (docs/redesign-plan.md 2.4) — the word the task screen and the
- * supply request use for the same flag. A task a guest's review or chat made
+ * supply request use for the same flag — and one of the level above high
+ * «Критическая», filled in the strongest tone (owner, 2026-11-15). A task a guest's review or chat made
  * leads its pills with the source chip (`SourceBadge`, owner 2026-11-11).
  */
 function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCardProps) {
   const { t, i18n } = useTranslation();
   const status = problemStatusText(problem.status);
-  const isUrgent = problem.priority === 'high';
-  const urgent = t('supplies.priorities.urgent');
+  const level = problemLevel(problem);
+  const urgent = urgencyChip(level);
   const place = problemPlace(problem);
   const title = shownTitle(problem, i18n.language);
   const source = signalSource(problem);
@@ -52,7 +59,7 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
     signalSourceWord(problem, t),
     signal,
     ...plaques,
-    isUrgent ? urgent : null,
+    urgent?.label ?? null,
     hasUnread ? t('chat.unread') : null,
   ]
     .filter((part) => part !== null)
@@ -68,9 +75,9 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
         {source === null ? null : <SourceBadge testID="problem-source" source={source} />}
         {hasUnread ? <Badge label={t('chat.unread')} tone={STATUS_TONE['chat.unread']} /> : null}
         <Badge testID="problem-status" label={status} tone={problemStatusTone(problem.status)} />
-        {isUrgent ? (
-          <Badge testID="problem-urgent" label={urgent} tone={problemPriorityTone('high')} />
-        ) : null}
+        {urgent === null ? null : (
+          <Badge testID="problem-urgent" label={urgent.label} tone={urgent.tone} />
+        )}
         {plaques.map((plaque) => (
           <Badge key={plaque} label={plaque} tone={SIGNAL_BADGE_TONE} />
         ))}
@@ -78,9 +85,9 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
       <Text tone="secondary">
         {place} · {when}
       </Text>
-      {isUrgent ? null : (
+      {urgent !== null ? null : (
         <Text variant="caption" tone="secondary">
-          {t('problems.priorityLine', { priority: problemPriorityText(problem.priority) })}
+          {t('problems.priorityLine', { priority: problemPriorityText(level) })}
         </Text>
       )}
     </Card>

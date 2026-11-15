@@ -3,9 +3,10 @@
 import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
-import { taskStatusTone, type Language } from '@str-ops/shared';
+import { problemLevel, taskStatusTone, type Language } from '@str-ops/shared';
 
 import { isTaskUnread, NO_UNREAD, type UnreadSubjects } from '@/features/chat/schema';
 import { formatClock } from '@/features/tasks/format';
@@ -87,6 +88,18 @@ export interface ChipText {
 }
 
 /**
+ * How urgent a repair's task is, said on the chip only from high up: «Высокая»,
+ * or «Критическая» for the level above it (20261115090000).
+ */
+function urgencyWord(problem: CalendarTask['problem'], t: TFunction): string | null {
+  if (problem === null || (problem.priority !== 'high' && problem.priority !== 'normal' && problem.priority !== 'low')) {
+    return null;
+  }
+  const level = problemLevel({ priority: problem.priority, critical: problem.critical });
+  return level === 'high' || level === 'critical' ? t(`problems.priorities.${level}`) : null;
+}
+
+/**
  * The words of a chip, in the manager's language. `rowId` is the row the chip
  * is drawn on: a closed group folds its rooms' chips into the listing's row
  * (§3), and there a chip names the room it stands on. An unread message is
@@ -137,7 +150,7 @@ export function useChipText(language: Language, unread: UnreadSubjects = NO_UNRE
       person,
       window,
       isSdt ? `${t('panel.calendar.sdtMark')} (${t('panel.calendar.sdt')})` : null,
-      task.problem?.priority === 'high' ? t('problems.priorities.high') : null,
+      urgencyWord(task.problem, t),
       isOverdue ? t('panel.calendar.overdue') : null,
       isChanged ? t('panel.calendar.bookingChanged') : null,
       isHandTimeLost ? t('panel.tasks.window.manualLost') : null,

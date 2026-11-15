@@ -1,6 +1,7 @@
 -- CLIENT:Wagnerstays — the catalogue of task categories (owner, 2026-11-14;
 -- docs/problem-categories.md). A WRITE to the cloud: only on the owner's word,
--- never in 03:00–04:40 UTC, after migration 20261115100000_problem_categories.
+-- never in 03:00–04:40 UTC, after migrations 20261115090000_problem_critical and
+-- 20261115100000_problem_categories, and after both apps are published.
 --
 --   npx supabase db query --linked -f docs/one-off-writes/wagner-problem-categories.sql
 --   undo: docs/one-off-writes/wagner-problem-categories-rollback.sql
@@ -11,12 +12,10 @@
 -- the English and Czech ones are translations awaiting the owner's check, as
 -- are the synonyms: only the obvious ones.
 --
--- THE OWNER'S DECISION, NOT YET TAKEN (docs/problem-categories.md §3): the
--- product's urgency has three levels (low, normal, high), the client's list
--- four. The block `levels` below says which of the three each of P1–P4 files
--- a task with. It holds variant A (P1 and P2 both high); variants B and C
--- change these four lines (B needs a core migration first). Do not run before
--- the owner has named the variant.
+-- THE OWNER'S DECISION (2026-11-15, docs/problem-categories.md §3): P1 critical,
+-- P2 high, P3 normal, P4 low — the product's scale of four (20261115090000),
+-- where critical is stored as priority high with the flag critical. The block
+-- `levels` below holds it.
 --
 -- One statement (the CLI's db query takes one): a do block. It refuses to run
 -- twice, and refuses a company that is not there.
@@ -38,8 +37,10 @@ begin
     raise exception 'The company % already has categories: this script runs once', c_host;
   end if;
 
-  insert into public.problem_categories (id, host_id, name, name_i18n, synonyms, priority, sort_order)
-  select v.id::uuid, c_host, v.name, v.name_i18n::jsonb, v.synonyms::text[], m.priority, v.sort_order
+  insert into public.problem_categories (id, host_id, name, name_i18n, synonyms, priority, critical,
+                                         sort_order)
+  select v.id::uuid, c_host, v.name, v.name_i18n::jsonb, v.synonyms::text[], m.priority, m.critical,
+         v.sort_order
   from (values
     -- P1, critical
     ('83ffda56-635c-4941-bedd-cb08b82e6675', 'P1',  1, 'Горячая вода',
@@ -103,12 +104,12 @@ begin
      '{полотенца}')
   ) as v(id, level, sort_order, name, name_i18n, synonyms)
   join (values
-    -- THE OWNER'S DECISION: which urgency of the product each level files with.
-    ('P1', 'high'::public.problem_priority),
-    ('P2', 'high'::public.problem_priority),
-    ('P3', 'normal'::public.problem_priority),
-    ('P4', 'low'::public.problem_priority)
-  ) as m(level, priority) on m.level = v.level;
+    -- THE OWNER'S DECISION (2026-11-15): which level of the product each files with.
+    ('P1', 'high'::public.problem_priority, true),   -- critical
+    ('P2', 'high'::public.problem_priority, false),  -- high
+    ('P3', 'normal'::public.problem_priority, false),
+    ('P4', 'low'::public.problem_priority, false)
+  ) as m(level, priority, critical) on m.level = v.level;
 
   get diagnostics v_count = row_count;
   if v_count <> 27 then

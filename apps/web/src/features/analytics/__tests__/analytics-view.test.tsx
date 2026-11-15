@@ -24,7 +24,7 @@ const SUMMARY: Summary = {
   problems_open: 2,
   problems_cancelled: 1,
   urgency_avg: 2,
-  problems_by_priority: { low: 1, normal: 1, high: 1 },
+  problems_by_priority: { low: 1, normal: 1, high: 1, critical: 0 },
 };
 
 const SERIES = [

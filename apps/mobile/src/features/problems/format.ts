@@ -1,8 +1,8 @@
-import { propertyPathOf } from '@str-ops/shared';
+import { problemLevelTone, propertyPathOf, type ProblemLevel, type Tone } from '@str-ops/shared';
 
 import { INTL_LOCALES, currentLanguage, i18n } from '@/i18n';
 
-import type { Problem, ProblemPriority, ProblemStatus } from './schema';
+import type { Problem, ProblemStatus } from './schema';
 
 const dateFormatters = new Map<string, Intl.DateTimeFormat>();
 
@@ -29,8 +29,30 @@ export function problemStatusText(status: ProblemStatus): string {
   return i18n.t(`problems.statuses.${status}`);
 }
 
-export function problemPriorityText(priority: ProblemPriority): string {
-  return i18n.t(`problems.priorities.${priority}`);
+/** «Низкая» … «Критическая»: a level on the scale of four (`problemLevel`). */
+export function problemPriorityText(level: ProblemLevel): string {
+  return i18n.t(`problems.priorities.${level}`);
+}
+
+/** The chip of a task the office must see first, with the id tests and readers find it by. */
+export interface UrgencyChip {
+  label: string;
+  tone: Tone;
+}
+
+/**
+ * «Критическая» filled in the strongest tone for the level above high (owner,
+ * 2026-11-15), «Срочно» for high — the word the task screen and the supply
+ * request use for the same flag — and nothing below.
+ */
+export function urgencyChip(level: ProblemLevel): UrgencyChip | null {
+  if (level === 'critical') {
+    return { label: problemPriorityText('critical'), tone: problemLevelTone('critical') };
+  }
+  if (level === 'high') {
+    return { label: i18n.t('supplies.priorities.urgent'), tone: problemLevelTone('high') };
+  }
+  return null;
 }
 
 /**

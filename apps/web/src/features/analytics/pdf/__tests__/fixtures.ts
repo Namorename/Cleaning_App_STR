@@ -31,7 +31,7 @@ export const SUMMARY: Summary = {
   problems_open: 2,
   problems_cancelled: 1,
   urgency_avg: 2,
-  problems_by_priority: { low: 1, normal: 1, high: 1 },
+  problems_by_priority: { low: 1, normal: 1, high: 1, critical: 0 },
 };
 
 export const EMPTY: Summary = {
@@ -53,7 +53,7 @@ export const EMPTY: Summary = {
   problems_open: 0,
   problems_cancelled: 0,
   urgency_avg: null,
-  problems_by_priority: { low: 0, normal: 0, high: 0 },
+  problems_by_priority: { low: 0, normal: 0, high: 0, critical: 0 },
 };
 
 export const LOOKUPS: ReportLookups = {

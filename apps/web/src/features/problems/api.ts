@@ -27,7 +27,7 @@ import {
 export type Client = SupabaseClient<Database>;
 
 const PROBLEM_COLUMNS =
-  'id, property_id, task_id, reported_by, title, source, title_i18n, source_facts, description, priority, status, ' +
+  'id, property_id, task_id, reported_by, title, source, title_i18n, source_facts, description, priority, critical, status, ' +
   'resolved_at, cancelled_at, cancel_reason, archived_at, created_at, ' +
   'completed_by, completed_by_source, closed_by, closed_how, closed_cause, closed_at, closing:closing_people, ' +
   'property:properties(name, hostaway_unit_id, timezone, parent:parent_id(name)), ' +
@@ -198,7 +198,10 @@ export interface ReportProblemVariables {
   title: string;
   /** Empty means none: the server keeps null rather than an empty string. */
   description: string;
+  /** As the server stores it: a critical task is `high` here, with `critical`. */
   priority: ProblemPriority;
+  /** The level above high (20261115090000). */
+  critical?: boolean;
   /** The listing it stands on; null for a task of no listing. */
   propertyId: number | null;
 }
@@ -218,6 +221,7 @@ export async function reportProblem(
     p_title: variables.title,
     p_description: variables.description === '' ? undefined : variables.description,
     p_priority: variables.priority,
+    p_critical: variables.critical,
     p_property_id: variables.propertyId ?? undefined,
   });
   if (error) {

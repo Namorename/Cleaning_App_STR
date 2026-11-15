@@ -1,4 +1,4 @@
-import { foldForSearch } from '@str-ops/shared';
+import { foldForSearch, problemLevel, type ProblemLevel } from '@str-ops/shared';
 import { z } from 'zod';
 
 import { localizedText } from '@/features/steps/schema';
@@ -21,10 +21,19 @@ export const problemCategorySchema = z.object({
   name_i18n: z.record(z.string(), z.string()).catch({}),
   synonyms: z.array(z.string()).catch([]),
   priority: z.enum(PROBLEM_PRIORITIES).nullable().catch(null),
+  // The level above high (20261115090000), over priority `high`; absent reads not critical.
+  critical: z.boolean().catch(false).optional(),
 });
 
 export type ProblemCategory = z.infer<typeof problemCategorySchema>;
 export const problemCategoryListSchema = z.array(problemCategorySchema);
+
+/** The level a task of this category gets, on the scale of four; null when it could not be read. */
+export function categoryLevel(category: Pick<ProblemCategory, 'priority' | 'critical'>): ProblemLevel | null {
+  return category.priority === null
+    ? null
+    : problemLevel({ priority: category.priority, critical: category.critical });
+}
 
 /** The category's name in her language, or the company's words when it has no translation. */
 export function categoryName(

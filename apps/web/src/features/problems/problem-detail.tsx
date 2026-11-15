@@ -1,6 +1,6 @@
 'use client';
 
-import type { JobTail } from '@str-ops/shared';
+import { problemLevel, type JobTail } from '@str-ops/shared';
 import { MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -166,6 +166,7 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
   const router = useRouter();
   const hasUnread = useUnreadSubjects().problems.has(problem.id);
   const fixTask = liveFixTask(problem);
+  const level = problemLevel(problem);
   // Nothing to assign on a closed or archived problem; the header's levers still apply.
   const isClosed = isProblemClosed(problem) || isProblemArchived(problem);
 
@@ -183,8 +184,8 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
               <StatusBadge status={`problems.${problem.status}`}>
                 {t(`problems.statuses.${problem.status}`)}
               </StatusBadge>
-              <StatusBadge status={`problems.priority.${problem.priority}`}>
-                {t(`problems.priorities.${problem.priority}`)}
+              <StatusBadge status={`problems.priority.${level}`}>
+                {t(`problems.priorities.${level}`)}
               </StatusBadge>
             </>
           }

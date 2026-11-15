@@ -10,7 +10,7 @@ import { problemListSchema, problemSchema, type Problem, type ProblemPriority } 
 const PROBLEM_COLUMNS =
   'id, property_id, task_id, reported_by, title, ' +
   GUEST_SIGNAL_SOURCE_COLUMNS +
-  'description, priority, category_id, status, ' +
+  'description, priority, critical, category_id, status, ' +
   CLOSING_COLUMNS +
   'resolved_at, cancelled_at, cancel_reason, created_at, property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, assignee_id, status)';
@@ -85,7 +85,7 @@ export async function fetchGuestOrigin(problemId: string): Promise<GuestOrigin |
 export async function fetchProblemCategories(): Promise<ProblemCategory[]> {
   const { data, error } = await supabase
     .from('problem_categories')
-    .select('id, name, name_i18n, synonyms, priority')
+    .select('id, name, name_i18n, synonyms, priority, critical')
     .is('archived_at', null)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
@@ -102,7 +102,13 @@ export interface ReportProblemVariables {
   problemId: string;
   title: string;
   description: string;
+  /** As the server stores it: a critical task is `high` here, with `critical`. */
   priority: ProblemPriority;
+  /**
+   * The level above high (20261115090000). Absent from a report a build before
+   * it queued on the phone: the server then files it as it did.
+   */
+  critical?: boolean;
   taskId?: string | null;
   propertyId?: number | null;
   /**
@@ -120,6 +126,7 @@ export async function reportProblem(variables: ReportProblemVariables): Promise<
     p_title: variables.title,
     p_description: variables.description === '' ? undefined : variables.description,
     p_priority: variables.priority,
+    p_critical: variables.critical,
     p_property_id: variables.propertyId ?? undefined,
     p_task_id: variables.taskId ?? undefined,
     p_category_id: variables.categoryId ?? undefined,
@@ -137,6 +144,11 @@ export interface UpdateProblemVariables {
   title: string;
   description: string;
   priority: ProblemPriority;
+  /**
+   * True or false says so; absent — a correction a build before the level
+   * queued — keeps the flag while the priority stays high.
+   */
+  critical?: boolean;
   /** Another category she picked; absent keeps the one the task has, if any. */
   categoryId?: string | null;
 }
@@ -148,6 +160,7 @@ export async function updateProblem(variables: UpdateProblemVariables): Promise<
     p_title: variables.title,
     p_description: variables.description === '' ? undefined : variables.description,
     p_priority: variables.priority,
+    p_critical: variables.critical,
     p_category_id: variables.categoryId ?? undefined,
   });
 

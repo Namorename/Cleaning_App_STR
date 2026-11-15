@@ -1,4 +1,4 @@
-import { Constants } from '@str-ops/shared';
+import { Constants, PROBLEM_LEVELS } from '@str-ops/shared';
 import { z } from 'zod';
 
 import { isValidPeriod, PERIOD_PRESETS, presetPeriod, type Period, type PeriodPreset } from './period';
@@ -66,7 +66,7 @@ const propertyIdSchema = z.coerce.number().int().positive();
 const personIdSchema = z.uuid();
 const taskStatusSchema = z.enum(Constants.public.Enums.task_status);
 const problemStatusSchema = z.enum(Constants.public.Enums.problem_status);
-const prioritySchema = z.enum(Constants.public.Enums.problem_priority);
+const prioritySchema = z.enum(PROBLEM_LEVELS);
 
 /** The values of a comma list that the schema accepts, in order, without repeats. */
 function listOf<T>(raw: string | null, schema: z.ZodType<T>): T[] {

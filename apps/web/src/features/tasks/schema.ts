@@ -133,7 +133,15 @@ export const taskListSchema = z.array(taskSchema);
  * priority for the chip (docs/f10-plan.md, §6).
  */
 export const calendarTaskSchema = taskSchema.extend({
-  problem: z.object({ title: z.string(), priority: z.string() }).nullable().default(null),
+  problem: z
+    .object({
+      title: z.string(),
+      priority: z.string(),
+      // The level above high (20261115090000), over priority `high`.
+      critical: z.boolean().catch(false).optional(),
+    })
+    .nullable()
+    .default(null),
 });
 export type CalendarTask = z.infer<typeof calendarTaskSchema>;
 export const calendarTaskListSchema = z.array(calendarTaskSchema);

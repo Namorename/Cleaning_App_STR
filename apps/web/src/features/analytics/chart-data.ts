@@ -1,4 +1,4 @@
-import { Constants, type Language } from '@str-ops/shared';
+import { PROBLEM_LEVELS, type Language } from '@str-ops/shared';
 
 import { listingFilterLabel, personFilterLabel, type FilterLookups } from './filter-labels';
 import { formatNumber, personLabel } from './format';
@@ -160,12 +160,12 @@ export function urgencySummary(
   return filters.priorities.length === 0 ? summary : byUrgency;
 }
 
-/** The tasks created by urgency, low to high. */
+/** The tasks created by urgency, low to critical. */
 export function urgencyBars(summary: Summary | undefined, t: Translate, language: Language): BarDatum[] {
   if (summary === undefined) {
     return [];
   }
-  return Constants.public.Enums.problem_priority.map((priority) => ({
+  return PROBLEM_LEVELS.map((priority) => ({
     id: priority,
     label: t(`problems.priorities.${priority}`),
     value: summary.problems_by_priority[priority],

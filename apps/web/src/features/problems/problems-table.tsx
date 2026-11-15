@@ -1,6 +1,12 @@
 'use client';
 
-import { isGuestSource, isTaskClosed, problemPriorityTone, problemStatusTone } from '@str-ops/shared';
+import {
+  isGuestSource,
+  isTaskClosed,
+  problemLevel,
+  problemLevelTone,
+  problemStatusTone,
+} from '@str-ops/shared';
 import Link from 'next/link';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -99,8 +105,8 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
                   </TableCell>
                   <TableCell>{problemPlace(problem) ?? t('problems.noProperty')}</TableCell>
                   <TableCell>
-                    <Badge tone={problemPriorityTone(problem.priority)}>
-                      {t(`problems.priorities.${problem.priority}`)}
+                    <Badge tone={problemLevelTone(problemLevel(problem))}>
+                      {t(`problems.priorities.${problemLevel(problem)}`)}
                     </Badge>
                   </TableCell>
                   <TableCell>

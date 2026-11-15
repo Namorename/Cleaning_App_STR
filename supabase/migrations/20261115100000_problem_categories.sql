@@ -26,10 +26,11 @@
 --   category keeps the category's title and urgency whatever the caller sends;
 --   with p_category_id the reporter moves it to another category.
 --
--- The urgency of a category is the product's own scale (problem_priority: low,
--- normal, high). It drives the night pushes (push_on_problem_reported) and the
--- «Срочно» pill, so a category says which of the three it is; there is no
--- fourth level here.
+-- The urgency of a category is the product's own scale of four, stored as a
+-- task's is (20261115090000): priority (low, normal, high) and the flag
+-- critical over high. It drives the night pushes (push_on_problem_reported) and
+-- the «Срочно» pill, so a category says which level it is, and a task filed
+-- under it takes both.
 --
 -- Locks: ADD COLUMN on hosts and on problems takes ACCESS EXCLUSIVE for a
 -- moment (nullable or a constant default: no rewrite). A write still open on
@@ -66,6 +67,8 @@ create table public.problem_categories (
   -- The urgency a task of this category is filed with, decided here and not
   -- on the phone.
   priority    public.problem_priority not null,
+  -- The level above high, as on a task (20261115090000): only with high.
+  critical    boolean not null default false,
   sort_order  smallint not null default 0,
   archived_at timestamptz,
   created_at  timestamptz not null default now(),
@@ -75,7 +78,8 @@ create table public.problem_categories (
   check (jsonb_typeof(name_i18n) = 'object'),
   check (cardinality(synonyms) <= 50),
   check (array_position(synonyms, null) is null),
-  check (not ('' = any (synonyms)))
+  check (not ('' = any (synonyms))),
+  check (not critical or priority = 'high')
 );
 
 comment on table public.problem_categories is
@@ -156,14 +160,14 @@ revoke all on function public.problem_category_for_report(uuid) from public, ano
 
 -- A new argument is a new signature. The old one goes in the same transaction,
 -- so PostgREST never sees two functions of one name a call could mean.
-drop function public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid);
+drop function public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid, boolean);
 
 /**
  * Report a problem. Replayable: the same id returns the same row.
  *
  * With p_category_id the category names the task and sets its urgency; the
- * title and the priority the caller sent are not read. Without it, as before
- * (20260908130000): an older phone, the panel and the API send none.
+ * title, the priority and p_critical the caller sent are not read. Without it,
+ * as before (20261115090000): an older phone, the panel and the API send none.
  */
 create function public.report_problem(
   p_id          uuid,
@@ -172,6 +176,7 @@ create function public.report_problem(
   p_priority    public.problem_priority default 'normal',
   p_property_id bigint default null,
   p_task_id     uuid default null,
+  p_critical    boolean default null,
   p_category_id uuid default null
 )
 returns public.problems
@@ -185,6 +190,7 @@ declare
   v_category   public.problem_categories;
   v_title      text := p_title;
   v_title_i18n jsonb;
+  v_critical   boolean := coalesce(p_critical, false);
   v_priority   public.problem_priority := coalesce(p_priority, 'normal');
 begin
   select p.* into v_problem
@@ -203,6 +209,10 @@ begin
     v_title := v_category.name;
     v_title_i18n := nullif(v_category.name_i18n, '{}'::jsonb);
     v_priority := v_category.priority;
+    v_critical := v_category.critical;
+  end if;
+  if v_critical then
+    v_priority := 'high';
   end if;
 
   perform public.validate_problem_text(v_title, p_description);
@@ -210,11 +220,11 @@ begin
 
   insert into public.problems (
     id, host_id, property_id, task_id, reported_by, title, title_i18n, description, priority,
-    category_id
+    critical, category_id
   ) values (
     p_id, public.current_host_id(), v_property, p_task_id, (select auth.uid()),
     btrim(v_title), v_title_i18n, nullif(btrim(coalesce(p_description, '')), ''), v_priority,
-    p_category_id
+    v_critical, p_category_id
   )
   returning * into v_problem;
 
@@ -222,21 +232,23 @@ begin
 end;
 $$;
 
-drop function public.update_problem(uuid, text, text, public.problem_priority);
+drop function public.update_problem(uuid, text, text, public.problem_priority, boolean);
 
 /**
  * The reporter corrects her own report while nobody has picked it up.
  *
  * A task filed under a category keeps the category's title and urgency: the
- * title and the priority the caller sent are not read. p_category_id moves it
- * to another category. A task with a typed title and no p_category_id: as
- * before (20260908130000).
+ * title, the priority and p_critical the caller sent are not read.
+ * p_category_id moves it to another category. A task with a typed title and no
+ * p_category_id: as before (20261115090000) — p_critical null keeps the flag
+ * while the priority stays high.
  */
 create function public.update_problem(
   p_id          uuid,
   p_title       text,
   p_description text default null,
   p_priority    public.problem_priority default 'normal',
+  p_critical    boolean default null,
   p_category_id uuid default null
 )
 returns public.problems
@@ -250,6 +262,7 @@ declare
   v_category_id uuid;
   v_title       text := p_title;
   v_priority    public.problem_priority := coalesce(p_priority, 'normal');
+  v_critical    boolean := p_critical;
 begin
   select p.* into v_problem
   from public.problems p
@@ -271,6 +284,13 @@ begin
     v_category := public.problem_category_for_report(v_category_id);
     v_title := v_category.name;
     v_priority := v_category.priority;
+    v_critical := v_category.critical;
+  end if;
+  -- Said critical, by the caller or the category: high with the flag. Null
+  -- (an older phone) keeps the flag below while the priority stays high;
+  -- problems_critical_follows_priority takes it off when it does not.
+  if v_critical then
+    v_priority := 'high';
   end if;
 
   perform public.validate_problem_text(v_title, p_description);
@@ -281,6 +301,7 @@ begin
                          else nullif(v_category.name_i18n, '{}'::jsonb) end,
       description = nullif(btrim(coalesce(p_description, '')), ''),
       priority    = v_priority,
+      critical    = coalesce(v_critical, p.critical),
       category_id = v_category_id
   where p.id = p_id
   returning * into v_problem;
@@ -289,11 +310,11 @@ begin
 end;
 $$;
 
-revoke all on function public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid, uuid)
+revoke all on function public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid, boolean, uuid)
   from public, anon;
-revoke all on function public.update_problem(uuid, text, text, public.problem_priority, uuid)
+revoke all on function public.update_problem(uuid, text, text, public.problem_priority, boolean, uuid)
   from public, anon;
-grant execute on function public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid, uuid)
+grant execute on function public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid, boolean, uuid)
   to authenticated, service_role;
-grant execute on function public.update_problem(uuid, text, text, public.problem_priority, uuid)
+grant execute on function public.update_problem(uuid, text, text, public.problem_priority, boolean, uuid)
   to authenticated, service_role;

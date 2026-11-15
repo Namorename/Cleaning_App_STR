@@ -26,17 +26,18 @@ do $$
 begin
   perform set_config('lock_timeout', '3s', true);
 
-  drop function public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid, uuid);
-  drop function public.update_problem(uuid, text, text, public.problem_priority, uuid);
+  drop function public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid, boolean, uuid);
+  drop function public.update_problem(uuid, text, text, public.problem_priority, boolean, uuid);
 
-  -- The bodies of 20260908130000, word for word.
+  -- The bodies of 20261115090000, word for word.
   create function public.report_problem(
   p_id          uuid,
   p_title       text,
   p_description text default null,
   p_priority    public.problem_priority default 'normal',
   p_property_id bigint default null,
-  p_task_id     uuid default null
+  p_task_id     uuid default null,
+  p_critical    boolean default null
 )
 returns public.problems
 language plpgsql
@@ -46,6 +47,7 @@ as $fn$
 declare
   v_problem  public.problems;
   v_property bigint;
+  v_critical boolean := coalesce(p_critical, false);
 begin
   select p.* into v_problem
   from public.problems p
@@ -62,10 +64,11 @@ begin
   v_property := public.resolve_report_property(p_property_id, p_task_id);
 
   insert into public.problems (
-    id, host_id, property_id, task_id, reported_by, title, description, priority
+    id, host_id, property_id, task_id, reported_by, title, description, priority, critical
   ) values (
     p_id, public.current_host_id(), v_property, p_task_id, (select auth.uid()),
-    btrim(p_title), nullif(btrim(coalesce(p_description, '')), ''), coalesce(p_priority, 'normal')
+    btrim(p_title), nullif(btrim(coalesce(p_description, '')), ''),
+    case when v_critical then 'high' else coalesce(p_priority, 'normal') end, v_critical
   )
   returning * into v_problem;
 
@@ -77,7 +80,8 @@ $fn$;
   p_id          uuid,
   p_title       text,
   p_description text default null,
-  p_priority    public.problem_priority default 'normal'
+  p_priority    public.problem_priority default 'normal',
+  p_critical    boolean default null
 )
 returns public.problems
 language plpgsql
@@ -107,7 +111,8 @@ begin
   update public.problems p
   set title       = btrim(p_title),
       description = nullif(btrim(coalesce(p_description, '')), ''),
-      priority    = coalesce(p_priority, 'normal')
+      priority    = case when p_critical then 'high' else coalesce(p_priority, 'normal') end,
+      critical    = coalesce(p_critical, p.critical)
   where p.id = p_id
   returning * into v_problem;
 
@@ -115,12 +120,13 @@ begin
 end;
 $fn$;
 
-  revoke all on function public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid)
+  revoke all on function public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid, boolean)
     from public, anon;
-  revoke all on function public.update_problem(uuid, text, text, public.problem_priority) from public, anon;
-  grant execute on function public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid)
+  revoke all on function public.update_problem(uuid, text, text, public.problem_priority, boolean)
+    from public, anon;
+  grant execute on function public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid, boolean)
     to authenticated, service_role;
-  grant execute on function public.update_problem(uuid, text, text, public.problem_priority)
+  grant execute on function public.update_problem(uuid, text, text, public.problem_priority, boolean)
     to authenticated, service_role;
 
   drop function public.problem_category_for_report(uuid);

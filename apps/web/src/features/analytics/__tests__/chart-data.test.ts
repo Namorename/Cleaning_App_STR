@@ -46,7 +46,7 @@ const SUMMARY: Summary = {
   problems_open: 2,
   problems_cancelled: 1,
   urgency_avg: 2,
-  problems_by_priority: { low: 1, normal: 0, high: 2 },
+  problems_by_priority: { low: 1, normal: 0, high: 2, critical: 1 },
 };
 
 function listingRow(id: number, name: string, done: number): AnalyticsRows['cleaningsByProperty'] {
@@ -138,7 +138,7 @@ describe('the bars', () => {
   });
 
   test('the urgency bars read the page summary unless urgency itself is filtered', () => {
-    const other = { ...SUMMARY, problems_by_priority: { low: 9, normal: 9, high: 9 } };
+    const other = { ...SUMMARY, problems_by_priority: { low: 9, normal: 9, high: 9, critical: 9 } };
     expect(urgencySummary(NO_FILTERS, SUMMARY, other)).toBe(SUMMARY);
     expect(urgencySummary({ ...NO_FILTERS, priorities: ['low'] }, SUMMARY, other)).toBe(other);
   });

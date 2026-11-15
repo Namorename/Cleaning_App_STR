@@ -59,6 +59,10 @@ values
   ('f1150202-0000-4000-8000-000000000002', 'Смесители',
    '{"en": "Taps", "cs": "Vodovodní baterie"}', '{кран,смеситель}', 'normal', 2, null),
   ('f1150203-0000-4000-8000-000000000003', 'Декор', '{}', '{}', 'low', 3, now());
+-- The level above high (20261115090000): a category of it is high with the flag.
+insert into public.problem_categories (id, name, name_i18n, priority, critical, sort_order)
+values ('f1150204-0000-4000-8000-000000000004', 'Затопление',
+        '{"en": "Flooding", "cs": "Zaplavení"}', 'high', true, 4);
 insert into public.problem_categories (id, host_id, name, priority)
 values ('f1150209-0000-4000-8000-000000000009', 'f1150000-0000-4000-8000-00000000000b',
         'Чужая категория', 'high');
@@ -118,6 +122,8 @@ create or replace function pg_temp.taps() returns uuid language sql immutable as
   select 'f1150202-0000-4000-8000-000000000002'::uuid $$;
 create or replace function pg_temp.decor() returns uuid language sql immutable as $$
   select 'f1150203-0000-4000-8000-000000000003'::uuid $$;
+create or replace function pg_temp.flood() returns uuid language sql immutable as $$
+  select 'f1150204-0000-4000-8000-000000000004'::uuid $$;
 create or replace function pg_temp.foreign_category() returns uuid language sql immutable as $$
   select 'f1150209-0000-4000-8000-000000000009'::uuid $$;
 
@@ -153,7 +159,7 @@ select pg_temp.check('anon holds nothing on it',
 select pg_temp.as_maria();
 select pg_temp.check('a cleaner reads the categories of her company, archived ones too',
   (select string_agg(name, ', ' order by sort_order) from public.problem_categories),
-  'Горячая вода, Смесители, Декор');
+  'Горячая вода, Смесители, Декор, Затопление');
 select pg_temp.check('a cleaner cannot add a category',
   pg_temp.sqlstate_of($q$insert into public.problem_categories (name, priority)
                         values ('Своя', 'high')$q$),
@@ -195,23 +201,23 @@ select pg_temp.check('nor null',
 select pg_temp.check('report_problem has one signature, the new one',
   (select string_agg(p.oid::regprocedure::text, '; ')
    from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'report_problem'),
-  'report_problem(uuid,text,text,problem_priority,bigint,uuid,uuid)');
+  'report_problem(uuid,text,text,problem_priority,bigint,uuid,boolean,uuid)');
 select pg_temp.check('update_problem too',
   (select string_agg(p.oid::regprocedure::text, '; ')
    from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'update_problem'),
-  'update_problem(uuid,text,text,problem_priority,uuid)');
+  'update_problem(uuid,text,text,problem_priority,boolean,uuid)');
 select pg_temp.check('the staff may call report_problem',
   has_function_privilege('authenticated',
-    'public.report_problem(uuid,text,text,public.problem_priority,bigint,uuid,uuid)', 'execute'),
+    'public.report_problem(uuid,text,text,public.problem_priority,bigint,uuid,boolean,uuid)', 'execute'),
   true);
 select pg_temp.check('anon may not',
   has_function_privilege('anon',
-    'public.report_problem(uuid,text,text,public.problem_priority,bigint,uuid,uuid)', 'execute'),
+    'public.report_problem(uuid,text,text,public.problem_priority,bigint,uuid,boolean,uuid)', 'execute'),
   false);
 select pg_temp.check('nor may PUBLIC call update_problem',
   (select bool_or(a.grantee = 0)
    from pg_proc p, aclexplode(p.proacl) a
-   where p.oid = 'public.update_problem(uuid,text,text,public.problem_priority,uuid)'::regprocedure),
+   where p.oid = 'public.update_problem(uuid,text,text,public.problem_priority,boolean,uuid)'::regprocedure),
   false);
 select pg_temp.check('the category lookup is the functions'' own, not a client''s',
   has_function_privilege('authenticated', 'public.problem_category_for_report(uuid)', 'execute'),
@@ -222,7 +228,7 @@ select pg_temp.check('the category lookup is the functions'' own, not a client''
 select pg_temp.as_maria();
 -- The phone sends the shown name and the urgency it showed; both are ignored.
 select public.report_problem(pg_temp.pid(1), 'Hot water', 'Нет горячей воды на кухне', 'low',
-  null, 'f1150101-0000-4000-8000-000000000001', pg_temp.hot_water());
+  null, 'f1150101-0000-4000-8000-000000000001', p_category_id => pg_temp.hot_water());
 select pg_temp.as_office();
 
 select pg_temp.check('the category names the task, in the company''s language',
@@ -243,27 +249,27 @@ select pg_temp.check('the head technician hears of it as urgent: the category''s
   true);
 
 select pg_temp.as_maria();
-select public.report_problem(pg_temp.pid(1), 'x', 'replayed', 'normal', null, null, pg_temp.taps());
+select public.report_problem(pg_temp.pid(1), 'x', 'replayed', 'normal', null, null, p_category_id => pg_temp.taps());
 select pg_temp.as_office();
 select pg_temp.check('a replay returns the row unchanged, category and all',
   ((pg_temp.problem(1)).category_id, (pg_temp.problem(1)).description),
   (pg_temp.hot_water(), 'Нет горячей воды на кухне'::text));
 
 select pg_temp.as_maria();
-select public.report_problem(pg_temp.pid(2), 'Taps', null, 'high', 900002101, null, pg_temp.taps());
-select public.report_problem(pg_temp.pid(3), 'Декор', null, 'high', 900002101, null, pg_temp.decor());
+select public.report_problem(pg_temp.pid(2), 'Taps', null, 'high', 900002101, null, p_category_id => pg_temp.taps());
+select public.report_problem(pg_temp.pid(3), 'Декор', null, 'high', 900002101, null, p_category_id => pg_temp.decor());
 select pg_temp.check('a category of another company is refused',
   pg_temp.refusal($q$select public.report_problem(pg_temp.pid(4), 'x', null, 'normal', 900002101,
-                    null, pg_temp.foreign_category())$q$),
+                    null, p_category_id => pg_temp.foreign_category())$q$),
   'serverErrors.problemCategoryNotFound');
 select pg_temp.check('and so is one that does not exist',
   pg_temp.refusal($q$select public.report_problem(pg_temp.pid(4), 'x', null, 'normal', 900002101,
-                    null, 'f1150299-0000-4000-8000-000000000099')$q$),
+                    null, p_category_id => 'f1150299-0000-4000-8000-000000000099')$q$),
   'serverErrors.problemCategoryNotFound');
 select pg_temp.as_olga();
 select pg_temp.check('nor may another company file under hers',
   pg_temp.refusal($q$select public.report_problem(pg_temp.pid(8), 'x', null, 'normal', null,
-                    null, pg_temp.hot_water())$q$),
+                    null, p_category_id => pg_temp.hot_water())$q$),
   'serverErrors.problemCategoryNotFound');
 select pg_temp.as_office();
 
@@ -322,7 +328,7 @@ select pg_temp.check('and takes the new description',
   (pg_temp.problem(1)).description, 'Нет горячей воды нигде');
 
 select pg_temp.as_maria();
-select public.update_problem(pg_temp.pid(1), 'x', 'Это смеситель', 'high', pg_temp.taps());
+select public.update_problem(pg_temp.pid(1), 'x', 'Это смеситель', 'high', p_category_id => pg_temp.taps());
 select pg_temp.as_office();
 select pg_temp.check('another category moves the report: title, translations and urgency follow',
   ((pg_temp.problem(1)).title, (pg_temp.problem(1)).title_i18n ->> 'en',
@@ -332,7 +338,7 @@ select pg_temp.check('another category moves the report: title, translations and
 select pg_temp.as_maria();
 select pg_temp.check('a category of another company is refused on a correction too',
   pg_temp.refusal($q$select public.update_problem(pg_temp.pid(2), 'x', null, 'normal',
-                    pg_temp.foreign_category())$q$),
+                    p_category_id => pg_temp.foreign_category())$q$),
   'serverErrors.problemCategoryNotFound');
 select pg_temp.as_office();
 -- Whatever a typed title carries beside it stays as it was, as before.
@@ -348,7 +354,7 @@ select pg_temp.check('a typed report is corrected as before',
   ('Кран течёт сильно'::text, 'normal'::text, null::uuid, '{"en": "Tap"}'::jsonb));
 
 select pg_temp.as_maria();
-select public.update_problem(pg_temp.pid(6), 'whatever', null, 'low', pg_temp.hot_water());
+select public.update_problem(pg_temp.pid(6), 'whatever', null, 'low', p_category_id => pg_temp.hot_water());
 select pg_temp.as_office();
 select pg_temp.check('a typed report given a category takes it',
   ((pg_temp.problem(6)).title, (pg_temp.problem(6)).priority::text, (pg_temp.problem(6)).category_id),
@@ -364,6 +370,49 @@ select pg_temp.check('a report under an archived category is still corrected on 
    (pg_temp.problem(3)).description),
   ('Декор'::text, 'low'::text, pg_temp.decor(), 'Картина упала'::text));
 
+-- ---------- a category of the level above high ----------
+
+select pg_temp.check('a category is critical only over high',
+  pg_temp.sqlstate_of($q$insert into public.problem_categories (name, priority, critical)
+                        values ('Не та', 'normal', true)$q$),
+  '23514');
+
+select pg_temp.as_maria();
+select public.report_problem(pg_temp.pid(10), 'x', null, 'low', 900002101, null,
+                             p_category_id => pg_temp.flood());
+select pg_temp.as_office();
+select pg_temp.check('a task under a critical category is high with the flag, whatever the phone sent',
+  ((pg_temp.problem(10)).title, (pg_temp.problem(10)).priority::text, (pg_temp.problem(10)).critical),
+  ('Затопление'::text, 'high'::text, true));
+select pg_temp.check('the head technician hears of it as urgent, as of a high one',
+  (select bool_and(o.urgent) from raw.push_outbox o
+   where o.kind = 'problem_new' and o.params ->> 'problem_id' = pg_temp.pid(10)::text),
+  true);
+
+select pg_temp.as_maria();
+select public.report_problem(pg_temp.pid(11), 'x', null, 'high', 900002101, null,
+                             p_critical => true, p_category_id => pg_temp.taps());
+select pg_temp.as_office();
+select pg_temp.check('the category, not p_critical, decides: a normal category files normal',
+  ((pg_temp.problem(11)).priority::text, (pg_temp.problem(11)).critical),
+  ('normal'::text, false));
+
+select pg_temp.as_maria();
+-- An older phone edits it: it shows high and sends a lower priority back.
+select public.update_problem(pg_temp.pid(10), 'x', 'Вода на полу', 'low');
+select pg_temp.as_office();
+select pg_temp.check('an older phone cannot lower a task filed under a critical category',
+  ((pg_temp.problem(10)).priority::text, (pg_temp.problem(10)).critical,
+   (pg_temp.problem(10)).description),
+  ('high'::text, true, 'Вода на полу'::text));
+
+select pg_temp.as_maria();
+select public.update_problem(pg_temp.pid(10), 'x', null, 'high', p_category_id => pg_temp.taps());
+select pg_temp.as_office();
+select pg_temp.check('moved to a normal category it is normal, the flag off',
+  ((pg_temp.problem(10)).title, (pg_temp.problem(10)).priority::text, (pg_temp.problem(10)).critical),
+  ('Смесители'::text, 'normal'::text, false));
+
 select pg_temp.check('a category a task was filed under cannot be deleted, only archived',
   pg_temp.sqlstate_of($q$delete from public.problem_categories where id = pg_temp.decor()$q$),
   '23503');
@@ -375,7 +424,8 @@ select pg_temp.check('one no task points at can',
 select pg_temp.check('tasks filed before the catalogue have no category',
   (select count(*)::int from public.problems
    where category_id is not null
-     and id not in (pg_temp.pid(1), pg_temp.pid(2), pg_temp.pid(3), pg_temp.pid(6))),
+     and id not in (pg_temp.pid(1), pg_temp.pid(2), pg_temp.pid(3), pg_temp.pid(6),
+                    pg_temp.pid(10), pg_temp.pid(11))),
   0);
 
 rollback;

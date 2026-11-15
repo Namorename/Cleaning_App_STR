@@ -1,4 +1,4 @@
-import { STATUS_TONE, cleaningClosingLines, problemPriorityTone } from '@str-ops/shared';
+import { STATUS_TONE, cleaningClosingLines, problemLevel } from '@str-ops/shared';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -14,6 +14,7 @@ import { Icon } from '@/components/icon';
 import { Skeleton, SkeletonGroup } from '@/components/skeleton';
 import { Text } from '@/components/text';
 import { BUTTON_HEIGHT, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { problemPriorityText, urgencyChip, type UrgencyChip } from '@/features/problems/format';
 import { remainingRequired, type TaskStep } from '@/features/steps/schema';
 import { StepList } from '@/features/steps/step-list';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -235,7 +236,7 @@ export function TaskDetail({
       </View>
       <Text tone="secondary">{formatScheduledDate(task)}</Text>
 
-      <TaskFlags task={task} isUrgentFix={fix?.priority === 'high'} />
+      <TaskFlags task={task} urgentFix={fix === null ? null : urgencyChip(problemLevel(fix))} />
 
       {/* A repair the office set no time for has none of these facts until it
           starts, and an empty card is a white box on its own (owner's
@@ -262,7 +263,7 @@ export function TaskDetail({
         <Card
           accessibilityLabel={[
             fix.title,
-            t('problems.priorityLine', { priority: t(`problems.priorities.${fix.priority}`) }),
+            t('problems.priorityLine', { priority: problemPriorityText(problemLevel(fix)) }),
             t('tasks.detail.openProblem'),
           ].join('. ')}
           onPress={onOpenProblem === undefined ? undefined : () => onOpenProblem(fix.id)}
@@ -271,7 +272,7 @@ export function TaskDetail({
           <CardLabel text={t('tasks.detail.problem')} />
           <Text>{fix.title}</Text>
           <Text tone="secondary">
-            {t('problems.priorityLine', { priority: t(`problems.priorities.${fix.priority}`) })}
+            {t('problems.priorityLine', { priority: problemPriorityText(problemLevel(fix)) })}
             {' · '}
             {t('tasks.detail.openProblem')}
           </Text>
@@ -382,16 +383,17 @@ function noop(): void {}
 
 interface TaskFlagsProps {
   task: CleaningTask;
-  /** A repair whose report the office marked high. */
-  isUrgentFix: boolean;
+  /** A repair whose report is high («Срочно») or above it («Критическая»). */
+  urgentFix: UrgencyChip | null;
 }
 
 /**
  * Why the job matters, as pills: the same-day check-in in the urgent tone, or
  * what kind of job it is; and on a repair the office marked high, «Срочно»
- * (docs/redesign-plan.md 2.4) — a flag of its own rather than a banner.
+ * (docs/redesign-plan.md 2.4) — a flag of its own rather than a banner — or,
+ * above high, «Критическая» in the strongest tone.
  */
-function TaskFlags({ task, isUrgentFix }: TaskFlagsProps) {
+function TaskFlags({ task, urgentFix }: TaskFlagsProps) {
   const { t } = useTranslation();
   const tone = isSameDayTurnover(task)
     ? STATUS_TONE['phone.checkIn.sameDay']
@@ -400,14 +402,10 @@ function TaskFlags({ task, isUrgentFix }: TaskFlagsProps) {
   return (
     <View style={layout.flags}>
       <Badge testID="task-urgency" label={urgencyText(task)} tone={tone} />
-      {isUrgentFix ? (
-        // The word the supply request uses for the same flag.
-        <Badge
-          testID="task-urgent"
-          label={t('supplies.priorities.urgent')}
-          tone={problemPriorityTone('high')}
-        />
-      ) : null}
+      {urgentFix === null ? null : (
+        // «Срочно», the word the supply request uses for the same flag.
+        <Badge testID="task-urgent" label={urgentFix.label} tone={urgentFix.tone} />
+      )}
     </View>
   );
 }

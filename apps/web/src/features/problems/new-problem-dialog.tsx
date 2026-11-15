@@ -1,5 +1,6 @@
 'use client';
 
+import { PROBLEM_LEVELS, storedUrgency, type ProblemLevel } from '@str-ops/shared';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -24,16 +25,15 @@ import { problemHref, type ProblemsAddress } from './address';
 import {
   MAX_PROBLEM_DESCRIPTION,
   MAX_PROBLEM_TITLE,
-  PROBLEM_PRIORITIES,
   type Problem,
-  type ProblemPriority,
 } from './schema';
 import { useReportProblem } from './use-problems';
 
 interface Draft {
   title: string;
   description: string;
-  priority: ProblemPriority;
+  /** On the scale of four, «Критическая» last (owner, 2026-11-15). */
+  priority: ProblemLevel;
   /** Undefined until the manager picks a listing or «Без объекта» on purpose. */
   propertyId: number | null | undefined;
 }
@@ -130,7 +130,8 @@ export function NewProblemDialog({ from, onClose }: NewProblemDialogProps) {
         problemId,
         title: draft.title.trim(),
         description: draft.description.trim(),
-        priority: draft.priority,
+        // Critical is stored as high with the flag (20261115090000).
+        ...storedUrgency(draft.priority),
         propertyId: draft.propertyId,
       },
       { onSuccess: opened },
@@ -203,10 +204,10 @@ export function NewProblemDialog({ from, onClose }: NewProblemDialogProps) {
               id="problem-priority"
               value={draft.priority}
               onChange={(event) =>
-                setDraft({ ...draft, priority: event.target.value as ProblemPriority })
+                setDraft({ ...draft, priority: event.target.value as ProblemLevel })
               }
             >
-              {PROBLEM_PRIORITIES.map((priority) => (
+              {PROBLEM_LEVELS.map((priority) => (
                 <option key={priority} value={priority}>
                   {t(`problems.priorities.${priority}`)}
                 </option>

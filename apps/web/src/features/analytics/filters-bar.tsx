@@ -1,6 +1,6 @@
 'use client';
 
-import { Constants } from '@str-ops/shared';
+import { Constants, PROBLEM_LEVELS } from '@str-ops/shared';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -50,7 +50,8 @@ export function FiltersBar({
     id: status,
     label: t(`problems.statuses.${status}`),
   }));
-  const priorities = Constants.public.Enums.problem_priority.map((priority) => ({
+  // The scale of four, low to critical (20261115090000).
+  const priorities = PROBLEM_LEVELS.map((priority) => ({
     id: priority,
     label: t(`problems.priorities.${priority}`),
   }));
