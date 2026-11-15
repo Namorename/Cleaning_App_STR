@@ -6,11 +6,6 @@ import type { Period } from './period';
 type Enums = Database['public']['Enums'];
 export type TaskStatus = Enums['task_status'];
 export type ProblemStatus = Enums['problem_status'];
-/**
- * A level of the urgency filter, on the scale of four (20261115090000): sent as
- * p_levels, so «Высокая» is high alone and «Критическая» its own.
- */
-export type ProblemPriority = ProblemLevel;
 
 /**
  * What the server's analytics functions answer (20261015110000), checked on
@@ -155,7 +150,11 @@ export interface AnalyticsFilters {
   personIds: readonly string[];
   taskStatuses: readonly TaskStatus[];
   problemStatuses: readonly ProblemStatus[];
-  priorities: readonly ProblemPriority[];
+  /**
+   * The urgency filter on the scale of four (20261115090000): sent as p_levels, so
+   * «Высокая» is high alone and «Критическая» its own.
+   */
+  priorities: readonly ProblemLevel[];
   /** The archived listings left out; off by default — they count (owner, 2026-10-15). */
   hideArchived: boolean;
 }

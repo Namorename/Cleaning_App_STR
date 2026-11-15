@@ -92,6 +92,21 @@ describe('reportProblem', () => {
     });
   });
 
+  test('a critical task goes out as high with p_critical (20261115090000)', async () => {
+    const { client, recorded } = fakeClient();
+
+    await reportProblem(client, {
+      problemId: ROW.id,
+      title: 'Прорвало трубу',
+      description: '',
+      priority: 'high',
+      critical: true,
+      propertyId: 7,
+    });
+
+    expect(recorded.rpc?.args).toMatchObject({ p_priority: 'high', p_critical: true });
+  });
+
   test('a refusal from the server is passed through as it came', async () => {
     const refusal = { message: 'too long', hint: 'serverErrors.problemTitleTooLong' };
     const { client } = fakeClient(refusal);

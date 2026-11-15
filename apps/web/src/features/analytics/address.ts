@@ -1,4 +1,4 @@
-import { Constants, PROBLEM_LEVELS } from '@str-ops/shared';
+import { Constants, PROBLEM_LEVELS, type ProblemLevel } from '@str-ops/shared';
 import { z } from 'zod';
 
 import { isValidPeriod, PERIOD_PRESETS, presetPeriod, type Period, type PeriodPreset } from './period';
@@ -9,7 +9,6 @@ import {
   type AnalyticsFilters,
   type AnalyticsTable,
   type NameMode,
-  type ProblemPriority,
   type ProblemStatus,
   type TaskStatus,
 } from './schema';
@@ -110,7 +109,7 @@ export function readAnalyticsAddress(params: URLSearchParams): AnalyticsAddress 
       personIds: listOf<string>(params.get(PARAM.people), personIdSchema),
       taskStatuses: listOf<TaskStatus>(params.get(PARAM.taskStatuses), taskStatusSchema),
       problemStatuses: listOf<ProblemStatus>(params.get(PARAM.problemStatuses), problemStatusSchema),
-      priorities: listOf<ProblemPriority>(params.get(PARAM.priorities), prioritySchema),
+      priorities: listOf<ProblemLevel>(params.get(PARAM.priorities), prioritySchema),
       hideArchived: params.get(PARAM.hideArchived) === '1',
     },
   };

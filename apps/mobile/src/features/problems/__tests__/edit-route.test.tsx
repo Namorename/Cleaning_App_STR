@@ -241,3 +241,45 @@ describe('the wrapper on the «Абрикос» components', () => {
     expect(screen.queryByDisplayValue('Кран течёт')).toBeNull();
   });
 });
+
+describe('the level above high, «Критическая» (20261115090000)', () => {
+  beforeEach(() => {
+    mockMutate.mockClear();
+  });
+
+  test('a critical report opens at «Критическая» and is saved so', async () => {
+    answer(problem({ priority: 'high', critical: true }));
+
+    await render(<EditProblemRoute />);
+    expect(screen.getByRole('radio', { name: 'Критическая' })).toBeChecked();
+    await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ priority: 'high', critical: true }),
+    );
+  });
+
+  test('lowered to high, the flag is taken off on purpose', async () => {
+    answer(problem({ priority: 'high', critical: true }));
+
+    await render(<EditProblemRoute />);
+    await fireEvent.press(screen.getByRole('radio', { name: 'Высокая' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ priority: 'high', critical: false }),
+    );
+  });
+
+  test('a row cached before the level, with no flag, is saved without one: the server keeps its own', async () => {
+    // Read from a copy an older build saved: the server may hold this task critical.
+    answer(problem({ priority: 'high' }));
+
+    await render(<EditProblemRoute />);
+    await fireEvent.changeText(screen.getByLabelText('Подробности'), 'Вода на полу');
+    await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
+
+    expect(mockMutate.mock.calls[0][0]).toMatchObject({ priority: 'high', description: 'Вода на полу' });
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('critical');
+  });
+});

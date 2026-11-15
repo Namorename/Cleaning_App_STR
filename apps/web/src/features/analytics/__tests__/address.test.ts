@@ -67,6 +67,19 @@ describe('readAnalyticsAddress', () => {
   });
 });
 
+describe('the urgency filter on the scale of four (20261115090000)', () => {
+  it('reads «critical» from an address and writes it back', () => {
+    const filters = read('urg=critical,high,urgent').filters;
+    expect(filters.priorities).toEqual(['critical', 'high']);
+    expect(
+      writeAnalyticsAddress({
+        ...DEFAULT_ANALYTICS_ADDRESS,
+        filters: { ...DEFAULT_ANALYTICS_ADDRESS.filters, priorities: ['critical'] },
+      }),
+    ).toContain('urg=critical');
+  });
+});
+
 describe('writeAnalyticsAddress', () => {
   it('writes nothing for the defaults', () => {
     expect(writeAnalyticsAddress(DEFAULT_ANALYTICS_ADDRESS)).toBe('');
@@ -103,7 +116,11 @@ describe('resolvePeriod', () => {
     });
     expect(
       resolvePeriod(
-        { ...DEFAULT_ANALYTICS_ADDRESS, preset: null, custom: { from: '2026-01-01', to: '2026-01-31' } },
+        {
+          ...DEFAULT_ANALYTICS_ADDRESS,
+          preset: null,
+          custom: { from: '2026-01-01', to: '2026-01-31' },
+        },
         '2026-10-15',
       ),
     ).toEqual({ from: '2026-01-01', to: '2026-01-31' });

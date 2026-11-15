@@ -79,7 +79,6 @@ export {
 export {
   PROBLEM_LEVELS,
   byUrgencyFirst,
-  isProblemLevel,
   problemLevel,
   problemLevelRank,
   storedUrgency,

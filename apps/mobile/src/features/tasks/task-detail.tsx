@@ -394,7 +394,6 @@ interface TaskFlagsProps {
  * above high, «Критическая» in the strongest tone.
  */
 function TaskFlags({ task, urgentFix }: TaskFlagsProps) {
-  const { t } = useTranslation();
   const tone = isSameDayTurnover(task)
     ? STATUS_TONE['phone.checkIn.sameDay']
     : STATUS_TONE['phone.kindBanner'];

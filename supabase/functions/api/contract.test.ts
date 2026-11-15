@@ -141,7 +141,8 @@ const CLEANING = {
   worker: null, worker_source: null, closed_by: null, closed_how: null, closed_cause: null, closed_at: null,
 };
 const TASK = {
-  id: UUID, title: "Dripping tap", description: null, text_masked: false, priority: "high", status: "resolved", property_id: 123456,
+  id: UUID, title: "Dripping tap", description: null, text_masked: false, priority: "high", critical: false,
+  status: "resolved", property_id: 123456,
   cleaning_id: null, reported_by: UUID, archived: false, cancel_reason: null,
   work: { cleaning_id: UUID, status: "done", assignee_id: UUID, scheduled_date: "2026-11-05", time_from: "09:00", time_to: null },
   created_at: TS, updated_at: TS, resolved_at: TS, cancelled_at: null, archived_at: null,
@@ -240,6 +241,44 @@ Deno.test("every operation's answer fits its schema in the spec", async () => {
     const issues = checkSchema(schema, await response.json(), spec);
     assertEquals(issues, [], route.operationId);
   }
+});
+
+// The level above high (20261115090000): a task answers critical beside priority, which
+// stays one of three; "critical" is taken to create and to filter by, and nothing else is.
+Deno.test("a critical task fits the Task schema; priority critical is taken to create and filter by", async () => {
+  const task = resolve({ $ref: "#/components/schemas/Task" });
+  assertEquals(checkSchema(task, { ...TASK, critical: true }, spec), []);
+  assert(checkSchema(task, { ...TASK, priority: "critical" }, spec).length > 0, "priority stays one of three");
+
+  const calls: { fn: string; args: Record<string, unknown> }[] = [];
+  const recording = createApiHandler({
+    pepper: PEPPER,
+    newRequestId: () => "22222222-2222-4222-8222-222222222222",
+    logError: () => undefined,
+    defer: () => undefined,
+    rpc: (fn, args): Promise<RpcResult> => {
+      if (fn === "api_gate") {
+        return Promise.resolve({ data: { ok: true, key_id: "k", digest: DIGEST, limit: 120, remaining: 1, reset: 9 }, error: null });
+      }
+      calls.push({ fn, args: args as Record<string, unknown> });
+      return Promise.resolve({ data: ANSWERS[fn] ?? null, error: null });
+    },
+  });
+  const auth = { Authorization: `Bearer ${KEY}` };
+  const created = await recording(new Request("http://x/api/v1/tasks", {
+    method: "POST",
+    headers: { ...auth, "Content-Type": "application/json", "Idempotency-Key": "critical" },
+    body: JSON.stringify({ title: "Burst pipe", priority: "critical" }),
+  }));
+  assertEquals(created.status, 201);
+  assertEquals(calls.find((call) => call.fn === "api_v1_create_task")?.args.p_priority, "critical");
+
+  const listed = await recording(new Request("http://x/api/v1/tasks?priority=critical", { headers: auth }));
+  assertEquals(listed.status, 200);
+  assertEquals(calls.find((call) => call.fn === "api_v1_list_tasks")?.args.p_priority, ["critical"]);
+
+  const refused = await recording(new Request("http://x/api/v1/tasks?priority=urgent", { headers: auth }));
+  assertEquals(refused.status, 400);
 });
 
 Deno.test("problems fit the Problem schema", async () => {

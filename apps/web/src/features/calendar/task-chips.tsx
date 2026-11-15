@@ -92,11 +92,11 @@ export interface ChipText {
  * or «Критическая» for the level above it (20261115090000).
  */
 function urgencyWord(problem: CalendarTask['problem'], t: TFunction): string | null {
-  if (problem === null || (problem.priority !== 'high' && problem.priority !== 'normal' && problem.priority !== 'low')) {
+  if (problem?.priority !== 'high') {
     return null;
   }
-  const level = problemLevel({ priority: problem.priority, critical: problem.critical });
-  return level === 'high' || level === 'critical' ? t(`problems.priorities.${level}`) : null;
+  const level = problemLevel({ priority: 'high', critical: problem.critical });
+  return t(`problems.priorities.${level}`);
 }
 
 /**

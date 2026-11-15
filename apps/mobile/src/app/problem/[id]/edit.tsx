@@ -1,4 +1,3 @@
-import { storedUrgency } from '@str-ops/shared';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +11,12 @@ import { BUTTON_HEIGHT, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { problemPlace } from '@/features/problems/format';
 import { ProblemForm } from '@/features/problems/problem-form';
-import { canEditProblem, draftOfProblem, type ProblemDraft } from '@/features/problems/schema';
+import {
+  canEditProblem,
+  draftOfProblem,
+  urgencyToSend,
+  type ProblemDraft,
+} from '@/features/problems/schema';
 import { useReportCatalog } from '@/features/problems/use-problem-categories';
 import { useProblem, useUpdateProblem } from '@/features/problems/use-problems';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -91,7 +95,7 @@ export default function EditProblemRoute() {
           problemId,
           title: draft.title.trim(),
           description: draft.description.trim(),
-          ...storedUrgency(draft.priority),
+          ...urgencyToSend(draft.priority, problem.data?.critical),
           categoryId: draft.categoryId,
         })
       }

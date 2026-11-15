@@ -29,7 +29,9 @@ export type ProblemCategory = z.infer<typeof problemCategorySchema>;
 export const problemCategoryListSchema = z.array(problemCategorySchema);
 
 /** The level a task of this category gets, on the scale of four; null when it could not be read. */
-export function categoryLevel(category: Pick<ProblemCategory, 'priority' | 'critical'>): ProblemLevel | null {
+export function categoryLevel(
+  category: Pick<ProblemCategory, 'priority' | 'critical'>,
+): ProblemLevel | null {
   return category.priority === null
     ? null
     : problemLevel({ priority: category.priority, critical: category.critical });

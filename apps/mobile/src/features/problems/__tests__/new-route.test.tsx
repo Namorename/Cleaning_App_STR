@@ -181,3 +181,28 @@ describe('a company that reports by catalogue (CLIENT:Wagnerstays)', () => {
     );
   });
 });
+
+describe('the level above high, «Критическая» (20261115090000)', () => {
+  test('she picks «Критическая»: the report goes as high with the flag', async () => {
+    placesAre([house]);
+
+    await render(<NewProblemRoute />);
+    await fireEvent.press(screen.getByRole('radio', { name: 'Критическая' }));
+    await sendWithTitle('Прорвало трубу');
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Прорвало трубу', priority: 'high', critical: true }),
+    );
+  });
+
+  test('below it the report carries no flag at all, as a build before the level sent it', async () => {
+    placesAre([house]);
+
+    await render(<NewProblemRoute />);
+    await fireEvent.press(screen.getByRole('radio', { name: 'Высокая' }));
+    await sendWithTitle('Нет Wi-Fi');
+
+    expect(mutate.mock.calls[0][0]).toMatchObject({ priority: 'high' });
+    expect(mutate.mock.calls[0][0]).not.toHaveProperty('critical');
+  });
+});

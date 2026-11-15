@@ -1,4 +1,4 @@
-import { problemLevel, type ProblemLevel } from '@str-ops/shared';
+import { problemLevel, storedUrgency, type ProblemLevel } from '@str-ops/shared';
 import { z } from 'zod';
 
 import type { ProblemCategory } from './categories';
@@ -193,6 +193,24 @@ export function draftOfProblem(problem: Problem, language?: string): ProblemDraf
     priority: problemLevel(problem),
     categoryId,
   };
+}
+
+/**
+ * The level as the server stores it, with `critical` only where it says
+ * something (20261115090000): true for the level above high; false only to take
+ * the flag off a task that had it; absent otherwise. Absent keeps what the
+ * server holds — a row cached by a build before the level has no flag to read,
+ * and sending false for it would clear a critical task by an edit of its text.
+ */
+export function urgencyToSend(
+  level: ProblemLevel,
+  wasCritical?: boolean,
+): { priority: ProblemPriority; critical?: boolean } {
+  const { priority, critical } = storedUrgency(level);
+  if (critical) {
+    return { priority, critical: true };
+  }
+  return wasCritical === true ? { priority, critical: false } : { priority };
 }
 
 /** The reporter may change the report until somebody picks it up. */

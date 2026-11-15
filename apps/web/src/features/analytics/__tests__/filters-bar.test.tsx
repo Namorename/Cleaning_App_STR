@@ -159,8 +159,18 @@ describe('FiltersBar', () => {
   });
 
   test('a short list ticked whole keeps its chips, as it always did', () => {
-    bar({ ...NO_FILTERS, priorities: ['low', 'normal', 'high'] });
+    bar({ ...NO_FILTERS, priorities: ['low', 'normal', 'high', 'critical'] });
     expect(screen.getByRole('button', { name: 'Снять фильтр: Низкая' })).toBeInTheDocument();
+  });
+
+  test('urgency is the scale of four, «Критическая» last (20261115090000)', () => {
+    bar();
+    fireEvent.click(screen.getByText('Срочность', { selector: 'summary' }));
+    expect(
+      within(group('Срочность'))
+        .getAllByRole('checkbox')
+        .map((box) => box.closest('label')?.textContent),
+    ).toEqual(['Низкая', 'Обычная', 'Высокая', 'Критическая']);
   });
 
   test('the statuses never get a search, however many there are', () => {

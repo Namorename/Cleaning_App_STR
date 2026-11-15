@@ -1,135 +1,140 @@
-# Выкат каталога категорий заданий (CLIENT:Wagnerstays, 14–15.11)
+# Выкат: уровень «Критическая» (CORE) и каталог категорий Wagner (CLIENT), 14–15.11
 
 Что это и зачем — `docs/problem-categories.md`. Ядро и клиент — `docs/core-vs-client.md`.
 
-## Статус: ОСТАНОВЛЕНО до выката (условие СТОП)
+## Решения владельца (15.11)
 
-Ничего не выкачено. Облако, `main`, Vercel и обе ветки OTA не тронуты.
+- **CORE:** четвёртый уровень срочности «Критическая» (`critical`; en Critical, cs Kritická) выше
+  «Высокой». Сортируется выше неё, свой заметный бейдж в самом сильном тоне, подпись
+  «Критическая». Уведомления — как у «Высокой»: будит главного техника и ночью, пометка «Срочно».
+- **CLIENT:Wagnerstays:** P1 → critical, P2 → high, P3 → normal, P4 → low.
+- Выкатка разрешена промптом 15.11 целиком (Android и iPhone): слова «выкатывай категории
+  Wagner» и «публикуй field» названы заранее и покрывают деплой изменённых Edge-функций.
+- Переводы en/cs категорий и синонимы — на проверку владельца (`docs/problem-categories.md` §5).
 
-Причина — правило владельца: «если в текущей шкале меньше 4 уровней и без смены поведения ядра
-их не выразить — не угадывай, ничего не выкатывай». У ядра три уровня срочности (`low`, `normal`,
-`high`), у клиента четыре (P1–P4). Варианты — `docs/problem-categories.md` §3. Всё остальное
-сделано и проверено в ветке `client-wagner-problem-catalog-1114`.
+## Способ: флаг рядом с прежним `priority`
 
-Проба облака 15.11 01:39 UTC (`probe_problem_categories.sql`, только чтение):
+`problems.priority` остаётся из трёх значений; критическое задание — `priority = 'high'` и
+`critical = true`. Старые телефоны (iPhone на OTA №12, Android на №19 и раньше) читают срочность
+строгим `z.enum` из трёх внутри `z.array`: одно незнакомое значение уронило бы весь список заданий,
+а через вложенное задание ремонта и весь список уборок. Значения вне трёх они не увидят при любых
+данных. Подробно — `docs/problem-categories.md` §3.
 
-- голова `20261111140000`, применено 132 — столько же файлов в каталоге до этой ветки;
-- `report_problem(…6 аргументов)` `e784ff29…`, `update_problem(…4)` `ccb9c738…` — те же тела, что
-  в файле `20260908130000` и на стенде;
-- новых колонок и таблицы нет.
+## Места срочности
 
-## Что нужно от владельца
+**Изменено:**
 
-1. **Вариант срочности: A, C, D или B** (`docs/problem-categories.md` §3). Для A, C и D меняются
-   только четыре строки блока `levels` скрипта данных; сейчас там A. Для B нужна отдельная работа
-   в ядре, и этот выкат её не включает.
-2. **Переводы en/cs и синонимы** — на проверку (§5 там же). Сомнительное: «Баки».
-3. Слово на выкат с выбранным вариантом. Слова «выкатывай категории Wagner» и «публикуй field» из
-   запроса 14.11 действуют, если остальное зелёное. Но вариант срочности этот запрос не называет.
+| Где | Что |
+|---|---|
+| БД `problems` | колонка `critical`, проверка `problems_critical_is_high`, триггер `problems_critical_follows_priority` |
+| `report_problem`, `update_problem` | `p_critical boolean default null`; null — как раньше (правка старого телефона с `high` флаг сохраняет, ниже `high` — снимает) |
+| каталог `problem_categories` | `critical`; задание под критической категорией — `high` + флаг |
+| аналитика (8 функций) | ранг 4 у критической (средняя срочность по шкале 1–4), счётчик `problems_by_priority.critical`, фильтр `p_levels` (старый `p_priorities` оставлен) |
+| API v1 / MCP | поле `critical` у задания; `priority=critical` в фильтре списка (`high` находит всё, что читается высоким) и при создании; OpenAPI, `docs/api-coverage.md`, каталог MCP; деплой `api` и `mcp` |
+| общий пакет | шкала `PROBLEM_LEVELS` и `problemLevel` / `storedUrgency` / `byUrgencyFirst`; тон `critical` (светлая и тёмная тема); `STATUS_TONE`; подписи «Критическая / Critical / Kritická»; подсказка средней срочности 1–4 |
+| телефон | карточка задания, страница задания, доска главного техника, ремонт в списке и на странице уборки — «Критическая» залитым тоном вместо «Срочно»; форма горничной — 4 уровня; метка категории; выборки `problems`, доски, уборок читают `critical`; отправка — `priority` + `critical` |
+| панель | бейджи списка, доски и страницы задания; плашка ремонта в календаре; «Новое задание» — 4 уровня; аналитика — фильтр (4), столбики (4), `p_levels`, PDF |
 
-## Порядок выката (когда вариант выбран)
+**Не менялось, и почему:**
 
-Не раньше 04:40 UTC и не в 03:00–04:40 UTC для любого шага, который пишет в базу.
+- push (`send-push`, правило `20261003160000`) — срочность решается в SQL по `priority = 'high'`,
+  критическая уже «высокая»: поведение то же, текст тот же («Срочное задание»);
+- журнал задания (`problem_events`) — срочность в событии «заведено» нигде не показывается;
+- предложения из отзывов и чатов (`approve_signal_finding`, метки ИИ) и шаги планов решения —
+  своя шкала из трёх на сервере; критической задание становится формой или каталогом;
+- срочность заявок на расходники (`supply_priority`) и приоритет уборок (`tasks.priority`) — другие
+  шкалы;
+- карточка объекта (`listing_card`) читает срочность, но не показывает;
+- сортировка: ни один список заданий в продукте не сортируется по срочности (только по времени),
+  поэтому «выше» — это порядок уровней везде, где они перечислены (фильтры, формы, столбики,
+  ранг 1–4, `byUrgencyFirst`).
 
-**0. Чтение состояния:**
-- голова облака (`remote_head.sql`);
-- `origin/main`;
-- группы EAS preview и field;
-- свободная память не меньше 4 ГБ.
+## Порядок выката
 
-**1. Ветка на `main`.** Если `main` ушёл вперёд — rebase и все проверки заново (список «Проверки»
-ниже).
+Не в 03:00–04:40 UTC для любого шага, который пишет в базу.
 
-**2. Миграция ядра, охраняемый `db push`.**
+**0. Чтение состояния:** голова облака (`remote_head.sql`), `origin/main`, группы EAS preview и
+field, свободная память ≥ 4 ГБ.
 
-Сначала отдельный сухой прогон: убедиться, что он называет ровно один файл. Затем застава и push
-одной командой:
+**1. Ветка на `main`.** Если `main` ушёл вперёд — rebase и все проверки заново, имена и sha256
+миграций здесь обновить.
+
+**2. Миграция уровня, охраняемый `db push`.** Файл каталога на время выносится из каталога
+миграций, иначе сухой прогон назовёт два файла:
 
 ```bash
+mkdir -p "$PARK" && mv supabase/migrations/20261115100000_problem_categories.sql "$PARK/"
 HEAD_WANT=20261111140000
-LIST_WANT="20261115100000_problem_categories.sql"
-SHA_WANT=bf83d13dcdbd69090d954c6afbab814d059c7280a743c010d8a8db4414703a9a
-[ "$(sha256sum supabase/migrations/20261115100000_problem_categories.sql | cut -d' ' -f1)" = "$SHA_WANT" ] &&
+LIST_WANT="20261115090000_problem_critical.sql"
+SHA_WANT=d6565b790eca55add80ae7ad18fa89402e1215b77aa3dc6187be3bda3c1a735b
+[ "$(sha256sum supabase/migrations/20261115090000_problem_critical.sql | cut -d' ' -f1)" = "$SHA_WANT" ] &&
 [ "$(node scripts/cloud-read.mjs docs/rollout/remote_head.sql |
      node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)[0].head))')" = "$HEAD_WANT" ] &&
 [ "$(npx supabase db push --linked --skip-vault --dry-run --output-format json |
      node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).migrations.join(" ")))')" = "$LIST_WANT" ] &&
 npx supabase db push --linked --skip-vault
+mv "$PARK/20261115100000_problem_categories.sql" supabase/migrations/ && sha256sum -c <<< "<sha каталога>  supabase/migrations/20261115100000_problem_categories.sql"
 ```
 
-Проба после: `node scripts/cloud-read.mjs docs/rollout/probe_problem_categories.sql`.
+Проба: `node scripts/cloud-read.mjs docs/rollout/probe_problem_critical.sql` = `AFTER_LEVEL` из
+`rehearsal-problem-categories-1114.mjs` (голова `20261115090000`, 133, `analytics_with_levels` 8,
+`problems.critical`, проверка и триггер, `priority_values` `low,normal,high`, md5 функций).
 
-| Поле | Ожидается |
-|---|---|
-| `head` | `20261115100000` |
-| `applied` | 133 |
-| `functions` | `problem_category_for_report(uuid) 4c19b6d0…`, `report_problem(…7) 38cd7fc3…`, `update_problem(…5) 5b4e08cf…` |
-| `client_execute` | `report_problem:authenticated, update_problem:authenticated` |
-| `columns` | `hosts.problem_report_mode, problems.category_id` |
-| `catalogue_client_grants` | `authenticated:SELECT` |
-| `catalogue_rls` | `true` |
-| `catalogue_policies` | `staff read the categories` |
+**3. Миграция каталога** — та же застава: `HEAD_WANT=20261115090000`,
+`LIST_WANT="20261115100000_problem_categories.sql"`,
+`SHA_WANT=2a9701bbb13784ba4bf0aa32d5c8bce094ed0ebb6fc9231c81dc34ad9f260604`. Пробы
+`probe_problem_categories.sql` и `probe_problem_critical.sql` = `AFTER_BOTH_*`.
 
-**3. Edge-функции — нет.** Не менялись ни функции, ни `_shared/`, ни `api/`; спецификация и каталог
-MCP те же (`npm run api:docs` поменял только `docs/api-coverage.md`).
+**4. Edge-функции — только изменённые:** `npx supabase functions deploy api mcp` (обе бандлят
+`supabase/functions/api/routes.ts`; `_shared/` не менялся). Проверка: `GET /v1/tasks?priority=critical`
+без ключа — 401, с ключом — 200.
 
-**4. Данные Wagner.** Проверить блок `levels` по слову владельца, затем:
+**5. `main`.** `git merge --ff-only` ветки, `git push origin main` — Vercel выкатывает панель.
+
+**6. OTA.** Перед ним `npx supabase migration list --linked`: все локальные миграции в облаке.
+Натив не меняется (нет правок `app.json`, `package.json`, плагинов; новых внешних импортов нет).
+- preview (Android): экспорт `ota-export.cmd` (рецепт №19: `env:exec preview`, `expo export` с одним
+  воркером, без `.env`), `bundle-check.mjs` против живой №19 (`~/dev-tools/str-ops/dist-ota19`),
+  `npx eas-cli update --branch preview --environment preview --skip-bundler --input-dir dist`;
+- field (iPhone): `update:republish` новой группы preview на ветку field. iPhone на №12 получат всё
+  с №13 по новую — владелец согласен.
+
+**7. Последним — данные Wagner и режим** (только после обоих OTA):
 
 ```bash
 npx supabase db query --linked -f docs/one-off-writes/wagner-problem-categories.sql
-```
-
-Проба: `node scripts/cloud-read.mjs docs/rollout/probe_wagner_problem_categories.sql`.
-- `live` 27, `archived` 0, `mode` `free_text`, `other_companies_not_free_text` 0;
-- вариант A: `by_priority` «normal 6, low 8, high 13», `catalogue_md5` `af61950613f10bcfd3774e2a69e642bc`
-  (на временной базе; с другим вариантом md5 другой).
-
-**5. Настройка Wagner:**
-
-```bash
 npx supabase db query --linked -f docs/one-off-writes/wagner-problem-report-mode-catalog.sql
 ```
 
-Проба Wagner: `mode` `catalog`.
-
-Старые телефоны режим не читают и пишут название как раньше. Это безопасно, поэтому порядок
-владельца сохраняется: настройка до OTA.
-
-**6. `main`.** `git merge --ff-only` ветки в `main`, `git push origin main`. Vercel выкатит панель;
-панель не менялась, меняются только общие типы и переводы.
-
-**7. OTA:**
-- preview (Android), затем field (iPhone);
-- перед OTA: `npx supabase migration list --linked` — все локальные с `remote`;
-- рецепт №19 (`next-ota-on-1-1-0`): экспорт через `env:exec preview` в дереве
-  `cleanings-cancel-overdue-1105`, `bundle-check` против живой №19 (`dist-ota19`),
-  `npx eas-cli update --branch preview --environment preview --skip-bundler --input-dir dist`;
-- field — `update:republish` новой группы preview. iPhone получат всё с №13 по новую.
-
-Натив не меняется: нет правок `app.json`, `package.json`, плагинов. Новых внешних импортов нет.
-
-**8. Пробы после выката:**
-- каталог читается с сервера: `probe_wagner_problem_categories.sql`, `live` 27;
-- сервер ставит срочность по категории, запрос без категории — как раньше:
-  `npx supabase db query --linked -f docs/one-off-writes/wagner-probe-report-rolled-back.sql`.
-  Ответ — ошибка с текстом `PROBE OK: …`, транзакция откатывается целиком (отрепетировано: заданий и
-  пушей после пробы столько же);
-- для компаний без настройки ничего не изменилось: `other_companies_not_free_text` 0, а набор
-  `problem_categories.sql` проверяет `free_text` по умолчанию.
+**8. Пробы:**
+- каталог читается: `probe_wagner_problem_categories.sql` — `live` 27, `by_level` «critical 6, high 7,
+  normal 6, low 8», `mode` `catalog`, `other_companies_not_free_text` 0, `catalogue_md5`
+  `fb3545a5664352098644c5db00abae38` (репетиция);
+- сервер по категории ставит срочность (P1 → critical), запрос без категории — как раньше:
+  `npx supabase db query --linked -f docs/one-off-writes/wagner-probe-report-rolled-back.sql` — ответ
+  ошибкой `PROBE OK: …`, транзакция откатывается целиком;
+- компании без настройки — `free_text`; старый клиент: `priority_values` `low,normal,high` и ни одной
+  строки вне них.
 
 ## Откат
 
-Если проба провалилась после облачного шага — по порядку:
+При провале пробы после облачного шага — по порядку. Сначала уходит код, который читает новую
+схему (телефоны, панель, API): старый код работает на новой схеме без изменений, а новый на старой
+— нет (42703 на `critical` и `category_id`, PGRST202 на `p_levels` и `p_critical`).
 
 1. `docs/one-off-writes/wagner-problem-report-mode-free-text.sql` — режим `free_text`;
-2. если OTA уже вышло — `update:republish` прежней группы: preview №19
-   `93191573-a27e-4505-b075-7fb2e15daaa1`, field №12 `1c5c6ce9-e1fe-447a-8390-36cdc657c4ea`.
-   Сборка с `category_id` в выборке без колонки получит 42703;
-3. `docs/one-off-writes/wagner-problem-categories-rollback.sql` — все 27 категорий архивируются,
-   ни одна не удаляется: отчёт из очереди телефона ещё ляжет на свою категорию;
-4. `docs/one-off-writes/problem-categories-rollback.sql` — схема назад, затем
+2. `docs/one-off-writes/wagner-problem-categories-rollback.sql` — категории архивируются, ни одна
+   не удаляется;
+3. если OTA уже вышло — `update:republish` прежних групп: preview №19
+   `93191573-a27e-4505-b075-7fb2e15daaa1`, field №12 `1c5c6ce9-e1fe-447a-8390-36cdc657c4ea`;
+4. если `main` уже обновлён — `git revert` коммитов ветки и push (прод-деплой панели), дождаться
+   Vercel READY;
+5. функции `api` и `mcp` — деплой из `b25ba5b`;
+6. `docs/one-off-writes/problem-categories-rollback.sql`, затем
    `npx supabase migration repair --status reverted 20261115100000 --linked`;
-5. `main` — `git revert` коммитов ветки (это прод-деплой панели).
+7. `docs/one-off-writes/problem-critical-rollback.sql` — сначала все критические становятся
+   высокими, потом уходит уровень; отказывает, пока каталог на месте. Затем
+   `npx supabase migration repair --status reverted 20261115090000 --linked`.
 
 ## Репетиция (15.11)
 
@@ -141,68 +146,21 @@ node docs/rollout/rehearsal-problem-categories-1114.mjs
 node docs/rollout/rehearsal-db-1028.mjs drop
 ```
 
-Итог: REHEARSAL GREEN.
-- 133 миграции с нуля;
-- откат ядра даёт ровно облачную пробу «до»;
-- старый телефон пишет два задания;
-- push миграции даёт пробу «после», старые задания не тронуты;
-- наборы `problem_categories` (54), `table_grants` (26), `problems` (80), `api_v1` (124),
-  `head_tech_push` (30) зелёные;
-- данные: 27 записей, P1–P4 6/7/6/8, второй запуск отказан;
-- режим `catalog`, горничная видит 27 категорий;
-- Wi-Fi с телефона «low» записан как `high`, Смесители «high» — как `normal`, без категории — как
-  раньше;
-- главный техник получил срочный пуш только про Wi-Fi;
-- откат данных отказывается при включённом режиме; после выключения архивированы все 27, удалённых
-  нет;
-- отчёт, выбранный до отката, ложится на архивную категорию (Wi-Fi, `high`);
-- категорию, на которую есть задание, удалить нельзя;
-- откат ядра даёт облачную пробу «до»; повторный push снова даёт «после»;
-- проба `wagner-probe-report-rolled-back.sql` даёт `PROBE OK`, заданий и пушей после неё столько же.
-
-## Независимый обзор (15.11)
-
-Два новых агента `ecc:code-reviewer` получили только дифф и код: сервер и телефон. **Критичных и
-серьёзных находок нет.** Что из средних и мелких исправлено:
-
-- **сервер:**
-  - откат данных только архивирует (удаление могло навсегда отказать отчёту из очереди телефона);
-  - `problems.category_id` — `on delete restrict`;
-  - скрипт данных отказывает на языке компании не `ru`, откат — на отсутствующей компании;
-  - порядок колонок в пробе;
-  - тесты: чужая компания с чужой категорией, правка под архивной категорией, набранная правка не
-    трогает переводы, API — пять аргументов по позиции;
-- **телефон:**
-  - режим формы «липкий»: стёртое набранное название не превращает форму в выбор категории;
-  - пустой список категорий не открывается;
-  - копия настроек без `problem_report_mode` перечитывается сразу;
-  - «wifi» находит «Wi-Fi» без синонима;
-  - подпись поиска уточнена;
-  - тест данных клиента вынесен в `wagner-catalogue.test.ts`, общие правила поиска — на своём наборе;
-  - тесты правки задания из категории на уровне маршрута.
-
-Оставлено владельцу:
-- срочность запроса без категории не защищена — так требует «без category_id как раньше»;
-  `docs/problem-categories.md` §2;
-- в каталоге нет проверки `is_localized_text` на уровне таблицы — её нельзя поставить в CHECK (правило
-  CLAUDE.md), а писатель сейчас один — скрипт, который её проверяет.
+Итог 12:07 UTC: **REHEARSAL GREEN**, 78 шагов:
+- откат каталога и откат уровня (он отказывает, пока каталог на месте) дают ровно облачные пробы
+  «до» обеих: 13 функций с md5 облака;
+- старый телефон пишет до выката, на каждом шаге и после отката; критическое задание он читает
+  `high`; его правка с `high` флаг сохраняет;
+- миграция уровня одна, затем каталога; пробы `AFTER_LEVEL` и `AFTER_BOTH`;
+- наборы `problem_critical` (35), `problem_categories` (60), `table_grants` (26), `problems` (80),
+  `api_v1` (124), `head_tech_push` (30), `analytics` (67), `analytics_series` (9);
+- данные: 27, P1–P4 6/7/6/8, уровни critical/high/normal/low, второй запуск отказан;
+- Затопление (P1) с телефона «low» — `high` + флаг; Wi-Fi (P2) — `high`; Смесители (P3) с «high» —
+  `normal`; без категории — как раньше; главный техник разбужен для P1 и P2, не для P3;
+- откатываемая проба — `PROBE OK`, заданий и пушей после неё столько же;
+- откат данных архивирует 27; отчёт из очереди ложится на архивную категорию критическим;
+- после отката уровня критические задания — «высокие»; повторный выкат обеих — `AFTER_BOTH`.
 
 ## Проверки ветки
 
-Коммит `1c9facc` (миграция не менялась и после него), sha256 миграции
-`bf83d13dcdbd69090d954c6afbab814d059c7280a743c010d8a8db4414703a9a`.
-
-| Проверка | Итог |
-|---|---|
-| SQL, `npm run test:rls` после `db:reset` | 62 набора, 3061 проверка (до ветки 61 / 3007); новый набор — 54 |
-| типы `db:types` | совпадают с коммитом |
-| телефон | `tsc` чисто; `expo lint` 0 ошибок (3 старых предупреждения); jest 219 наборов / 3680 тестов (до ветки 214 / 3586 на 11.11) |
-| панель | `tsc` чисто, `eslint` чисто, vitest 206 файлов / 2941 тест, включая паритет API |
-| скрипты | `test:scripts` 70 / 70 (откатываемая проба лежит в `docs/one-off-writes/`: `docs/rollout/*.sql` обязаны проходить заставу чтения) |
-| функции | `test:fn` 706 / 706; функции не менялись |
-| API | `npm run api:docs` меняет только `docs/api-coverage.md`; `openapi.v1.json` и каталог MCP те же |
-| репетиция | REHEARSAL GREEN (выше) |
-| облако | проба 10:05 UTC 15.11 = проба 01:39 UTC: ничего не тронуто |
-
-Сборка панели (`next build`) не запускалась: выката нет, а код панели не менялся. Перед выкатом —
-по рецепту с заглушками `NEXT_PUBLIC_*`.
+(заполняется перед выкатом)

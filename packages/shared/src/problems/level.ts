@@ -49,8 +49,3 @@ export function problemLevelRank(level: ProblemLevel): number {
 export function byUrgencyFirst(left: ProblemLevel, right: ProblemLevel): number {
   return problemLevelRank(right) - problemLevelRank(left);
 }
-
-/** True for a value of the scale; anything else a reader met is not one. */
-export function isProblemLevel(value: unknown): value is ProblemLevel {
-  return typeof value === 'string' && (PROBLEM_LEVELS as readonly string[]).includes(value);
-}

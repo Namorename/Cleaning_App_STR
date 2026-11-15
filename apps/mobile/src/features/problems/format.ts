@@ -34,7 +34,7 @@ export function problemPriorityText(level: ProblemLevel): string {
   return i18n.t(`problems.priorities.${level}`);
 }
 
-/** The chip of a task the office must see first, with the id tests and readers find it by. */
+/** The chip of a task the office must see first: its word and its tone. */
 export interface UrgencyChip {
   label: string;
   tone: Tone;

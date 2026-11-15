@@ -121,6 +121,8 @@ function pairsOf(theme: ThemeName): ReadonlyMap<string, Pair> {
   }
   add('today: its chip’s text on the «today» underlay', t.today.fg, t.today.bg, AA_TEXT);
   add('unread badge: text on its fill', t.unread.onMark, t.unread.mark, AA_TEXT);
+  add('«Критическая» badge: text on its fill', t.critical.onMark, t.critical.mark, AA_TEXT);
+  add('«Критическая» badge: its fill on surface', t.critical.mark, c.surface, NON_TEXT);
   add('«today» pill: the date on the accent', t.today.onMark, t.today.mark, AA_TEXT);
   add('booking bar: the guest’s name', t.booking.onMark, t.booking.mark, AA_TEXT);
   add('block: «Блок (не гость)» on its plate', t.block.fg, t.block.mark, AA_TEXT);

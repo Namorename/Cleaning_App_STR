@@ -12,18 +12,22 @@ import { StyleSheet, Text, type ViewStyle } from 'react-native';
 import { z } from 'zod';
 
 import { BoardCard } from '@/features/board/board-card';
+import { boardProblemListSchema } from '@/features/board/schema';
 import { TaskCard } from '@/features/tasks/task-card';
-import type { CleaningTask } from '@/features/tasks/schema';
+import { cleaningTaskSchema, type CleaningTask } from '@/features/tasks/schema';
 import { boardProblem } from '@/testing/board-fixtures';
 
 import { reportProblem, updateProblem } from '../api';
+import { categoryLevel, problemCategoryListSchema, type ProblemCategory } from '../categories';
 import { PriorityChip } from '../category-picker';
 import { ProblemCard } from '../problem-card';
 import { ProblemForm } from '../problem-form';
 import {
   EMPTY_PROBLEM_DRAFT,
   draftOfProblem,
+  draftWithCategory,
   problemListSchema,
+  urgencyToSend,
   type Problem,
   type ProblemDraft,
 } from '../schema';
@@ -66,6 +70,51 @@ function problem(overrides: Partial<Problem> = {}): Problem {
     ...overrides,
   };
 }
+
+/** A repair in her list of cleanings, its task critical. */
+const REPAIR: CleaningTask = {
+  id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',
+  status: 'assigned',
+  priority: 0,
+  scheduled_date: '2026-11-15',
+  due_at: null,
+  assignee_id: '9d2ff806-4bea-4aa5-be3c-1b07a629dbee',
+  property_id: 412432,
+  property: {
+    name: 'CZ - Nadrazni Apt 6',
+    address: 'Nádražní 6',
+    hostaway_unit_id: null,
+    effective_cleaner_notes: null,
+    parent: null,
+  },
+  time_from: null,
+  time_to: null,
+  guests_count: null,
+  started_at: null,
+  completed_at: null,
+  is_parallel: false,
+  type: 'maintenance',
+  notes: null,
+  title: null,
+  title_i18n: {},
+  reservation_id: null,
+  problem: {
+    id: '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d',
+    title: 'Прорвало трубу',
+    priority: 'high',
+    critical: true,
+  },
+};
+
+/** A category of the client's P1: critical. */
+const FLOOD: ProblemCategory = {
+  id: 'd2e00844-d88c-4324-ab60-dbed5bb56a59',
+  name: 'Затопление',
+  name_i18n: { en: 'Flooding', cs: 'Zaplavení' },
+  synonyms: ['потоп'],
+  priority: 'high',
+  critical: true,
+};
 
 function fillOf(element: { props: { style?: unknown } }): ViewStyle {
   return StyleSheet.flatten(element.props.style as ViewStyle);
@@ -115,6 +164,21 @@ describe('an older phone and the new value', () => {
     expect(problemLevel(read)).toBe('high');
   });
 
+  test('the board, the repairs and the catalogue read a row without the flag as before', () => {
+    const { critical: _board, ...board } = boardProblem({ priority: 'high' });
+    expect(problemLevel(boardProblemListSchema.parse([board])[0])).toBe('high');
+
+    const repair = cleaningTaskSchema.parse({
+      ...REPAIR,
+      problem: { id: REPAIR.problem?.id, title: 'Прорвало трубу', priority: 'high' },
+    });
+    expect(repair.problem === null || repair.problem === undefined).toBe(false);
+    expect(problemLevel(repair.problem ?? { priority: 'low' })).toBe('high');
+
+    const { critical: _category, ...category } = FLOOD;
+    expect(categoryLevel(problemCategoryListSchema.parse([category])[0])).toBe('high');
+  });
+
   test('a flag the phone cannot read is not critical, and the list still parses', () => {
     const [read] = problemListSchema.parse([{ ...problem(), critical: 'yes' }]);
 
@@ -154,41 +218,7 @@ describe('her list, the board and the repairs', () => {
   });
 
   test('a repair of a critical task carries «Критическая» in the cleanings list', async () => {
-    const repair: CleaningTask = {
-      id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',
-      status: 'assigned',
-      priority: 0,
-      scheduled_date: '2026-11-15',
-      due_at: null,
-      assignee_id: '9d2ff806-4bea-4aa5-be3c-1b07a629dbee',
-      property_id: 412432,
-      property: {
-        name: 'CZ - Nadrazni Apt 6',
-        address: 'Nádražní 6',
-        hostaway_unit_id: null,
-        effective_cleaner_notes: null,
-        parent: null,
-      },
-      time_from: null,
-      time_to: null,
-      guests_count: null,
-      started_at: null,
-      completed_at: null,
-      is_parallel: false,
-      type: 'maintenance',
-      notes: null,
-      title: null,
-      title_i18n: {},
-      reservation_id: null,
-      problem: {
-        id: '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d',
-        title: 'Прорвало трубу',
-        priority: 'high',
-        critical: true,
-      },
-    };
-
-    await render(<TaskCard task={repair} onPress={jest.fn()} />);
+    await render(<TaskCard task={REPAIR} onPress={jest.fn()} />);
 
     expect(within(screen.getByTestId('task-urgent')).getByText('Критическая')).toBeTruthy();
     expect(screen.getByRole('button', { name: /срочность: Критическая/ })).toBeTruthy();
@@ -203,15 +233,15 @@ describe('her list, the board and the repairs', () => {
 
 describe('her form and what it sends', () => {
   /** The form, and beside it what the route would send for its level. */
-  function Harness() {
+  function Harness({ categories = null }: { categories?: ProblemCategory[] | null }) {
     const [draft, setDraft] = useState<ProblemDraft>(EMPTY_PROBLEM_DRAFT);
-    const sent = storedUrgency(draft.priority);
+    const sent = urgencyToSend(draft.priority);
     return (
       <>
         <ProblemForm
           draft={draft}
           onChange={setDraft}
-          categories={null}
+          categories={categories}
           place={null}
           isSubmitting={false}
           submitLabel="Отправить"
@@ -232,9 +262,32 @@ describe('her form and what it sends', () => {
     expect(screen.getByTestId('sent')).toHaveTextContent('high/true');
   });
 
+  test('a critical category files the draft at «Критическая», shown on its chip', async () => {
+    expect(draftWithCategory(EMPTY_PROBLEM_DRAFT, FLOOD, 'Затопление').priority).toBe('critical');
+
+    await render(<Harness categories={[FLOOD]} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Категория' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Затопление, срочность: Критическая' }));
+
+    expect(
+      within(screen.getByTestId('problem-category-priority')).getByText('Критическая'),
+    ).toBeTruthy();
+    expect(screen.getByTestId('sent')).toHaveTextContent('high/true');
+  });
+
   test('a critical task she corrects opens at «Критическая»', () => {
     expect(draftOfProblem(problem()).priority).toBe('critical');
     expect(draftOfProblem(problem({ critical: false })).priority).toBe('high');
+  });
+
+  test('the flag goes only where it says something', () => {
+    expect(urgencyToSend('critical')).toEqual({ priority: 'high', critical: true });
+    // Taken off a task that had it: said on purpose.
+    expect(urgencyToSend('high', true)).toEqual({ priority: 'high', critical: false });
+    // Nothing known of a flag — a new report, a row cached before the level: none sent,
+    // so the server keeps what it holds.
+    expect(urgencyToSend('high')).toEqual({ priority: 'high' });
+    expect(urgencyToSend('normal', false)).toEqual({ priority: 'normal' });
   });
 
   test('the report goes out with p_critical; a correction queued before the level without it', async () => {
@@ -244,7 +297,7 @@ describe('her form and what it sends', () => {
       problemId: PROBLEM_ID,
       title: 'Затопило ванную',
       description: '',
-      ...storedUrgency('critical'),
+      ...urgencyToSend('critical'),
     });
     // Replayed from a queue a build before the level wrote: no `critical` at all.
     await updateProblem({
@@ -256,5 +309,13 @@ describe('her form and what it sends', () => {
 
     expect(mockRpc.mock.calls[0][1]).toMatchObject({ p_priority: 'high', p_critical: true });
     expect(JSON.parse(JSON.stringify(mockRpc.mock.calls[1][1]))).not.toHaveProperty('p_critical');
+  });
+
+  test('what a newer build queued reads in an older one: no value outside three', () => {
+    // An older bundle sends `priority` as it is and drops the key it does not know.
+    const OLD_PRIORITY = z.enum(['low', 'normal', 'high']);
+    for (const level of PROBLEM_LEVELS) {
+      expect(OLD_PRIORITY.safeParse(urgencyToSend(level, true).priority).success).toBe(true);
+    }
   });
 });

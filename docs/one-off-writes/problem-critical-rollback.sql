@@ -2,10 +2,13 @@
 -- §3). A WRITE to the cloud: only on the owner's word, never in 03:00–04:40 UTC.
 --
 -- Order, when the level is live:
---   0. the phones first: republish the OTA groups before the ones that read critical
---      (preview №19 93191573-a27e-4505-b075-7fb2e15daaa1, field №12
---      1c5c6ce9-e1fe-447a-8390-36cdc657c4ea). A build that selects problems.critical
---      answers 42703 once the column is gone: the lists of tasks go empty on the phone.
+--   0. the code that reads the level goes back first, the phones, the panel and the API alike:
+--      republish the OTA groups before the ones that read critical (preview №19
+--      93191573-a27e-4505-b075-7fb2e15daaa1, field №12 1c5c6ce9-e1fe-447a-8390-36cdc657c4ea);
+--      `git revert` the branch's commits in main and wait for Vercel READY; deploy api and mcp
+--      from b25ba5b. A build or a panel that selects problems.critical answers 42703 once the
+--      column is gone, and one that sends p_levels or p_critical PGRST202; the older code
+--      runs on the newer schema unchanged, so this order has no gap.
 --   1. the catalogue goes first (docs/one-off-writes/problem-categories-rollback.sql and its
 --      own order): its writers read problems.critical. This file refuses while it is there.
 --   2. this file, one statement:
@@ -15,8 +18,7 @@
 --      the API as they were (word for word: their md5 return to the probe's «before»), the
 --      trigger, the check and the column.
 --   3. the history: npx supabase migration repair --status reverted 20261115090000 --linked
---   4. the file out of the catalogue: revert the commit that brought it — in main a push to
---      production, on the owner's word as well.
+--   4. the file out of the catalogue (step 0 did it).
 --   5. the probe: node scripts/cloud-read.mjs docs/rollout/probe_problem_critical.sql —
 --      report_problem(6) e784ff29…, update_problem(4) ccb9c738…, the analytics and the API
 --      as in docs/rollout/wagner-problem-catalog-1114.md «до», no column, no trigger.
@@ -31,7 +33,8 @@ begin
     raise exception 'Roll the catalogue back first (problem-categories-rollback.sql): its writers read problems.critical';
   end if;
 
-  -- 1. Every critical task becomes high, as it already reads; nothing else of it changes.
+  -- 1. Every critical task becomes high, as it already reads. Its updated_at moves
+  --    (problems_touch): an API client reading by updated_since reads it once more.
   update public.problems set critical = false where critical;
 
   -- 2. The writers of before.

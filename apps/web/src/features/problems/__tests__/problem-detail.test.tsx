@@ -258,6 +258,18 @@ const header = () =>
   screen.getByRole('heading', { level: 1 }).closest('[data-slot="problem-head"]') as HTMLElement;
 
 describe('ProblemDetail', () => {
+  // The level above high (20261115090000): its own chip in the head, in the strongest tone.
+  test('a critical task carries «Критическая» in its head, filled in the strongest tone', () => {
+    queries.problem.mockReturnValue(
+      loaded(problemSchema.parse({ ...assigned, priority: 'high', critical: true })),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    const chip = within(header()).getByText('Критическая');
+    expect(chip.closest('[data-slot="badge"]') ?? chip).toHaveClass('bg-tone-critical-mark');
+    expect(within(header()).queryByText('Высокая')).not.toBeInTheDocument();
+  });
+
   // A task from a guest review has nobody who reported it (docs/reviews-to-tasks.md §2.5).
   test('a task nobody reported opens, its reporter shown as unknown', () => {
     queries.problem.mockReturnValue(

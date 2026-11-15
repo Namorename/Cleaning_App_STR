@@ -1,4 +1,3 @@
-import { storedUrgency } from '@str-ops/shared';
 import { randomUUID } from 'expo-crypto';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -14,7 +13,7 @@ import type { StripItem } from '@/features/media/media-strip';
 import { useRememberLocalMedia } from '@/features/media/use-media';
 import { ProblemForm } from '@/features/problems/problem-form';
 import { useReportProperties } from '@/features/properties/use-properties';
-import { EMPTY_PROBLEM_DRAFT, MAX_PROBLEM_PHOTOS } from '@/features/problems/schema';
+import { EMPTY_PROBLEM_DRAFT, MAX_PROBLEM_PHOTOS, urgencyToSend } from '@/features/problems/schema';
 import { useReportCatalog } from '@/features/problems/use-problem-categories';
 import { useReportProblem } from '@/features/problems/use-problems';
 import { propertyName } from '@/features/tasks/format';
@@ -81,8 +80,7 @@ export default function NewProblemRoute() {
     setCapturing(true);
     setNotice(null);
     try {
-      const captured =
-        source === 'gallery' ? await pickPhotoFromGallery() : await capturePhoto();
+      const captured = source === 'gallery' ? await pickPhotoFromGallery() : await capturePhoto();
       if (captured === null) {
         return;
       }
@@ -110,7 +108,7 @@ export default function NewProblemRoute() {
       title: draft.title.trim(),
       description: draft.description.trim(),
       // The level as the server stores it: critical is high with the flag.
-      ...storedUrgency(draft.priority),
+      ...urgencyToSend(draft.priority),
       taskId,
       propertyId: taskId === null ? placeId : null,
       // Set only by a pick from the catalogue; the server then names the task

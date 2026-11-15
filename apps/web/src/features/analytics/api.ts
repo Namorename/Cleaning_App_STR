@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@str-ops/shared';
+import type { Database, ProblemLevel } from '@str-ops/shared';
 
 import {
   listingSchema,
@@ -12,7 +12,6 @@ import {
   type AnalyticsQuery,
   type AnalyticsRows,
   type AnalyticsTable,
-  type ProblemPriority,
   type ProblemStatus,
   type Summary,
   type TablePage,
@@ -45,7 +44,7 @@ interface RpcArgs {
   p_task_statuses?: TaskStatus[];
   p_problem_statuses?: ProblemStatus[];
   /** The urgency filter on the scale of four (20261115090000); p_priorities is the old one. */
-  p_levels?: ProblemPriority[];
+  p_levels?: ProblemLevel[];
   p_hide_archived?: boolean;
 }
 

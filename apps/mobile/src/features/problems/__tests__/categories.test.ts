@@ -143,7 +143,8 @@ describe('the schema of a category', () => {
   });
 
   test('an urgency a newer server invents reads as unknown, not as a broken list', () => {
-    const [read] = problemCategoryListSchema.parse([{ ...raw, priority: 'critical' }]);
+    // `critical` is no such word: the server keeps that level as high with a flag.
+    const [read] = problemCategoryListSchema.parse([{ ...raw, priority: 'urgent' }]);
     expect(read.priority).toBeNull();
     expect(read.name).toBe('Горячая вода');
   });
