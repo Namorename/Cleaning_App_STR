@@ -2,6 +2,23 @@
 
 Что это и зачем — `docs/problem-categories.md`. Ядро и клиент — `docs/core-vs-client.md`.
 
+## Выкачено 15.11.2026
+
+| UTC | Шаг | Итог |
+|---|---|---|
+| 12:39 | миграция `20261115090000_problem_critical` (каталог вынесен, застава: sha, голова, сухой прогон = 1 файл) | проба = `AFTER_LEVEL`: 14 md5, 133, `priority_values` low,normal,high |
+| 12:42 | миграция `20261115100000_problem_categories` (застава) | обе пробы = `AFTER_BOTH`; каталог: `authenticated:SELECT`, RLS |
+| 12:43 | `functions deploy api mcp` | `api` v5, `mcp` v4; без ключа 401 |
+| 12:49 | `main` b25ba5b → 43fc161 (перемотка), push | Vercel прод `woom-hwcp1817s` Ready; `/login` 200 |
+| 13:08 | OTA №20 на **preview** (Android) | группа `ac91195d-6f35-4693-b356-b3864d8cd54c` (Android `01a1df52-a056-7925…`, iOS `01a1df52-a056-718b…`), runtime 1.2.0, `43fc161`; `bundle-check` против №19 — OK; `dist` — `~/dev-tools/str-ops/day-1115/dist-ota20` |
+| 13:13 | OTA №20 на **field** (iPhone), republish | группа `2652f1bd-5005-40b1-9cba-874b55ed898a` (Android `01a1df57-87aa-7aa0…`, iOS `01a1df57-87aa-70e8…`); iPhone получают №13–№20 |
+| 13:14 | данные Wagner | `live` 27, `by_level` critical 6, high 7, normal 6, low 8, `catalogue_md5` `fb3545a5…` = репетиции |
+| 13:17 | режим `catalog` у Wagner | `mode` catalog, у остальных компаний `free_text` |
+| 13:17 | откатываемая проба | `PROBE OK`: «Горячая вода» (P1) — `high` + флаг (телефон прислал low); набранное — `normal`, без флага и категории; заданий 314 и пушей 274 до и после |
+| 13:19 | старый клиент | выборка заданий сборки №19 читает все 314, значений срочности вне трёх 0; критические — только при `high` |
+
+Откат preview — republish `93191573` (№19), field — republish `1c5c6ce9` (№12); порядок — раздел «Откат».
+
 ## Решения владельца (15.11)
 
 - **CORE:** четвёртый уровень срочности «Критическая» (`critical`; en Critical, cs Kritická) выше
@@ -94,7 +111,7 @@ mv "$PARK/20261115100000_problem_categories.sql" supabase/migrations/ && sha256s
 **6. OTA.** Перед ним `npx supabase migration list --linked`: все локальные миграции в облаке.
 Натив не меняется (нет правок `app.json`, `package.json`, плагинов; новых внешних импортов нет).
 - preview (Android): экспорт `ota-export.cmd` (рецепт №19: `env:exec preview`, `expo export` с одним
-  воркером, без `.env`), `bundle-check.mjs` против живой №19 (`~/dev-tools/str-ops/dist-ota19`),
+  воркером, без `.env`), `bundle-check.mjs` против живой №19 (`~/dev-tools/str-ops/day-1111/dist-ota19`),
   `npx eas-cli update --branch preview --environment preview --skip-bundler --input-dir dist`;
 - field (iPhone): `update:republish` новой группы preview на ветку field. iPhone на №12 получат всё
   с №13 по новую — владелец согласен.
