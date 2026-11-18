@@ -1,0 +1,295 @@
+'use client';
+
+import { BOARD_LIMITS, isBoardColumn } from '@str-ops/shared';
+import type { TFunction } from 'i18next';
+import { useId, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { ConfirmMoveDialog } from '@/features/problems/board-dialogs';
+import { formatDateTime, formatDay } from '@/lib/format-date';
+import type { Language } from '@str-ops/shared';
+import { serverErrorText } from '@/lib/server-error';
+import { useLanguage } from '@/lib/use-language';
+
+import { LinkedText } from './linked-text';
+import {
+  canDeleteComment,
+  canEditComment,
+  orderedEntries,
+  type BoardViewer,
+  type CardDetail,
+  type CardEntry,
+} from './schema';
+import { useDeleteComment, useSaveComment } from './use-boards';
+
+/** A day the server wrote, `YYYY-MM-DD`, or null. */
+function dayFact(value: unknown): string | null {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+function countFact(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * The sentence of a system line: the server keeps codes, dates and counts
+ * (never a person's words); the reader's language makes them a sentence.
+ */
+export function entrySentence(entry: CardEntry, t: TFunction, language: Language): string {
+  const { facts } = entry;
+  switch (entry.kind) {
+    case 'moved': {
+      const to = typeof facts.to === 'string' && isBoardColumn(facts.to) ? facts.to : null;
+      return t('boards.entries.moved', {
+        column: to === null ? '—' : t(`problems.statuses.${to}`),
+      });
+    }
+    case 'due_changed': {
+      const from = dayFact(facts.from);
+      const to = dayFact(facts.to);
+      if (from === null && to !== null) {
+        return t('boards.entries.dueSet', { to: formatDay(to, language) });
+      }
+      if (to === null && from !== null) {
+        return t('boards.entries.dueRemoved', { from: formatDay(from, language) });
+      }
+      return t('boards.entries.dueChanged', {
+        from: from === null ? '—' : formatDay(from, language),
+        to: to === null ? '—' : formatDay(to, language),
+      });
+    }
+    case 'step_done':
+      return t('boards.entries.stepDone', {
+        done: countFact(facts.done),
+        total: countFact(facts.total),
+      });
+    case 'comment':
+      return entry.body ?? '';
+  }
+}
+
+interface CardJournalProps {
+  card: CardDetail;
+  viewer: BoardViewer;
+  /** The owner or an admin, on a card that is not shelved: may write. */
+  canEdit: boolean;
+}
+
+/**
+ * The card's journal, oldest first and the newest at the bottom: comments
+ * with their author and time (the device's clock, as every journal of the
+ * project), «изменено» on a changed one, and the server's short lines — moved,
+ * due date changed, step ticked. Its author changes and deletes a comment; an
+ * admin deletes any. Ctrl+Enter sends.
+ */
+export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
+  const { t } = useTranslation();
+  const headingId = useId();
+  const save = useSaveComment();
+  const remove = useDeleteComment();
+  const [body, setBody] = useState('');
+  const [entryId, setEntryId] = useState(() => crypto.randomUUID());
+  const [editing, setEditing] = useState<{ id: string; body: string } | null>(null);
+  const [deleting, setDeleting] = useState<CardEntry | null>(null);
+  const entries = orderedEntries(card.entries);
+
+  const failed = [save, remove].find((mutation) => mutation.isError);
+  const failure = failed === undefined ? null : serverErrorText(failed.error);
+
+  const send = (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    const words = body.trim();
+    if (words === '' || save.isPending) {
+      return;
+    }
+    save.mutate(
+      { entryId, cardId: card.id, body: words },
+      {
+        onSuccess: () => {
+          setBody('');
+          setEntryId(crypto.randomUUID());
+        },
+      },
+    );
+  };
+
+  const sendOnCtrlEnter = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      send();
+    }
+  };
+
+  const saveEdit = () => {
+    if (editing === null) {
+      return;
+    }
+    const words = editing.body.trim();
+    if (words === '') {
+      return;
+    }
+    save.mutate(
+      { entryId: editing.id, cardId: card.id, body: words },
+      { onSuccess: () => setEditing(null) },
+    );
+  };
+
+  return (
+    <section aria-labelledby={headingId} className="flex min-w-0 flex-col gap-3">
+      <h3 id={headingId} className="text-sm font-semibold">
+        {t('boards.journal')}
+      </h3>
+      {entries.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('boards.journalEmpty')}</p>
+      ) : (
+        <ol className="flex flex-col gap-3">
+          {entries.map((entry) => (
+            <JournalLine
+              key={entry.id}
+              entry={entry}
+              canEdit={canEdit && canEditComment(entry, viewer)}
+              canDelete={canEdit && canDeleteComment(entry, viewer)}
+              editing={editing?.id === entry.id ? editing.body : null}
+              isSaving={save.isPending}
+              onEdit={() => setEditing({ id: entry.id, body: entry.body ?? '' })}
+              onEditChange={(next) => setEditing({ id: entry.id, body: next })}
+              onEditSave={saveEdit}
+              onEditCancel={() => setEditing(null)}
+              onDelete={() => setDeleting(entry)}
+            />
+          ))}
+        </ol>
+      )}
+      {canEdit ? (
+        <form onSubmit={send} className="flex flex-col gap-2">
+          <Textarea
+            rows={3}
+            value={body}
+            maxLength={BOARD_LIMITS.comment}
+            placeholder={t('boards.commentPlaceholder')}
+            aria-label={t('boards.commentPlaceholder')}
+            onChange={(event) => setBody(event.target.value)}
+            onKeyDown={sendOnCtrlEnter}
+          />
+          <Button
+            type="submit"
+            className="h-11 self-end"
+            disabled={save.isPending || body.trim() === ''}
+          >
+            {t('boards.addComment')}
+          </Button>
+        </form>
+      ) : null}
+      {failure === null ? null : (
+        <p role="alert" className="text-sm text-destructive">
+          {failure.text}
+          {failure.detail === null ? null : (
+            <span className="block text-xs text-muted-foreground">{failure.detail}</span>
+          )}
+        </p>
+      )}
+      <ConfirmMoveDialog
+        open={deleting !== null}
+        title={t('boards.deleteCommentTitle')}
+        description={t('boards.deleteCommentText')}
+        confirmLabel={t('boards.deleteComment')}
+        abortLabel={t('boards.cancel')}
+        isDestructive
+        isBusy={remove.isPending}
+        onConfirm={() => {
+          if (deleting !== null) {
+            remove.mutate(deleting.id, { onSettled: () => setDeleting(null) });
+          }
+        }}
+        onClose={() => setDeleting(null)}
+      />
+    </section>
+  );
+}
+
+interface JournalLineProps {
+  entry: CardEntry;
+  canEdit: boolean;
+  canDelete: boolean;
+  editing: string | null;
+  isSaving: boolean;
+  onEdit: () => void;
+  onEditChange: (body: string) => void;
+  onEditSave: () => void;
+  onEditCancel: () => void;
+  onDelete: () => void;
+}
+
+function JournalLine({
+  entry,
+  canEdit,
+  canDelete,
+  editing,
+  isSaving,
+  onEdit,
+  onEditChange,
+  onEditSave,
+  onEditCancel,
+  onDelete,
+}: JournalLineProps) {
+  const { t } = useTranslation();
+  const language = useLanguage();
+  const author = entry.author?.full_name ?? t('boards.unknownPerson');
+  const when = formatDateTime(entry.created_at, language);
+  const isComment = entry.kind === 'comment';
+
+  return (
+    <li className="flex flex-col gap-1 border-l-2 border-border pl-3">
+      <p className="text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">{author}</span> ·{' '}
+        <time dateTime={entry.created_at}>{when}</time>
+        {entry.edited_at === null ? null : ` · ${t('boards.edited')}`}
+      </p>
+      {!isComment ? (
+        <p className="text-sm text-muted-foreground italic">{entrySentence(entry, t, language)}</p>
+      ) : editing !== null ? (
+        <div className="flex flex-col gap-2">
+          <Textarea
+            autoFocus
+            rows={3}
+            value={editing}
+            maxLength={BOARD_LIMITS.comment}
+            aria-label={t('boards.editComment')}
+            onChange={(event) => onEditChange(event.target.value)}
+          />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" className="h-11" onClick={onEditCancel}>
+              {t('boards.cancel')}
+            </Button>
+            <Button
+              type="button"
+              className="h-11"
+              disabled={isSaving || editing.trim() === ''}
+              onClick={onEditSave}
+            >
+              {t('boards.save')}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <LinkedText text={entry.body ?? ''} className="text-sm" />
+      )}
+      {isComment && editing === null && (canEdit || canDelete) ? (
+        <div className="flex gap-1">
+          {canEdit ? (
+            <Button type="button" variant="ghost" className="h-11 px-2 text-xs" onClick={onEdit}>
+              {t('boards.editComment')}
+            </Button>
+          ) : null}
+          {canDelete ? (
+            <Button type="button" variant="ghost" className="h-11 px-2 text-xs" onClick={onDelete}>
+              {t('boards.deleteComment')}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </li>
+  );
+}

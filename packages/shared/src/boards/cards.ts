@@ -43,9 +43,7 @@ export type CardColor = (typeof CARD_COLOR_NAMES)[number];
 
 export function isCardColor(value: string | null | undefined): value is CardColor {
   return (
-    value !== null &&
-    value !== undefined &&
-    (CARD_COLOR_NAMES as readonly string[]).includes(value)
+    value !== null && value !== undefined && (CARD_COLOR_NAMES as readonly string[]).includes(value)
   );
 }
 

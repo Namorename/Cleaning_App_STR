@@ -1,0 +1,382 @@
+'use client';
+
+import {
+  BOARD_COLUMNS,
+  BOARD_LIMITS,
+  isCardColor,
+  isEveryStepDone,
+  LAST_BOARD_COLUMN,
+  type BoardColumn,
+} from '@str-ops/shared';
+import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { cardColorStyle, SWATCH_CLASS } from '@/components/board/card-color';
+import { ErrorState, LoadingState } from '@/components/states';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
+import { formatDateTime } from '@/lib/format-date';
+import { serverErrorText } from '@/lib/server-error';
+import { useLanguage } from '@/lib/use-language';
+
+import { CardFieldsForm, draftOf, fieldsOf, type FieldsDraft } from './card-fields';
+import { CardJournal } from './card-journal';
+import { CardSteps } from './card-steps';
+import { DueChip } from './due-chip';
+import { LinkedText } from './linked-text';
+import {
+  canEditBoard,
+  cardPlace,
+  shelfOf,
+  type Board,
+  type BoardViewer,
+  type CardDetail,
+  type CardShelf,
+} from './schema';
+import { useCard, useDuplicateCard, useMoveCard, useSaveCard, useSetCardShelf } from './use-boards';
+
+interface CardDialogProps {
+  cardId: string;
+  board: Board;
+  viewer: BoardViewer;
+  today: string;
+  onClose: () => void;
+  /** The card left the board (archived or deleted): the board says so, with «Отменить». */
+  onShelved: (card: CardDetail, shelf: CardShelf) => void;
+  /** A copy was made: the board opens it. */
+  onDuplicated: (cardId: string) => void;
+}
+
+/**
+ * A card over its board: the fields (its links open), the steps, the column,
+ * and the journal beside them. Its owner and an admin change all of it; any
+ * other manager reads it. A card in the archive or among the deleted is read
+ * until «Вернуть».
+ */
+export function CardDialog(props: CardDialogProps) {
+  const { t } = useTranslation();
+  const card = useCard(props.cardId);
+
+  return (
+    <Dialog open onOpenChange={(next) => (next ? undefined : props.onClose())}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+        {card.isPending ? (
+          <>
+            <DialogTitle className="sr-only">{t('boards.cardLoading')}</DialogTitle>
+            <LoadingState>{t('boards.cardLoading')}</LoadingState>
+          </>
+        ) : card.isError ? (
+          <>
+            <DialogTitle className="sr-only">{t('boards.cardLoadError')}</DialogTitle>
+            <ErrorState message={t('boards.cardLoadError')} error={card.error} />
+          </>
+        ) : card.data === null ? (
+          <DialogHeader>
+            <DialogTitle>{t('boards.cardGone')}</DialogTitle>
+          </DialogHeader>
+        ) : (
+          <CardBody {...props} card={card.data} />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CardBody({
+  card,
+  board,
+  viewer,
+  today,
+  onShelved,
+  onDuplicated,
+}: CardDialogProps & { card: CardDetail }) {
+  const { t } = useTranslation();
+  const language = useLanguage();
+  const move = useMoveCard(board.id);
+  const shelve = useSetCardShelf();
+  const duplicate = useDuplicateCard();
+  const [dismissedDone, setDismissedDone] = useState(false);
+  const boardEditable = canEditBoard(board, viewer);
+  const shelf = shelfOf(card);
+  const canEdit = boardEditable && shelf === 'active';
+  const offersDone =
+    canEdit &&
+    !dismissedDone &&
+    card.column_key !== LAST_BOARD_COLUMN &&
+    isEveryStepDone(card.steps);
+
+  const failed = [move, shelve, duplicate].find((mutation) => mutation.isError);
+  const failure = failed === undefined ? null : serverErrorText(failed.error);
+  const lastColumn = t(`problems.statuses.${LAST_BOARD_COLUMN}`);
+
+  const moveTo = (column: BoardColumn) => move.mutate({ cardId: card.id, column });
+  const putOn = (next: CardShelf) =>
+    shelve.mutate({ cardId: card.id, shelf: next }, { onSuccess: () => onShelved(card, next) });
+  const copy = () => {
+    const cardId = crypto.randomUUID();
+    const title = t('boards.copyTitle', { title: card.title }).slice(0, BOARD_LIMITS.cardTitle);
+    duplicate.mutate(
+      { sourceId: card.id, cardId, title },
+      { onSuccess: () => onDuplicated(cardId) },
+    );
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="break-words">{card.title}</DialogTitle>
+        <DialogDescription>
+          {t('boards.created', {
+            when: formatDateTime(card.created_at, language),
+            name: card.creator?.full_name ?? t('boards.unknownPerson'),
+          })}
+        </DialogDescription>
+      </DialogHeader>
+
+      {shelf === 'active' ? null : (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted p-3 text-sm">
+          <span>{t('boards.shelvedNote')}</span>
+          {boardEditable ? (
+            <Button
+              type="button"
+              className="h-11"
+              disabled={shelve.isPending}
+              onClick={() => putOn('active')}
+            >
+              {t('boards.restoreCard')}
+            </Button>
+          ) : null}
+        </div>
+      )}
+
+      {offersDone ? (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-highlight p-3 text-sm text-highlight-foreground"
+        >
+          <span>{t('boards.allStepsDone', { column: lastColumn })}</span>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              className="h-11"
+              disabled={move.isPending}
+              onClick={() => moveTo(LAST_BOARD_COLUMN)}
+            >
+              {t('boards.moveIt')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              onClick={() => setDismissedDone(true)}
+            >
+              {t('boards.notNow')}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
+        <div className="flex min-w-0 flex-col gap-6">
+          <ColumnLine card={card} canEdit={canEdit} isBusy={move.isPending} onMove={moveTo} />
+          <CardFields card={card} today={today} canEdit={canEdit} />
+          <CardSteps card={card} canEdit={canEdit} />
+          {boardEditable && shelf === 'active' ? (
+            <div className="flex flex-wrap gap-2 border-t pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                disabled={duplicate.isPending}
+                onClick={copy}
+              >
+                {t('boards.duplicate')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                disabled={shelve.isPending}
+                onClick={() => putOn('archived')}
+              >
+                {t('boards.archiveCard')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 text-destructive"
+                disabled={shelve.isPending}
+                onClick={() => putOn('deleted')}
+              >
+                {t('boards.deleteCard')}
+              </Button>
+            </div>
+          ) : null}
+          {failure === null ? null : (
+            <p role="alert" className="text-sm text-destructive">
+              {failure.text}
+              {failure.detail === null ? null : (
+                <span className="block text-xs text-muted-foreground">{failure.detail}</span>
+              )}
+            </p>
+          )}
+        </div>
+        <CardJournal card={card} viewer={viewer} canEdit={canEdit} />
+      </div>
+    </>
+  );
+}
+
+function ColumnLine({
+  card,
+  canEdit,
+  isBusy,
+  onMove,
+}: {
+  card: CardDetail;
+  canEdit: boolean;
+  isBusy: boolean;
+  onMove: (column: BoardColumn) => void;
+}) {
+  const { t } = useTranslation();
+  const id = `card-${card.id}-column`;
+  if (!canEdit) {
+    return (
+      <p className="text-sm">
+        <span className="text-muted-foreground">{t('boards.column')}: </span>
+        {t(`problems.statuses.${card.column_key}`)}
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      <Label htmlFor={id}>{t('boards.column')}</Label>
+      <NativeSelect
+        id={id}
+        value={card.column_key}
+        disabled={isBusy}
+        className="h-11 sm:max-w-xs"
+        onChange={(event) => onMove(event.target.value as BoardColumn)}
+      >
+        {BOARD_COLUMNS.map((column) => (
+          <option key={column} value={column}>
+            {t(`problems.statuses.${column}`)}
+          </option>
+        ))}
+      </NativeSelect>
+    </div>
+  );
+}
+
+/** The fields as read, and «Изменить» that turns them into the form. */
+function CardFields({
+  card,
+  today,
+  canEdit,
+}: {
+  card: CardDetail;
+  today: string;
+  canEdit: boolean;
+}) {
+  const { t } = useTranslation();
+  const save = useSaveCard();
+  const [draft, setDraft] = useState<FieldsDraft | null>(null);
+  const failure = save.isError ? serverErrorText(save.error) : null;
+  const place = cardPlace(card);
+
+  if (draft !== null && canEdit) {
+    const submit = (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (draft.title.trim() === '' || save.isPending) {
+        return;
+      }
+      save.mutate(
+        { cardId: card.id, boardId: card.board_id, fields: fieldsOf(draft) },
+        { onSuccess: () => setDraft(null) },
+      );
+    };
+    return (
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <CardFieldsForm draft={draft} onChange={setDraft} idPrefix={`card-${card.id}`} />
+        {failure === null ? null : (
+          <p role="alert" className="text-sm text-destructive">
+            {failure.text}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11"
+            disabled={save.isPending}
+            onClick={() => setDraft(null)}
+          >
+            {t('boards.cancel')}
+          </Button>
+          <Button
+            type="submit"
+            className="h-11"
+            disabled={save.isPending || draft.title.trim() === ''}
+          >
+            {t('boards.save')}
+          </Button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {card.description.trim() === '' ? (
+        <p className="text-sm text-muted-foreground">{t('boards.noDescription')}</p>
+      ) : (
+        <LinkedText text={card.description} className="text-sm" />
+      )}
+      <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 text-sm">
+        <dt className="text-muted-foreground">{t('boards.due')}</dt>
+        <dd>
+          {card.due_on === null ? (
+            t('boards.noDue')
+          ) : (
+            <DueChip dueOn={card.due_on} column={card.column_key} today={today} />
+          )}
+        </dd>
+        <dt className="text-muted-foreground">{t('boards.property')}</dt>
+        <dd>{place ?? t('boards.noProperty')}</dd>
+        <dt className="text-muted-foreground">{t('boards.color')}</dt>
+        <dd className="flex items-center gap-2">
+          {isCardColor(card.color) ? (
+            <>
+              <span
+                aria-hidden="true"
+                style={cardColorStyle(card.color)}
+                className={`size-4 rounded-full ${SWATCH_CLASS}`}
+              />
+              {t(`boards.colors.${card.color}`)}
+            </>
+          ) : (
+            t('boards.noColor')
+          )}
+        </dd>
+      </dl>
+      {canEdit ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 self-start"
+          onClick={() => setDraft(draftOf(card))}
+        >
+          {t('boards.edit')}
+        </Button>
+      ) : null}
+    </div>
+  );
+}

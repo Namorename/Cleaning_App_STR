@@ -10,6 +10,7 @@ import {
 import * as analytics from '../analytics/api';
 import { NO_FILTERS } from '../analytics/schema';
 import * as apartments from '../apartments/api';
+import * as boards from '../boards/api';
 import * as calendar from '../calendar/api';
 import * as chat from '../chat/api';
 import * as guestSignals from '../guest-signals/api';
@@ -95,6 +96,10 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => analytics.fetchSeries(client, ANY_QUERY, 'day'),
   // The listings the filter offers: a select string, guarded like any other.
   (client) => analytics.fetchListings(client),
+  // Manager boards (20261118200000): the boards, a board's cards, one card.
+  (client) => boards.fetchBoards(client),
+  (client) => boards.fetchBoardCards(client, ANY_ID),
+  (client) => boards.fetchCard(client, ANY_ID),
   (client) => apartments.fetchRegistry(client),
   (client) => apartments.fetchProperty(client, ANY_PROPERTY),
   (client) => apartments.fetchOpenCleanings(client),

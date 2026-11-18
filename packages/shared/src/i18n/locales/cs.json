@@ -2978,6 +2978,7 @@
     "save": "Uložit",
     "cancel": "Zrušit",
     "rename": "Přejmenovat",
+    "edit": "Upravit",
     "renameTitle": "Přejmenovat nástěnku",
     "archiveBoard": "Přesunout nástěnku do archivu",
     "archiveBoardText": "Nástěnka „{{title}}“ odejde do archivu i s kartami. Půjde ji obnovit.",

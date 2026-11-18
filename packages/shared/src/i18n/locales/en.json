@@ -2928,6 +2928,7 @@
     "save": "Save",
     "cancel": "Cancel",
     "rename": "Rename",
+    "edit": "Edit",
     "renameTitle": "Rename the board",
     "archiveBoard": "Archive the board",
     "archiveBoardText": "“{{title}}” goes to the archive with its cards. You can restore it later.",
