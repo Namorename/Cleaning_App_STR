@@ -1264,6 +1264,297 @@ export type Database = {
           },
         ]
       }
+      manager_board_cards: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          board_id: string
+          color: string | null
+          column_key: string
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string
+          due_on: string | null
+          host_id: string
+          id: string
+          moved_at: string
+          property_id: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          board_id: string
+          color?: string | null
+          column_key?: string
+          created_at?: string
+          created_by: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string
+          due_on?: string | null
+          host_id: string
+          id: string
+          moved_at?: string
+          property_id?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          board_id?: string
+          color?: string | null
+          column_key?: string
+          created_at?: string
+          created_by?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string
+          due_on?: string | null
+          host_id?: string
+          id?: string
+          moved_at?: string
+          property_id?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_board_cards_archived_by_fkey"
+            columns: ["archived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_cards_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "manager_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_cards_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_cards_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_cards_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_cards_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_cards_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manager_board_entries: {
+        Row: {
+          author_id: string | null
+          body: string | null
+          card_id: string
+          created_at: string
+          edited_at: string | null
+          facts: Json
+          host_id: string
+          id: string
+          kind: string
+        }
+        Insert: {
+          author_id?: string | null
+          body?: string | null
+          card_id: string
+          created_at?: string
+          edited_at?: string | null
+          facts?: Json
+          host_id: string
+          id: string
+          kind: string
+        }
+        Update: {
+          author_id?: string | null
+          body?: string | null
+          card_id?: string
+          created_at?: string
+          edited_at?: string | null
+          facts?: Json
+          host_id?: string
+          id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_board_entries_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_entries_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "manager_board_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_entries_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manager_board_steps: {
+        Row: {
+          body: string
+          card_id: string
+          created_at: string
+          created_by: string
+          done_at: string | null
+          done_by: string | null
+          host_id: string
+          id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          card_id: string
+          created_at?: string
+          created_by: string
+          done_at?: string | null
+          done_by?: string | null
+          host_id: string
+          id: string
+          sort_order: number
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          card_id?: string
+          created_at?: string
+          created_by?: string
+          done_at?: string | null
+          done_by?: string | null
+          host_id?: string
+          id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_board_steps_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "manager_board_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_steps_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_steps_done_by_fkey"
+            columns: ["done_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_steps_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manager_boards: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          created_at: string
+          host_id: string
+          id: string
+          owner_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          created_at?: string
+          host_id: string
+          id: string
+          owner_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          created_at?: string
+          host_id?: string
+          id?: string
+          owner_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_boards_archived_by_fkey"
+            columns: ["archived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_boards_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_boards_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       oauth_clients: {
         Row: {
           client_id: string
@@ -5237,11 +5528,41 @@ export type Database = {
         }
       }
       default_host_id: { Args: never; Returns: string }
+      delete_manager_comment: { Args: { p_id: string }; Returns: undefined }
+      delete_manager_step: { Args: { p_id: string }; Returns: undefined }
       delete_resolution_plan: {
         Args: { p_id: string; p_rev: number }
         Returns: undefined
       }
       delete_supply_request: { Args: { p_id: string }; Returns: boolean }
+      duplicate_manager_card: {
+        Args: { p_id: string; p_source_id: string; p_title: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          board_id: string
+          color: string | null
+          column_key: string
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string
+          due_on: string | null
+          host_id: string
+          id: string
+          moved_at: string
+          property_id: number | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_cards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       effective_cleaner_notes: {
         Args: { p: Database["public"]["Tables"]["properties"]["Row"] }
         Returns: string
@@ -5584,6 +5905,82 @@ export type Database = {
         }
         Returns: undefined
       }
+      manager_board_column: { Args: { p_column: string }; Returns: string }
+      manager_board_for_edit: {
+        Args: { p_archived_ok: boolean; p_board_id: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          created_at: string
+          host_id: string
+          id: string
+          owner_id: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_boards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      manager_card_for_edit: {
+        Args: { p_card_id: string; p_shelved_ok: boolean }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          board_id: string
+          color: string | null
+          column_key: string
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string
+          due_on: string | null
+          host_id: string
+          id: string
+          moved_at: string
+          property_id: number | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_cards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      manager_step_card: {
+        Args: { p_step_id: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          board_id: string
+          color: string | null
+          column_key: string
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string
+          due_on: string | null
+          host_id: string
+          id: string
+          moved_at: string
+          property_id: number | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_cards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       mark_signal_analysis_failed: {
         Args: { p_error: string; p_signal_id: string }
         Returns: number
@@ -5648,6 +6045,34 @@ export type Database = {
         Returns: number
       }
       message_theme_finding: { Args: { p_theme: string }; Returns: string[] }
+      move_manager_card: {
+        Args: { p_column: string; p_id: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          board_id: string
+          color: string | null
+          column_key: string
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string
+          due_on: string | null
+          host_id: string
+          id: string
+          moved_at: string
+          property_id: number | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_cards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       name_cleaning_worker: {
         Args: { p_completed_by: string; p_id: string }
         Returns: {
@@ -5838,6 +6263,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      order_manager_steps: {
+        Args: { p_card_id: string; p_ids: string[] }
+        Returns: undefined
       }
       problem_category_for_report: {
         Args: { p_category_id: string }
@@ -6649,6 +7078,104 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      save_manager_board: {
+        Args: { p_id: string; p_title: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          created_at: string
+          host_id: string
+          id: string
+          owner_id: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_boards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_manager_card: {
+        Args: {
+          p_board_id: string
+          p_color: string
+          p_column?: string
+          p_description: string
+          p_due_on: string
+          p_id: string
+          p_property_id: number
+          p_steps?: Json
+          p_title: string
+        }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          board_id: string
+          color: string | null
+          column_key: string
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string
+          due_on: string | null
+          host_id: string
+          id: string
+          moved_at: string
+          property_id: number | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_cards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_manager_comment: {
+        Args: { p_body: string; p_card_id: string; p_id: string }
+        Returns: {
+          author_id: string | null
+          body: string | null
+          card_id: string
+          created_at: string
+          edited_at: string | null
+          facts: Json
+          host_id: string
+          id: string
+          kind: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_entries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_manager_step: {
+        Args: { p_body: string; p_card_id: string; p_id: string }
+        Returns: {
+          body: string
+          card_id: string
+          created_at: string
+          created_by: string
+          done_at: string | null
+          done_by: string | null
+          host_id: string
+          id: string
+          sort_order: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_steps"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       save_property_checklist: {
         Args: { p_modules: Json; p_property_id: number }
         Returns: Json
@@ -6939,6 +7466,74 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "kb_articles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_manager_board_archived: {
+        Args: { p_archived: boolean; p_id: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          created_at: string
+          host_id: string
+          id: string
+          owner_id: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_boards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_manager_card_state: {
+        Args: { p_id: string; p_state: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          board_id: string
+          color: string | null
+          column_key: string
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string
+          due_on: string | null
+          host_id: string
+          id: string
+          moved_at: string
+          property_id: number | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_cards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_manager_step_done: {
+        Args: { p_done: boolean; p_id: string }
+        Returns: {
+          body: string
+          card_id: string
+          created_at: string
+          created_by: string
+          done_at: string | null
+          done_by: string | null
+          host_id: string
+          id: string
+          sort_order: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_steps"
           isOneToOne: true
           isSetofReturn: false
         }

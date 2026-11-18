@@ -635,6 +635,16 @@
       "reason": "tenant default of host_id columns (single-company phase A); internal plumbing",
       "defined_in": "20260905094000_tenant_host_id.sql"
     },
+    "delete_manager_comment": {
+      "status": "internal",
+      "reason": "deletes a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "delete_manager_step": {
+      "status": "internal",
+      "reason": "deletes a step of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
     "delete_resolution_plan": {
       "status": "internal",
       "reason": "the manager deletes a draft in the panel; the public resource comes with stage 6 of the plan",
@@ -644,6 +654,11 @@
       "status": "internal",
       "reason": "forbidden: irreversible delete (hard delete of a new supply request by its author)",
       "defined_in": "20260908130200_supply_requests.sql"
+    },
+    "duplicate_manager_card": {
+      "status": "internal",
+      "reason": "copies a card with its steps of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
     },
     "effective_cleaner_notes": {
       "status": "internal",
@@ -960,6 +975,26 @@
       "reason": "run journal of classify-guest-signals into raw.signal_runs, service_role only",
       "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
+    "manager_board_column": {
+      "status": "internal",
+      "reason": "internal helper of the board functions: a known column",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "manager_board_for_edit": {
+      "status": "internal",
+      "reason": "internal helper of the board functions: the board the caller may change",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "manager_card_for_edit": {
+      "status": "internal",
+      "reason": "internal helper of the board functions: the card the caller may change",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "manager_step_card": {
+      "status": "internal",
+      "reason": "internal helper of the board functions: the card of a step the caller may change",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
     "mark_signal_analysis_failed": {
       "status": "internal",
       "reason": "classify-guest-signals job: counts a failed model reading of a review, service_role only",
@@ -996,6 +1031,11 @@
       "status": "internal",
       "reason": "trigger function: mirrors the repair state onto its problem",
       "defined_in": "20260923130000_problem_mirror_current_attempt.sql"
+    },
+    "move_manager_card": {
+      "status": "internal",
+      "reason": "moves a card between the columns of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
     },
     "name_cleaning_worker": {
       "status": "planned",
@@ -1069,6 +1109,11 @@
       "scope": "chat:write",
       "reason": "finds or opens the chat thread of a cleaning, task or staff member (replayable)",
       "defined_in": "20260918120000_chat.sql"
+    },
+    "order_manager_steps": {
+      "status": "internal",
+      "reason": "puts the steps in a new order of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
     },
     "problem_category_for_report": {
       "status": "internal",
@@ -1513,6 +1558,26 @@
       "reason": "creates (as a draft) or rewrites an article: original, translations and places; replayable by the id the caller mints",
       "defined_in": "20261030100000_knowledge_base.sql"
     },
+    "save_manager_board": {
+      "status": "internal",
+      "reason": "creates or renames a board of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "save_manager_card": {
+      "status": "internal",
+      "reason": "creates a card with its steps or saves its fields of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "save_manager_comment": {
+      "status": "internal",
+      "reason": "writes or edits a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "save_manager_step": {
+      "status": "internal",
+      "reason": "adds a step to a card or changes its words of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
     "save_property_checklist": {
       "status": "planned",
       "scope": "checklists:write",
@@ -1574,6 +1639,21 @@
       "scope": "knowledge:write",
       "reason": "publishes an article, takes it back to a draft or archives it",
       "defined_in": "20261030100000_knowledge_base.sql"
+    },
+    "set_manager_board_archived": {
+      "status": "internal",
+      "reason": "archives or returns a board of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "set_manager_card_state": {
+      "status": "internal",
+      "reason": "archives, soft-deletes or returns a card of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "set_manager_step_done": {
+      "status": "internal",
+      "reason": "ticks or unticks a step of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
     },
     "set_problem_theme": {
       "status": "internal",
@@ -2083,6 +2163,26 @@
       "scope": "knowledge:read",
       "reason": "knowledge base articles: original text, status, scope; free text, mask codes as api_mask_codes does (F27)",
       "defined_in": "20261030100000_knowledge_base.sql"
+    },
+    "manager_board_cards": {
+      "status": "internal",
+      "reason": "cards of the managers' boards; read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "manager_board_entries": {
+      "status": "internal",
+      "reason": "the journal of a manager board card (comments and system lines); read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "manager_board_steps": {
+      "status": "internal",
+      "reason": "the checklist of a manager board card; read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "manager_boards": {
+      "status": "internal",
+      "reason": "the managers' own boards (the office's work apart from cleanings and tasks); read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118200000_manager_boards.sql"
     },
     "oauth_clients": {
       "status": "internal",

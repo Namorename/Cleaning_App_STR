@@ -106,6 +106,37 @@ insert into public.resolution_plan_steps (id, plan_id, host_id, theme, kind, tit
 values ('fa900031-0000-4000-8000-000000000001', 'fa900030-0000-4000-8000-000000000001', 'fa900000-0000-4000-8000-00000000000a',
         (select min(code) from public.issue_themes), 'repair', 'Synthetic step', 1);
 
+-- A manager board 200 days old (20261118200000): a card with a step, a comment and a system line,
+-- one more card archived and one soft-deleted — none of it is any purge's.
+insert into public.manager_boards (id, host_id, title, owner_id, created_at, updated_at)
+values ('fa900040-0000-4000-8000-000000000001', 'fa900000-0000-4000-8000-00000000000a', 'Synthetic board',
+        'fa900002-0000-4000-8000-000000000002', now() - interval '200 days', now() - interval '200 days');
+insert into public.manager_board_cards (id, host_id, board_id, title, description, column_key, created_by,
+                                        created_at, updated_at, moved_at, archived_at, deleted_at)
+values ('fa900041-0000-4000-8000-000000000001', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900040-0000-4000-8000-000000000001', 'Synthetic card', 'Synthetic words', 'resolved',
+        'fa900002-0000-4000-8000-000000000002', now() - interval '200 days', now() - interval '200 days',
+        now() - interval '200 days', null, null),
+       ('fa900041-0000-4000-8000-000000000002', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900040-0000-4000-8000-000000000001', 'Synthetic archived card', '', 'resolved',
+        'fa900002-0000-4000-8000-000000000002', now() - interval '200 days', now() - interval '200 days',
+        now() - interval '200 days', now() - interval '199 days', null),
+       ('fa900041-0000-4000-8000-000000000003', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900040-0000-4000-8000-000000000001', 'Synthetic deleted card', '', 'open',
+        'fa900002-0000-4000-8000-000000000002', now() - interval '200 days', now() - interval '200 days',
+        now() - interval '200 days', null, now() - interval '199 days');
+insert into public.manager_board_steps (id, host_id, card_id, body, sort_order, done_at, created_by, created_at)
+values ('fa900042-0000-4000-8000-000000000001', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900041-0000-4000-8000-000000000001', 'Synthetic step', 1, now() - interval '200 days',
+        'fa900002-0000-4000-8000-000000000002', now() - interval '200 days');
+insert into public.manager_board_entries (id, host_id, card_id, kind, body, facts, author_id, created_at)
+values ('fa900043-0000-4000-8000-000000000001', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900041-0000-4000-8000-000000000001', 'comment', 'Synthetic comment', '{}',
+        'fa900002-0000-4000-8000-000000000002', now() - interval '200 days'),
+       ('fa900043-0000-4000-8000-000000000002', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900041-0000-4000-8000-000000000001', 'moved', null, '{"from": "open", "to": "resolved"}',
+        'fa900002-0000-4000-8000-000000000002', now() - interval '200 days');
+
 select pg_temp.check('0 the fixtures have their journals and closing history',
   (select count(*) from public.task_events where task_id = 'fa900010-0000-4000-8000-000000000001') > 0
   and (select count(*) from public.task_closings where task_id = 'fa900010-0000-4000-8000-000000000001') = 1
@@ -120,7 +151,8 @@ create temp table work_tables (name text primary key);
 insert into work_tables values
   ('tasks'), ('task_steps'), ('task_events'), ('task_closings'), ('closing_marks'),
   ('problems'), ('problem_events'), ('problem_themes'), ('chat_threads'), ('chat_messages'),
-  ('resolution_plans'), ('resolution_plan_steps'), ('supply_requests'), ('supply_request_items');
+  ('resolution_plans'), ('resolution_plan_steps'), ('supply_requests'), ('supply_request_items'),
+  ('manager_boards'), ('manager_board_cards'), ('manager_board_steps'), ('manager_board_entries');
 
 create function pg_temp.fingerprint(p_table text) returns text language plpgsql as $fn$
 declare

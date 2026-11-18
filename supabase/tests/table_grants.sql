@@ -98,6 +98,13 @@ insert into wanted values
   -- The words of a cancel or a hand-back of a cleaning (20261118120000):
   -- cancel_cleaning and hand_back_cleaning write them, the manager reads them.
   ('task_off_notes',       'SELECT'),
+  -- Manager boards (20261118200000): the office reads them; the board's owner
+  -- and an admin write through save_manager_board, save_manager_card and the
+  -- other board functions, which also write the journal's system lines.
+  ('manager_boards',        'SELECT'),
+  ('manager_board_cards',   'SELECT'),
+  ('manager_board_steps',   'SELECT'),
+  ('manager_board_entries', 'SELECT'),
   -- The knowledge base (20261030100000): the managers and the head
   -- technician write through save_kb_article, set_kb_article_status and
   -- restore_kb_revision; the versions are kept by triggers.
