@@ -2918,6 +2918,108 @@
     "originalOnly": "No translation into your language — showing the original",
     "opensInBrowser": "Opens in the browser"
   },
+  "office": {
+    "tabs": {
+      "cleanings": "Cleanings"
+    },
+    "cleanings": {
+      "view": "View",
+      "list": "List",
+      "calendar": "Calendar",
+      "date": "Date",
+      "week": "7 days",
+      "status": "Status",
+      "place": "Place: {{name}}",
+      "allPlaces": "All places",
+      "placeTitle": "Place",
+      "empty": "No cleanings",
+      "emptyDay": "No cleanings on this day",
+      "emptyFiltered": "Nothing matches these filters",
+      "resetFilters": "Reset filters",
+      "nobody": "Nobody yet",
+      "row": "{{place}}. {{when}}. {{who}}. {{status}}",
+      "dayCount_one": "{{count}} cleaning",
+      "dayCount_other": "{{count}} cleanings",
+      "dayAttention": "some have nobody yet"
+    },
+    "statusFilters": {
+      "all": "All",
+      "unassigned": "Nobody yet",
+      "assigned": "Assigned",
+      "in_progress": "In progress",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "statuses": {
+      "unassigned": "Nobody yet",
+      "assigned": "Assigned",
+      "accepted": "Accepted",
+      "in_progress": "In progress",
+      "paused": "Paused",
+      "blocked": "Blocked",
+      "done": "Done",
+      "cancelled": "Cancelled",
+      "expired": "Did not happen"
+    },
+    "calendar": {
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month",
+      "today": "today"
+    },
+    "cleaning": {
+      "kind": "Kind of job",
+      "status": "Status",
+      "assignee": "Assignee",
+      "assign": "Assign",
+      "reassign": "Reassign",
+      "assignTitle": "Who does this cleaning",
+      "cleaners": "Cleaners",
+      "loadingCleaners": "Loading cleaners…",
+      "noCleaners": "No active cleaners",
+      "current": "on it now",
+      "restore": "Restore",
+      "restoreTitle": "Restore the cleaning?",
+      "restoreText": "The cleaning goes back to the status it had, with the same person if they still work here.",
+      "restoreConfirm": "Yes, restore",
+      "keep": "No",
+      "note": "Instructions for the assignee",
+      "repair": "This is the job of a task: it is assigned and cancelled on the task's screen."
+    },
+    "offs": {
+      "cancelled": "Cancelled by {{name}}, {{date}}",
+      "declined": "Declined by {{name}}",
+      "interrupted": "Interrupted, needs finishing: {{name}}",
+      "someone": "a staff member",
+      "quoted": "“{{reason}}”"
+    },
+    "problem": {
+      "resolve": "Mark as done",
+      "resolveTitle": "Mark as done?",
+      "resolveText": "“{{title}}” will close as done. The technician's job, if any, will be finished.",
+      "who": "Who did it",
+      "alone": "Nobody, the manager did it",
+      "holder": "current assignee",
+      "switchedOff": "Switched off",
+      "hint": "The person gets no notification. The task counts as theirs, without the work time.",
+      "resolveConfirm": "Yes, done",
+      "cancel": "Cancel the task",
+      "cancelReason": "Cancel reason (optional)",
+      "cancelConfirm": "Confirm cancellation",
+      "cancelAbort": "Keep it open",
+      "reopen": "Reopen",
+      "reopenTitle": "Reopen the task?",
+      "reopenText": "The task becomes open again. The technician's closed job stays in the history.",
+      "reopenConfirm": "Yes, reopen",
+      "archive": "Delete to archive",
+      "archiveTitle": "Move the task to the archive?",
+      "archiveText": "The task disappears from the board, the list and the staff apps. Nothing is deleted: it can be brought back from the Archive tab.",
+      "archiveConfirm": "Yes, archive it",
+      "unarchive": "Restore from the archive",
+      "unarchiveTitle": "Restore the task from the archive?",
+      "unarchiveConfirm": "Yes, restore",
+      "keep": "No"
+    }
+  },
   "boards": {
     "techBoard": "Technician tasks",
     "switcherLabel": "Boards",

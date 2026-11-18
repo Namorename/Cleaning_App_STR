@@ -285,6 +285,12 @@ describe('words shared by every kind of job', () => {
    */
   const NOT_THE_PHONES_SCREENS = /^(panel|privacy|developers|push)\./;
 
+  /**
+   * The office's screens on the phone (owner, 2026-11-18): drawn for a manager
+   * or an admin only (`isOffice`), never for a technician, who keeps his own tabs.
+   */
+  const OFFICE_ONLY = /^office\./;
+
   /** The phrases of Russian that name a cleaning in any of their forms. */
   function namesACleaning(phrase: string): boolean {
     return formsOf(ru, phrase).some((path) => CLEANING_WORD.ru.test(valueOf(ru, path) ?? ''));
@@ -294,6 +300,7 @@ describe('words shared by every kind of job', () => {
     const missing = phrases(ru).filter(
       (phrase) =>
         !NOT_THE_PHONES_SCREENS.test(phrase) &&
+        !OFFICE_ONLY.test(phrase) &&
         !phrase.endsWith('_tech') &&
         !NOT_READ_BY_TECHNICIANS.includes(phrase) &&
         namesACleaning(phrase) &&
