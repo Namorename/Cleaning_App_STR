@@ -1268,6 +1268,7 @@ export type Database = {
         Row: {
           archived_at: string | null
           archived_by: string | null
+          assignee_id: string | null
           board_id: string
           color: string | null
           column_key: string
@@ -1287,6 +1288,7 @@ export type Database = {
         Insert: {
           archived_at?: string | null
           archived_by?: string | null
+          assignee_id?: string | null
           board_id: string
           color?: string | null
           column_key?: string
@@ -1306,6 +1308,7 @@ export type Database = {
         Update: {
           archived_at?: string | null
           archived_by?: string | null
+          assignee_id?: string | null
           board_id?: string
           color?: string | null
           column_key?: string
@@ -1326,6 +1329,13 @@ export type Database = {
           {
             foreignKeyName: "manager_board_cards_archived_by_fkey"
             columns: ["archived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_cards_assignee_id_fkey"
+            columns: ["assignee_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -5540,6 +5550,7 @@ export type Database = {
         Returns: {
           archived_at: string | null
           archived_by: string | null
+          assignee_id: string | null
           board_id: string
           color: string | null
           column_key: string
@@ -5930,6 +5941,7 @@ export type Database = {
         Returns: {
           archived_at: string | null
           archived_by: string | null
+          assignee_id: string | null
           board_id: string
           color: string | null
           column_key: string
@@ -5958,6 +5970,7 @@ export type Database = {
         Returns: {
           archived_at: string | null
           archived_by: string | null
+          assignee_id: string | null
           board_id: string
           color: string | null
           column_key: string
@@ -6050,6 +6063,7 @@ export type Database = {
         Returns: {
           archived_at: string | null
           archived_by: string | null
+          assignee_id: string | null
           board_id: string
           color: string | null
           column_key: string
@@ -6466,6 +6480,14 @@ export type Database = {
       purge_push_history: { Args: never; Returns: undefined }
       purge_signal_data: { Args: never; Returns: Json }
       purge_signal_stays: { Args: never; Returns: number }
+      push_board_card_titles: {
+        Args: { p_card_ids: string[] }
+        Returns: {
+          board_title: string
+          card_id: string
+          card_title: string
+        }[]
+      }
       push_digest_hour: { Args: never; Returns: number }
       push_history_kept: { Args: never; Returns: string }
       push_lease: { Args: never; Returns: string }
@@ -7112,6 +7134,7 @@ export type Database = {
         Returns: {
           archived_at: string | null
           archived_by: string | null
+          assignee_id: string | null
           board_id: string
           color: string | null
           column_key: string
@@ -7489,11 +7512,41 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_manager_card_assignee: {
+        Args: { p_assignee_id: string; p_id: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          assignee_id: string | null
+          board_id: string
+          color: string | null
+          column_key: string
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string
+          due_on: string | null
+          host_id: string
+          id: string
+          moved_at: string
+          property_id: number | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_cards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_manager_card_state: {
         Args: { p_id: string; p_state: string }
         Returns: {
           archived_at: string | null
           archived_by: string | null
+          assignee_id: string | null
           board_id: string
           color: string | null
           column_key: string
@@ -8243,6 +8296,7 @@ export type Database = {
         | "cleaning_declined"
         | "cleaning_interrupted"
         | "booking_cancelled_live"
+        | "board_card_assigned"
         | "problem_new"
         | "chat_message"
         | "daily_digest"
@@ -8525,6 +8579,7 @@ export const Constants = {
         "cleaning_declined",
         "cleaning_interrupted",
         "booking_cancelled_live",
+        "board_card_assigned",
         "problem_new",
         "chat_message",
         "daily_digest",

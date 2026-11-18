@@ -1,4 +1,4 @@
-import { BOARD_COLUMNS, BOARD_ENTRY_KINDS, propertyPathOf } from '@str-ops/shared';
+import { BOARD_COLUMNS, BOARD_ENTRY_KINDS, canWorkOnCard, propertyPathOf } from '@str-ops/shared';
 import { z } from 'zod';
 
 /**
@@ -52,9 +52,32 @@ export const boardCardSchema = z.object({
   deleted_at: z.string().nullable(),
   property: placeSchema,
   steps: z.array(stepMarkSchema),
+  // Who works on it (20261118230000): an active manager or admin, or nobody.
+  assignee_id: z.string().nullable().default(null),
+  assignee: personSchema.default(null),
 });
 export type BoardCard = z.infer<typeof boardCardSchema>;
 export const boardCardListSchema = z.array(boardCardSchema);
+
+/** A card of «Назначено мне», from any board that is not archived: with its board's name and rights. */
+export const myCardSchema = boardCardSchema.extend({
+  board: z.object({
+    id: z.string(),
+    title: z.string(),
+    owner_id: z.string(),
+    archived_at: z.string().nullable(),
+  }),
+});
+export type MyCard = z.infer<typeof myCardSchema>;
+export const myCardListSchema = z.array(myCardSchema);
+
+/** A person a card can be given to: an active manager or admin of the company. */
+export const officePersonSchema = z.object({
+  id: z.string(),
+  full_name: z.string().nullable(),
+});
+export type OfficePerson = z.infer<typeof officePersonSchema>;
+export const officePeopleSchema = z.array(officePersonSchema);
 
 export const cardStepSchema = stepMarkSchema.extend({ sort_order: z.number() });
 export type CardStep = z.infer<typeof cardStepSchema>;
@@ -121,6 +144,31 @@ export function canEditBoard(
   viewer: BoardViewer,
 ): boolean {
   return board.archived_at === null && (viewer.isAdmin || board.owner_id === viewer.id);
+}
+
+/**
+ * May the viewer work on this card — its fields, due date, steps, journal and column? The board's
+ * owner, an admin, and the card's assignee (20261118230000), never on an archived board. The board
+ * itself, a card's shelf and copy and the assignment stay `canEditBoard`'s.
+ */
+export function canWorkOn(
+  board: Pick<Board, 'owner_id' | 'archived_at'>,
+  card: Pick<BoardCard, 'assignee_id'>,
+  viewer: BoardViewer,
+): boolean {
+  return canWorkOnCard(board, card, viewer);
+}
+
+/** Two letters of a person's name for a card's corner: «Анна Новак» → «АН». */
+export function initialsOf(name: string | null | undefined): string {
+  const words = (name ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word !== '');
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toLocaleUpperCase() ?? '')
+    .join('');
 }
 
 /** May the viewer change this comment's words? Only its author. */

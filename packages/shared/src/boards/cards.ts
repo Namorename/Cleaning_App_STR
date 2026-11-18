@@ -218,12 +218,16 @@ export const DUE_FILTERS: readonly DueFilter[] = ['all', 'overdue', 'today', 'we
 /** `'none'` in the colours is a card with no colour. */
 export type ColorFilter = CardColor | 'none';
 
+/** Whose cards: everybody's, nobody's, or one person's (a profile id). */
+export type AssigneeFilter = 'all' | 'none' | (string & {});
+
 export interface CardFilters {
   readonly query: string;
   readonly colors: readonly ColorFilter[];
   readonly due: DueFilter;
   /** Only cards that still have a step to tick. */
   readonly openSteps: boolean;
+  readonly assignee: AssigneeFilter;
 }
 
 export const EMPTY_CARD_FILTERS: CardFilters = {
@@ -231,6 +235,7 @@ export const EMPTY_CARD_FILTERS: CardFilters = {
   colors: [],
   due: 'all',
   openSteps: false,
+  assignee: 'all',
 };
 
 export function hasCardFilters(filters: CardFilters): boolean {
@@ -238,7 +243,8 @@ export function hasCardFilters(filters: CardFilters): boolean {
     filters.query.trim() !== '' ||
     filters.colors.length > 0 ||
     filters.due !== 'all' ||
-    filters.openSteps
+    filters.openSteps ||
+    filters.assignee !== 'all'
   );
 }
 
@@ -251,6 +257,16 @@ export interface BoardCardFacts {
   readonly column_key: string;
   readonly created_at: string;
   readonly steps: readonly CardStepMark[];
+  /** Absent in a card cached by a build before the assignee (20261118230000): nobody. */
+  readonly assignee_id?: string | null;
+}
+
+function matchesAssignee(card: BoardCardFacts, assignee: AssigneeFilter): boolean {
+  const id = card.assignee_id ?? null;
+  if (assignee === 'all') {
+    return true;
+  }
+  return assignee === 'none' ? id === null : id === assignee;
 }
 
 function matchesDue(card: BoardCardFacts, due: DueFilter, today: string): boolean {
@@ -289,6 +305,9 @@ export function matchesCardFilters(
     return false;
   }
   if (filters.openSteps && !card.steps.some((step) => step.done_at === null)) {
+    return false;
+  }
+  if (!matchesAssignee(card, filters.assignee)) {
     return false;
   }
   if (filters.query.trim() === '') {
@@ -351,6 +370,38 @@ export function boardSummary(cards: readonly BoardCardFacts[], today: string): B
   return { overdue, today: dueToday, open };
 }
 
-/** The lines of a card's journal: a comment carries words, the rest are the server's facts. */
-export const BOARD_ENTRY_KINDS = ['comment', 'moved', 'due_changed', 'step_done'] as const;
+/**
+ * The lines of a card's journal: a comment carries words, the rest are the server's facts.
+ * `assignee_changed` (20261118230000) holds `{from, to}`: two profile ids, either may be null.
+ */
+export const BOARD_ENTRY_KINDS = [
+  'comment',
+  'moved',
+  'due_changed',
+  'step_done',
+  'assignee_changed',
+] as const;
 export type BoardEntryKind = (typeof BOARD_ENTRY_KINDS)[number];
+
+/** Who looks at a board: the rights of the boards are read off these two facts. */
+export interface BoardRightsViewer {
+  readonly id: string;
+  readonly isAdmin: boolean;
+}
+
+/**
+ * May the viewer work on this card — its fields and due date, its steps, its journal, its column?
+ * The board's owner and an admin, and the card's assignee (20261118230000); never on an archived
+ * board. The board itself (its name, its archive, a new card, a card's shelf or copy, the
+ * assignment) stays the owner's and an admin's. The server checks the same.
+ */
+export function canWorkOnCard(
+  board: { readonly owner_id: string; readonly archived_at: string | null },
+  card: { readonly assignee_id?: string | null },
+  viewer: BoardRightsViewer,
+): boolean {
+  if (board.archived_at !== null) {
+    return false;
+  }
+  return viewer.isAdmin || board.owner_id === viewer.id || (card.assignee_id ?? null) === viewer.id;
+}

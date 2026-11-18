@@ -46,18 +46,20 @@ import { BoardSwitcher } from '../board-switcher';
 afterEach(() => vi.clearAllMocks());
 
 describe('the switcher of «Задания»', () => {
-  test("the technicians' board first, then the live boards; one click each", () => {
+  test("the technicians' board first, then «Назначено мне», then the live boards; one click each", () => {
     render(<BoardSwitcher activeId={null} />);
     const nav = screen.getByRole('navigation', { name: 'Доски' });
     const links = within(nav).getAllByRole('link');
     expect(links.map((link) => link.textContent)).toEqual([
       'Задания техников',
+      'Назначено мне',
       'Проекты',
       'Закупки',
     ]);
     expect(links[0]).toHaveAttribute('href', '/problems');
     expect(links[0]).toHaveAttribute('aria-current', 'page');
-    expect(links[1]).toHaveAttribute('href', `/problems?board=${LIVE}`);
+    expect(links[1]).toHaveAttribute('href', '/problems?board=mine');
+    expect(links[2]).toHaveAttribute('href', `/problems?board=${LIVE}`);
   });
 
   test('the open board is the current one', () => {

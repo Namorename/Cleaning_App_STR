@@ -17,11 +17,17 @@ import { MultiSelectFilter } from '@/components/multi-select-filter';
 import { Button } from '@/components/ui/button';
 import { NativeSelect } from '@/components/ui/native-select';
 
+import type { OfficePerson } from './schema';
+
 interface BoardFiltersProps {
   filters: CardFilters;
   onChange: (next: CardFilters) => void;
   order: CardOrder;
   onOrderChange: (next: CardOrder) => void;
+  /** Who a card can be given to: the assignee filter's people. Absent, no such filter. */
+  people?: readonly OfficePerson[];
+  /** The viewer, first in the assignee filter as «Назначено мне». */
+  viewerId?: string;
 }
 
 const DUE_LABEL: Record<DueFilter, string> = {
@@ -33,11 +39,18 @@ const DUE_LABEL: Record<DueFilter, string> = {
 };
 
 /**
- * The board's filters: colour, due date, «Есть неотмеченные шаги», and the
- * order of the columns. The search is in the header. Narrowed, the bar offers
- * «Сбросить».
+ * The board's filters: colour, due date, «Есть неотмеченные шаги», the
+ * assignee («Назначено мне» first), and the order of the columns. The search is
+ * in the header. Narrowed, the bar offers «Сбросить».
  */
-export function BoardFilters({ filters, onChange, order, onOrderChange }: BoardFiltersProps) {
+export function BoardFilters({
+  filters,
+  onChange,
+  order,
+  onOrderChange,
+  people,
+  viewerId,
+}: BoardFiltersProps) {
   const { t } = useTranslation();
   const colorOptions = [
     { id: 'none', label: t('boards.noColor') },
@@ -65,6 +78,27 @@ export function BoardFilters({ filters, onChange, order, onOrderChange }: BoardF
           </option>
         ))}
       </NativeSelect>
+      {people === undefined ? null : (
+        <NativeSelect
+          aria-label={t('boards.filters.assignee')}
+          value={filters.assignee}
+          className="h-11"
+          onChange={(event) => onChange({ ...filters, assignee: event.target.value })}
+        >
+          <option value="all">{`${t('boards.filters.assignee')}: ${t('boards.filters.assigneeAll')}`}</option>
+          {viewerId === undefined ? null : (
+            <option value={viewerId}>{t('boards.assignedToMe')}</option>
+          )}
+          <option value="none">{t('boards.noAssignee')}</option>
+          {people
+            .filter((person) => person.id !== viewerId)
+            .map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.full_name ?? t('boards.unknownPerson')}
+              </option>
+            ))}
+        </NativeSelect>
+      )}
       <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm ring-1 ring-foreground/15 hover:bg-muted/60">
         <input
           type="checkbox"

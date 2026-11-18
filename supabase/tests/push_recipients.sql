@@ -118,7 +118,8 @@ $fn$;
 -- in the order the settings screen lists them. A new kind is a new migration
 -- and a new switch; a person who never touched the screen gets it switched on.
 -- problem_new, the head technician's new task, since 20261003150000; a cleaning a cleaner
--- handed back, for the office (cleaning_declined, cleaning_interrupted), since 20261118120000.
+-- handed back, for the office (cleaning_declined, cleaning_interrupted), since 20261118120000; a
+-- manager board card given to somebody (board_card_assigned), since 20261118230000.
 select pg_temp.check('the kinds of push are the events of the plan',
   (select array_agg(e.enumlabel::text order by e.enumsortorder)
    from pg_enum e join pg_type t on t.oid = e.enumtypid
@@ -126,7 +127,7 @@ select pg_temp.check('the kinds of push are the events of the plan',
   array['cleaning_new', 'cleaning_assigned', 'cleaning_unassigned',
         'cleaning_cancelled', 'cleaning_moved', 'cleaning_window',
         'cleaning_free', 'cleaning_declined', 'cleaning_interrupted',
-        'booking_cancelled_live', 'problem_new', 'chat_message',
+        'booking_cancelled_live', 'board_card_assigned', 'problem_new', 'chat_message',
         'daily_digest']);
 
 -- ---------- a phone registers its token ----------

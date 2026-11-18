@@ -6,9 +6,12 @@ import {
   boardCardSchema,
   boardSchema,
   cardDetailSchema,
+  myCardSchema,
   type Board,
   type BoardCard,
   type CardDetail,
+  type MyCard,
+  type OfficePerson,
 } from '../schema';
 
 const TODAY = '2026-11-18';
@@ -123,7 +126,15 @@ const state = {
   isStale: false,
   /** The writes the server refuses (by their spy). */
   failing: new Set<unknown>(),
+  people: [] as OfficePerson[],
+  mine: [] as MyCard[],
 };
+
+const PEOPLE: OfficePerson[] = [
+  { id: ADMIN, full_name: 'Анна Админ' },
+  { id: READER, full_name: 'Ира Читатель' },
+  { id: OWNER, full_name: 'Ольга Владелец' },
+];
 
 /** Every write the view asks for; `onSuccess` runs at once, as a server that agrees. */
 const spies = {
@@ -139,6 +150,7 @@ const spies = {
   orderSteps: vi.fn(),
   saveComment: vi.fn(),
   deleteComment: vi.fn(),
+  assign: vi.fn(),
 };
 
 function mutation(spy: (variables: unknown) => void) {
@@ -191,6 +203,9 @@ vi.mock('../use-boards', () => ({
   useOrderSteps: () => mutation(spies.orderSteps),
   useSaveComment: () => mutation(spies.saveComment),
   useDeleteComment: () => mutation(spies.deleteComment),
+  useSetCardAssignee: () => mutation(spies.assign),
+  useOfficePeople: () => ({ isPending: false, isError: false, error: null, data: state.people }),
+  useMyCards: () => ({ isPending: false, isError: false, error: null, data: state.mine }),
 }));
 
 vi.mock('@/features/tasks/use-tasks', () => ({ useProperties: () => ({ data: [] }) }));
@@ -215,6 +230,7 @@ vi.mock('next/navigation', async () => {
 });
 
 import { ManagerBoardView } from '../manager-board-view';
+import { MyCardsView } from '../my-cards-view';
 
 function show(viewer: { id: string; isAdmin: boolean }, search = `?board=${BOARD}`) {
   window.history.replaceState(null, '', `/problems${search}`);
@@ -229,6 +245,9 @@ beforeEach(() => {
   state.detail = DETAIL;
   state.isStale = false;
   state.failing = new Set();
+  state.people = PEOPLE;
+  state.mine = [];
+  vi.clearAllMocks();
 });
 
 describe('after the review of the panel', () => {
@@ -418,7 +437,7 @@ describe('another manager', () => {
   test('reads the board and is told who may change it; nothing to change it with', () => {
     show({ id: READER, isAdmin: false });
     expect(
-      screen.getByText('Только просмотр: менять доску может её владелец или админ.'),
+      screen.getByText('Доску меняет её владелец или админ, карточку — ещё и её исполнитель.'),
     ).toBeInTheDocument();
     expect(screen.getByText('Ремонт ванной')).toBeInTheDocument();
     expect(
@@ -547,5 +566,195 @@ describe('a card opened over the board', () => {
     expect(within(dialog).queryByRole('textbox', { name: 'Комментарий' })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Дублировать' })).not.toBeInTheDocument();
     expect(within(dialog).queryByText(/Все шаги отмечены/)).not.toBeInTheDocument();
+  });
+});
+
+/** A paragraph whose whole text is this: a label and its value in two nodes. */
+const paragraph = (text: string) => (_: string, element: Element | null) =>
+  element?.tagName === 'P' && element.textContent === text;
+
+describe('the assignee of a card (20261118230000)', () => {
+  const withAssignees = () => [
+    makeCard(1, {
+      title: 'Ремонт ванной',
+      assignee_id: READER,
+      assignee: { full_name: 'Ира Читатель' },
+    }),
+    makeCard(2, {
+      title: 'Звонок юристу',
+      column_key: 'assigned',
+      assignee_id: OWNER,
+      assignee: { full_name: 'Ольга Владелец' },
+    }),
+  ];
+
+  test('a card shows its assignee by initials, named for a reader', () => {
+    state.cards = withAssignees();
+    show({ id: OWNER, isAdmin: false });
+    const tile = screen.getByRole('article', { name: 'Ремонт ванной' });
+    expect(within(tile).getByText('ИЧ')).toBeInTheDocument();
+    expect(within(tile).getByText('Исполнитель: Ира Читатель')).toHaveClass('sr-only');
+    expect(
+      within(column('Назначено')).getByText('Исполнитель: Ольга Владелец'),
+    ).toBeInTheDocument();
+  });
+
+  test('the owner gives the card to another manager from a menu, and to nobody', async () => {
+    const user = userEvent.setup();
+    state.cards = withAssignees();
+    state.detail = { ...DETAIL, assignee_id: READER, assignee: { full_name: 'Ира Читатель' } };
+    show({ id: OWNER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Исполнитель: Ира Читатель' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Анна Админ' }));
+    expect(spies.assign).toHaveBeenCalledWith({ cardId: cardId(1), assigneeId: ADMIN });
+    await user.click(within(dialog).getByRole('button', { name: 'Исполнитель: Ира Читатель' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Без исполнителя' }));
+    expect(spies.assign).toHaveBeenLastCalledWith({ cardId: cardId(1), assigneeId: null });
+  });
+
+  test('the assignee moves her card on a board not hers, and nothing else of it', async () => {
+    const user = userEvent.setup();
+    state.cards = withAssignees();
+    show({ id: READER, isAdmin: false });
+    expect(
+      screen.queryByRole('button', { name: 'Действия с карточкой «Звонок юристу»' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Добавить карточку' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Действия с доской' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Действия с карточкой «Ремонт ванной»' }));
+    expect(await screen.findByRole('menuitem', { name: 'В «В работе»' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Дублировать' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'В архив' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: 'В «В работе»' }));
+    expect(spies.move).toHaveBeenCalledWith({ cardId: cardId(1), column: 'in_progress' });
+  });
+
+  test('the assignee works on the card open — column, steps, journal — but does not assign it', () => {
+    state.cards = withAssignees();
+    state.detail = { ...DETAIL, assignee_id: READER, assignee: { full_name: 'Ира Читатель' } };
+    show({ id: READER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('group', { name: 'Переместить в…' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox', { name: 'Комментарий' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Изменить' })).toBeInTheDocument();
+    expect(within(dialog).getByText(paragraph('Исполнитель: Ира Читатель'))).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /^Исполнитель:/ })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Дублировать' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'В архив' })).not.toBeInTheDocument();
+  });
+
+  test('another manager neither works on the card nor assigns it', () => {
+    state.cards = withAssignees();
+    state.detail = { ...DETAIL, assignee_id: OWNER, assignee: { full_name: 'Ольга Владелец' } };
+    show({ id: READER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).queryByRole('group', { name: 'Переместить в…' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('textbox', { name: 'Комментарий' })).not.toBeInTheDocument();
+    expect(within(dialog).getByText(paragraph('Исполнитель: Ольга Владелец'))).toBeInTheDocument();
+  });
+
+  test('the filter narrows the board to one person; «Назначено мне» comes first', async () => {
+    const user = userEvent.setup();
+    state.cards = withAssignees();
+    show({ id: OWNER, isAdmin: false });
+    const filter = screen.getByRole('combobox', { name: 'Исполнитель' });
+    expect(
+      within(filter)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual([
+      'Исполнитель: Все',
+      'Назначено мне',
+      'Без исполнителя',
+      'Анна Админ',
+      'Ира Читатель',
+    ]);
+    await user.selectOptions(filter, OWNER);
+    expect(screen.getByText('Звонок юристу')).toBeInTheDocument();
+    expect(screen.queryByText('Ремонт ванной')).not.toBeInTheDocument();
+    await user.selectOptions(filter, READER);
+    expect(screen.getByText('Ремонт ванной')).toBeInTheDocument();
+    expect(screen.queryByText('Звонок юристу')).not.toBeInTheDocument();
+  });
+
+  test("a new card is the owner's unless another person is picked", async () => {
+    const user = userEvent.setup();
+    show({ id: OWNER, isAdmin: false });
+    await user.click(screen.getByRole('button', { name: 'Добавить карточку' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('combobox', { name: 'Исполнитель' })).toHaveValue(OWNER);
+    await user.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Свет в коридоре');
+    await user.click(within(dialog).getByRole('button', { name: 'Создать' }));
+    expect(spies.saveCard).toHaveBeenCalledTimes(1);
+    expect(spies.assign).not.toHaveBeenCalled();
+  });
+
+  test('a new card given to another person is made, then assigned', async () => {
+    const user = userEvent.setup();
+    show({ id: OWNER, isAdmin: false });
+    await user.click(screen.getByRole('button', { name: 'Добавить карточку' }));
+    const dialog = screen.getByRole('dialog');
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Исполнитель' }), READER);
+    await user.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Свет в коридоре');
+    await user.click(within(dialog).getByRole('button', { name: 'Создать' }));
+    const created = (spies.saveCard.mock.calls[0][0] as { cardId: string }).cardId;
+    expect(spies.assign).toHaveBeenCalledWith({ cardId: created, assigneeId: READER });
+  });
+
+  test('the journal says who the card went to, by the names of the company', () => {
+    state.detail = {
+      ...DETAIL,
+      entries: [
+        ...DETAIL.entries,
+        {
+          id: 'e9',
+          kind: 'assignee_changed',
+          body: null,
+          facts: { from: OWNER, to: READER },
+          author_id: OWNER,
+          created_at: '2026-11-14T09:00:00Z',
+          edited_at: null,
+          author: { full_name: 'Ольга Владелец' },
+        },
+      ],
+    };
+    show({ id: OWNER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
+    expect(
+      within(screen.getByRole('dialog')).getByText(
+        'Исполнитель изменён: Ольга Владелец → Ира Читатель',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test("«Назначено мне» shows the viewer's cards of every board, each naming its board", () => {
+    const other = 'b0a2d100-0000-4000-8000-000000000002';
+    state.boards = [makeBoard(), makeBoard({ id: other, title: 'Закупки', owner_id: READER })];
+    state.mine = [
+      myCardSchema.parse({
+        ...makeCard(1, { title: 'Ремонт ванной', assignee_id: OWNER }),
+        board: { id: BOARD, title: 'Проекты', owner_id: OWNER, archived_at: null },
+      }),
+      myCardSchema.parse({
+        ...makeCard(2, { title: 'Купить лампы', board_id: other, assignee_id: OWNER }),
+        board: { id: other, title: 'Закупки', owner_id: READER, archived_at: null },
+      }),
+    ];
+    window.history.replaceState(null, '', '/problems?board=mine');
+    render(<MyCardsView viewer={{ id: OWNER, isAdmin: false }} />);
+    expect(screen.getByRole('heading', { name: 'Назначено мне' })).toBeInTheDocument();
+    const bathroom = screen.getByRole('article', { name: 'Ремонт ванной' });
+    expect(within(bathroom).getByText('Доска «Проекты»')).toBeInTheDocument();
+    const lamps = screen.getByRole('article', { name: 'Купить лампы' });
+    expect(within(lamps).getByText('Доска «Закупки»')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('textbox', { name: /Новая карточка в колонке/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('«Назначено мне» with nothing assigned says so', () => {
+    window.history.replaceState(null, '', '/problems?board=mine');
+    render(<MyCardsView viewer={{ id: OWNER, isAdmin: false }} />);
+    expect(screen.getByText('Вам пока не назначено ни одной карточки')).toBeInTheDocument();
   });
 });

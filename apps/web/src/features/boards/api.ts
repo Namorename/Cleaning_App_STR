@@ -7,10 +7,14 @@ import {
   boardCardListSchema,
   boardListSchema,
   cardDetailSchema,
+  myCardListSchema,
+  officePeopleSchema,
   type Board,
   type BoardCard,
   type CardDetail,
   type CardShelf,
+  type MyCard,
+  type OfficePerson,
 } from './schema';
 
 export type Client = SupabaseClient<Database>;
@@ -33,7 +37,8 @@ type BoardFunction =
   | 'delete_manager_step'
   | 'order_manager_steps'
   | 'save_manager_comment'
-  | 'delete_manager_comment';
+  | 'delete_manager_comment'
+  | 'set_manager_card_assignee';
 
 type BoardRpc = (
   fn: BoardFunction,
@@ -61,7 +66,8 @@ const BOARD_SELECT =
 
 const CARD_FIELDS =
   'id, board_id, title, description, column_key, color, due_on, property_id, created_at, moved_at, ' +
-  'archived_at, deleted_at, property:properties(name, hostaway_unit_id, parent:parent_id(name))';
+  'archived_at, deleted_at, property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
+  'assignee_id, assignee:profiles!manager_board_cards_assignee_id_fkey(full_name)';
 
 const CARD_SELECT = `${CARD_FIELDS}, steps:manager_board_steps(id, body, done_at)`;
 
@@ -96,6 +102,43 @@ export async function fetchBoardCards(client: Client, boardId: string): Promise<
       .range(from, to),
   );
   return boardCardListSchema.parse(rows);
+}
+
+const MY_CARD_SELECT = `${CARD_SELECT}, board:manager_boards!inner(id, title, owner_id, archived_at)`;
+
+/**
+ * «Назначено мне»: the cards the viewer is the assignee of, on every board of the company that is
+ * not archived, and neither archived nor deleted themselves.
+ */
+export async function fetchMyCards(client: Client, viewerId: string): Promise<MyCard[]> {
+  const rows = await fetchAllPages((from, to, withCount) =>
+    client
+      .from('manager_board_cards')
+      .select(MY_CARD_SELECT, withCount ? { count: 'exact' } : undefined)
+      .eq('assignee_id', viewerId)
+      .is('archived_at', null)
+      .is('deleted_at', null)
+      .is('board.archived_at', null)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to),
+  );
+  return myCardListSchema.parse(rows);
+}
+
+/** The people a card can be given to: the company's active managers and admins, by name. */
+export async function fetchOfficePeople(client: Client): Promise<OfficePerson[]> {
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, full_name')
+    .in('role', ['manager', 'admin'])
+    .eq('is_active', true)
+    .order('full_name', { ascending: true })
+    .order('id', { ascending: true });
+  if (error) {
+    throw error;
+  }
+  return officePeopleSchema.parse(data ?? []);
 }
 
 /** One card with its steps and its journal; null when there is no such card to see. */
@@ -166,6 +209,17 @@ export async function saveCard(client: Client, variables: SaveCardVariables): Pr
     p_color: fields.color,
     ...(variables.column === undefined ? {} : { p_column: variables.column }),
     ...(variables.steps === undefined ? {} : { p_steps: variables.steps }),
+  });
+}
+
+/** Gives the card to an active manager or admin of the company, or to nobody (null). */
+export async function setCardAssignee(
+  client: Client,
+  variables: { cardId: string; assigneeId: string | null },
+): Promise<void> {
+  await call(client, 'set_manager_card_assignee', {
+    p_id: variables.cardId,
+    p_assignee_id: variables.assigneeId,
   });
 }
 

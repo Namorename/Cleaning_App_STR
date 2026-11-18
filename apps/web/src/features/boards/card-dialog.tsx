@@ -15,6 +15,13 @@ import { cardColorStyle, SWATCH_CLASS } from '@/components/board/card-color';
 import { ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -29,9 +36,11 @@ import { CardFieldsForm, draftOf, fieldsOf, type FieldsDraft } from './card-fiel
 import { CardJournal } from './card-journal';
 import { CardSteps } from './card-steps';
 import { DueChip } from './due-chip';
+import { boardKeys } from './keys';
 import { LinkedText } from './linked-text';
 import {
   canEditBoard,
+  canWorkOn,
   cardPlace,
   shelfOf,
   type Board,
@@ -39,7 +48,15 @@ import {
   type CardDetail,
   type CardShelf,
 } from './schema';
-import { useCard, useDuplicateCard, useMoveCard, useSaveCard, useSetCardShelf } from './use-boards';
+import {
+  useCard,
+  useDuplicateCard,
+  useMoveCard,
+  useOfficePeople,
+  useSaveCard,
+  useSetCardAssignee,
+  useSetCardShelf,
+} from './use-boards';
 
 interface CardDialogProps {
   cardId: string;
@@ -51,13 +68,15 @@ interface CardDialogProps {
   onShelved: (card: CardDetail, shelf: CardShelf) => void;
   /** A copy was made: the board opens it. */
   onDuplicated: (cardId: string) => void;
+  /** The list on screen a move shows in at once: the board's cards by default. */
+  listKey?: readonly unknown[];
 }
 
 /**
- * A card over its board: the fields (its links open), the steps, the column,
- * and the journal beside them. Its owner and an admin change all of it; any
- * other manager reads it. A card in the archive or among the deleted is read
- * until «Вернуть».
+ * A card over its board: the fields (its links open), the assignee, the steps, the column, and
+ * the journal beside them. The board's owner and an admin change all of it; the card's assignee
+ * works on it — fields, steps, column, journal — but does not assign it, copy it or shelve it; any
+ * other manager reads it. A card in the archive or among the deleted is read until «Вернуть».
  */
 export function CardDialog(props: CardDialogProps) {
   const { t } = useTranslation();
@@ -96,10 +115,11 @@ function CardBody({
   today,
   onShelved,
   onDuplicated,
+  listKey,
 }: CardDialogProps & { card: CardDetail }) {
   const { t } = useTranslation();
   const language = useLanguage();
-  const move = useMoveCard(board.id);
+  const move = useMoveCard(listKey ?? boardKeys.cards(board.id));
   const shelve = useSetCardShelf();
   const duplicate = useDuplicateCard();
   const [dismissedDone, setDismissedDone] = useState(false);
@@ -108,9 +128,10 @@ function CardBody({
   // The copy «Дублировать» is making: a repeat after a lost answer is the same copy.
   const copyId = useRef<string | null>(null);
   // A card of another board in the address is read, never changed from this one's rights.
-  const boardEditable = canEditBoard(board, viewer) && card.board_id === board.id;
+  const isOwnBoard = card.board_id === board.id;
+  const boardEditable = canEditBoard(board, viewer) && isOwnBoard;
   const shelf = shelfOf(card);
-  const canEdit = boardEditable && shelf === 'active';
+  const canEdit = canWorkOn(board, card, viewer) && isOwnBoard && shelf === 'active';
   const offersDone =
     canEdit &&
     !dismissedDone &&
@@ -210,6 +231,7 @@ function CardBody({
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <div className="flex min-w-0 flex-col gap-6">
           <ColumnLine card={card} canEdit={canEdit} onMove={moveTo} />
+          <AssigneeLine card={card} canAssign={boardEditable && shelf === 'active'} />
           <CardFields card={card} today={today} canEdit={canEdit} />
           <CardSteps card={card} canEdit={canEdit} />
           {boardEditable && shelf === 'active' ? (
@@ -298,6 +320,64 @@ function ColumnLine({
           </Button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Who works on the card. The board's owner and an admin pick from the company's active managers and
+ * admins, or «Без исполнителя», in a menu — a press assigns, never arrowing through a list (one
+ * push goes to the new assignee); anybody else reads the name.
+ */
+function AssigneeLine({ card, canAssign }: { card: CardDetail; canAssign: boolean }) {
+  const { t } = useTranslation();
+  const people = useOfficePeople();
+  const assign = useSetCardAssignee();
+  const failure = assign.isError ? serverErrorText(assign.error) : null;
+  const name =
+    card.assignee_id === null
+      ? t('boards.noAssignee')
+      : (card.assignee?.full_name ?? t('boards.unknownPerson'));
+  const choose = (assigneeId: string | null) => {
+    if (assigneeId !== card.assignee_id && !assign.isPending) {
+      assign.mutate({ cardId: card.id, assigneeId });
+    }
+  };
+
+  if (!canAssign) {
+    return (
+      <p className="text-sm">
+        <span className="text-muted-foreground">{t('boards.assignee')}: </span>
+        {name}
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-sm font-medium">{t('boards.assignee')}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button type="button" variant="outline" className="h-11 self-start" />}
+          disabled={assign.isPending}
+          aria-label={`${t('boards.assignee')}: ${name}`}
+        >
+          {name}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          {(people.data ?? []).map((person) => (
+            <DropdownMenuItem key={person.id} onClick={() => choose(person.id)}>
+              {person.full_name ?? t('boards.unknownPerson')}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => choose(null)}>{t('boards.noAssignee')}</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {failure === null ? null : (
+        <p role="alert" className="text-sm text-destructive">
+          {failure.text}
+        </p>
+      )}
     </div>
   );
 }

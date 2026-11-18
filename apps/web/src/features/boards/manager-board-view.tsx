@@ -37,9 +37,11 @@ import { BoardNameDialog } from './board-name-dialog';
 import { CardDialog } from './card-dialog';
 import type { CardActions } from './card-tile';
 import { ManagerBoard } from './manager-board';
+import { boardKeys } from './keys';
 import { NewCardDialog } from './new-card-dialog';
 import {
   canEditBoard,
+  canWorkOn,
   shelfOf,
   type Board,
   type BoardCard,
@@ -51,6 +53,7 @@ import {
   useBoards,
   useDuplicateCard,
   useMoveCard,
+  useOfficePeople,
   useSetBoardArchived,
   useSetCardShelf,
 } from './use-boards';
@@ -63,8 +66,8 @@ interface ManagerBoardViewProps {
 /**
  * A manager board in «Задания» (docs/manager-boards.md): its name and owner,
  * what is late and what is due today, the search and the filters, the four
- * columns, and the archive. The owner and an admin change it; another manager
- * reads it, and the page says so.
+ * columns, and the archive. The owner and an admin change it; a card's assignee
+ * works on that card; another manager reads the rest, and the page says so.
  */
 export function ManagerBoardView({ boardId, viewer }: ManagerBoardViewProps) {
   const { t } = useTranslation();
@@ -137,10 +140,11 @@ function BoardPage({
   const [isRenaming, setIsRenaming] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [shelved, setShelved] = useState<Shelved | null>(null);
-  const move = useMoveCard(board.id);
+  const move = useMoveCard(boardKeys.cards(board.id));
   const shelve = useSetCardShelf();
   const duplicate = useDuplicateCard();
   const archiveBoard = useSetBoardArchived();
+  const people = useOfficePeople();
 
   const today = todayIso();
   const canEdit = canEditBoard(board, viewer);
@@ -202,16 +206,18 @@ function BoardPage({
     );
   };
 
-  const actions: CardActions | undefined = canEdit
-    ? {
-        onMove: (card, column) => {
-          setShelved(null);
-          move.mutate({ cardId: card.id, column }, outcome());
-        },
-        onDuplicate: copy,
-        onShelve: putOn,
-      }
-    : undefined;
+  const moveIt = (card: BoardCard, column: BoardCard['column_key']) => {
+    setShelved(null);
+    move.mutate({ cardId: card.id, column }, outcome());
+  };
+  // The owner and an admin: everything; a card's assignee: its moves; anybody else: nothing.
+  const actionsFor = (card: BoardCard): CardActions | undefined => {
+    if (canEdit) {
+      return { onMove: moveIt, onDuplicate: copy, onShelve: putOn };
+    }
+    return canWorkOn(board, card, viewer) ? { onMove: moveIt } : undefined;
+  };
+  const worksOnAny = canEdit || onBoard.some((card) => canWorkOn(board, card, viewer));
 
   return (
     <div className="flex flex-col gap-4">
@@ -282,6 +288,8 @@ function BoardPage({
         onChange={setFilters}
         order={order}
         onOrderChange={setOrder}
+        people={people.data ?? []}
+        viewerId={viewer.id}
       />
 
       <Tabs
@@ -304,7 +312,8 @@ function BoardPage({
             order={order}
             today={today}
             isFiltered={isFiltered}
-            actions={actions}
+            actionsFor={actionsFor}
+            canAdd={canEdit}
             cardHref={cardHref}
             onOpen={openCard}
           />
@@ -343,7 +352,7 @@ function BoardPage({
           </span>
         ) : isStale ? (
           t('boards.staleNote')
-        ) : canEdit ? (
+        ) : worksOnAny ? (
           t('boards.dragHint')
         ) : null}
       </p>
@@ -366,6 +375,7 @@ function BoardPage({
       {isCreating ? (
         <NewCardDialog
           boardId={board.id}
+          ownerId={board.owner_id}
           onClose={() => setIsCreating(false)}
           onCreated={(cardId) => {
             setIsCreating(false);

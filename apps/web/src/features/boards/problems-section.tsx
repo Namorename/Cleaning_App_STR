@@ -4,9 +4,10 @@ import { useSearchParams } from 'next/navigation';
 
 import { ProblemsView } from '@/features/problems/problems-view';
 
-import { readBoardAddress } from './address';
+import { MY_CARDS, readBoardAddress } from './address';
 import { BoardSwitcher } from './board-switcher';
 import { ManagerBoardView } from './manager-board-view';
+import { MyCardsView } from './my-cards-view';
 import type { BoardViewer } from './schema';
 
 interface ProblemsSectionProps {
@@ -28,6 +29,8 @@ export function ProblemsSection({ viewer }: ProblemsSectionProps) {
       <BoardSwitcher activeId={boardId} />
       {boardId === null ? (
         <ProblemsView />
+      ) : boardId === MY_CARDS ? (
+        <MyCardsView viewer={viewer} />
       ) : (
         <ManagerBoardView key={boardId} boardId={boardId} viewer={viewer} />
       )}

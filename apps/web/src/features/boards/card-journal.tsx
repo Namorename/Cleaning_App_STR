@@ -22,7 +22,7 @@ import {
   type CardDetail,
   type CardEntry,
 } from './schema';
-import { useDeleteComment, useSaveComment } from './use-boards';
+import { useDeleteComment, useOfficePeople, useSaveComment } from './use-boards';
 
 /** A day the server wrote, `YYYY-MM-DD`, or null. */
 function dayFact(value: unknown): string | null {
@@ -33,13 +33,37 @@ function countFact(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+/** A person the server named by id; the name comes from the company's people, never the journal. */
+function personFact(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' ? value : null;
+}
+
 /**
- * The sentence of a system line: the server keeps codes, dates and counts
- * (never a person's words); the reader's language makes them a sentence.
+ * The sentence of a system line: the server keeps codes, dates, counts and
+ * people's ids (never a person's words or name); the reader's language makes
+ * them a sentence, and `nameOf` names the people.
  */
-export function entrySentence(entry: CardEntry, t: TFunction, language: Language): string {
+export function entrySentence(
+  entry: CardEntry,
+  t: TFunction,
+  language: Language,
+  nameOf: (id: string) => string | null = () => null,
+): string {
   const { facts } = entry;
+  const person = (id: string | null) =>
+    id === null ? '—' : (nameOf(id) ?? t('boards.unknownPerson'));
   switch (entry.kind) {
+    case 'assignee_changed': {
+      const from = personFact(facts.from);
+      const to = personFact(facts.to);
+      if (from === null && to !== null) {
+        return t('boards.entries.assigneeSet', { to: person(to) });
+      }
+      if (to === null && from !== null) {
+        return t('boards.entries.assigneeRemoved', { from: person(from) });
+      }
+      return t('boards.entries.assigneeChanged', { from: person(from), to: person(to) });
+    }
     case 'moved': {
       const to = typeof facts.to === 'string' && isBoardColumn(facts.to) ? facts.to : null;
       return t('boards.entries.moved', {
@@ -241,9 +265,11 @@ function JournalLine({
 }: JournalLineProps) {
   const { t } = useTranslation();
   const language = useLanguage();
+  const people = useOfficePeople();
   const author = entry.author?.full_name ?? t('boards.unknownPerson');
   const when = formatDateTime(entry.created_at, language);
   const isComment = entry.kind === 'comment';
+  const nameOf = (id: string) => people.data?.find((person) => person.id === id)?.full_name ?? null;
 
   return (
     <li className="flex flex-col gap-1 border-l-2 border-border pl-3">
@@ -253,7 +279,9 @@ function JournalLine({
         {entry.edited_at === null ? null : ` · ${t('boards.edited')}`}
       </p>
       {!isComment ? (
-        <p className="text-sm text-muted-foreground italic">{entrySentence(entry, t, language)}</p>
+        <p className="text-sm text-muted-foreground italic">
+          {entrySentence(entry, t, language, nameOf)}
+        </p>
       ) : editing !== null ? (
         <div className="flex flex-col gap-2">
           <Textarea

@@ -100,6 +100,8 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => boards.fetchBoards(client),
   (client) => boards.fetchBoardCards(client, ANY_ID),
   (client) => boards.fetchCard(client, ANY_ID),
+  (client) => boards.fetchMyCards(client, ANY_ID),
+  (client) => boards.fetchOfficePeople(client),
   (client) => apartments.fetchRegistry(client),
   (client) => apartments.fetchProperty(client, ANY_PROPERTY),
   (client) => apartments.fetchOpenCleanings(client),

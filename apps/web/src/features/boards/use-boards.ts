@@ -12,6 +12,8 @@ import {
   fetchBoardCards,
   fetchBoards,
   fetchCard,
+  fetchMyCards,
+  fetchOfficePeople,
   moveCard,
   orderSteps,
   saveBoard,
@@ -19,6 +21,7 @@ import {
   saveComment,
   saveStep,
   setBoardArchived,
+  setCardAssignee,
   setCardShelf,
   setStepDone,
   type SaveBoardVariables,
@@ -50,6 +53,21 @@ export function useCard(cardId: string | null) {
     queryFn: () => fetchCard(client, cardId ?? ''),
     enabled: cardId !== null,
   });
+}
+
+/** «Назначено мне»: the viewer's cards on every live board. */
+export function useMyCards(viewerId: string) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: boardKeys.mine(viewerId),
+    queryFn: () => fetchMyCards(client, viewerId),
+  });
+}
+
+/** The company's active managers and admins: who a card can be given to, and who its journal names. */
+export function useOfficePeople() {
+  const client = useSupabase();
+  return useQuery({ queryKey: boardKeys.people(), queryFn: () => fetchOfficePeople(client) });
 }
 
 /** What a write leaves stale: the list of boards, a board's cards, the card open. */
@@ -123,10 +141,10 @@ function putBack(queryClient: QueryClient, kept: readonly Kept[] | undefined) {
 }
 
 /**
- * A move shows at once — on the board and on the card open — while the server
- * is asked, and goes back if it refuses.
+ * A move shows at once — in the list on screen (a board's cards, or «Назначено мне») and on the
+ * card open — while the server is asked, and goes back if it refuses.
  */
-export function useMoveCard(boardId: string) {
+export function useMoveCard(listKey: readonly unknown[]) {
   const client = useSupabase();
   const queryClient = useQueryClient();
   const invalidate = useInvalidate('cards', 'card');
@@ -134,10 +152,10 @@ export function useMoveCard(boardId: string) {
     mutationFn: (variables: { cardId: string; column: BoardColumn }) => moveCard(client, variables),
     onMutate: async ({ cardId, column }) => {
       const kept = [
-        await keep(queryClient, boardKeys.cards(boardId)),
+        await keep(queryClient, listKey),
         await keep(queryClient, boardKeys.card(cardId)),
       ];
-      queryClient.setQueryData<BoardCard[]>(boardKeys.cards(boardId), (cards) =>
+      queryClient.setQueryData<BoardCard[]>(listKey, (cards) =>
         cards?.map((card) => (card.id === cardId ? { ...card, column_key: column } : card)),
       );
       queryClient.setQueryData<CardDetail | null>(boardKeys.card(cardId), (card) =>
@@ -146,6 +164,17 @@ export function useMoveCard(boardId: string) {
       return kept;
     },
     onError: (_error, _variables, kept) => putBack(queryClient, kept),
+    onSettled: invalidate,
+  });
+}
+
+/** Gives a card to somebody, or to nobody: the boards and the card read it again. */
+export function useSetCardAssignee() {
+  const client = useSupabase();
+  const invalidate = useInvalidate('cards', 'card');
+  return useMutation({
+    mutationFn: (variables: { cardId: string; assigneeId: string | null }) =>
+      setCardAssignee(client, variables),
     onSettled: invalidate,
   });
 }

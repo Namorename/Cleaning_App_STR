@@ -71,7 +71,7 @@ describe('a move', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
-    const hook = renderHook(() => useMoveCard(BOARD), { wrapper });
+    const hook = renderHook(() => useMoveCard(boardKeys.cards(BOARD)), { wrapper });
     const column = () => ({
       board: (client.getQueryData(boardKeys.cards(BOARD)) as { column_key: string }[])[0]
         .column_key,

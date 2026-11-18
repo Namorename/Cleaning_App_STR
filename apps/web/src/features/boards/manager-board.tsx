@@ -25,11 +25,15 @@ interface ManagerBoardProps {
   order: CardOrder;
   today: string;
   isFiltered: boolean;
-  /** The owner or an admin; absent, the board is read only. */
-  actions?: CardActions;
+  /** What may be done to a card; none for a card the viewer only reads. */
+  actionsFor: (card: BoardCard) => CardActions | undefined;
+  /** The board's owner or an admin: each column ends in a quick add. */
+  canAdd: boolean;
   cardHref: (cardId: string) => string;
   /** A plain click on a card opens it over the board. */
   onOpen?: (cardId: string) => void;
+  /** Names a card's board on its tile («Назначено мне», where cards of every board meet). */
+  boardTitleOf?: (card: BoardCard) => string;
 }
 
 /**
@@ -44,16 +48,18 @@ export function ManagerBoard({
   order,
   today,
   isFiltered,
-  actions,
+  actionsFor,
+  canAdd,
   cardHref,
   onOpen,
+  boardTitleOf,
 }: ManagerBoardProps) {
   const { t } = useTranslation();
   const drag = useColumnDrag<BoardCard, BoardColumn>({
     columnOf: (card) => card.column_key,
-    onMove: (card, column) => actions?.onMove(card, column),
+    canMove: (card, column) => card.column_key !== column && actionsFor(card) !== undefined,
+    onMove: (card, column) => actionsFor(card)?.onMove(card, column),
   });
-  const canEdit = actions !== undefined;
 
   return (
     <div className="overflow-x-auto pb-1">
@@ -74,23 +80,27 @@ export function ManagerBoard({
               heading={<StatusBadge status={`problems.${column}`}>{name}</StatusBadge>}
               markClassName={TONE_MARK_BG[problemStatusTone(column)]}
               count={inColumn.length}
-              isDroppable={canEdit && drag.isDroppable(column)}
-              isOver={canEdit && drag.isOver(column)}
-              drop={canEdit ? drag.column(column) : undefined}
+              isDroppable={drag.isDroppable(column)}
+              isOver={drag.isOver(column)}
+              drop={drag.column(column)}
               emptyText={isFiltered ? t('boards.columnEmptyFiltered') : t('boards.columnEmpty')}
-              footer={canEdit ? <QuickAdd boardId={boardId} column={column} /> : undefined}
+              footer={canAdd ? <QuickAdd boardId={boardId} column={column} /> : undefined}
             >
-              {inColumn.map((card) => (
-                <CardTile
-                  key={card.id}
-                  card={card}
-                  today={today}
-                  href={cardHref(card.id)}
-                  onOpen={onOpen}
-                  actions={actions}
-                  drag={canEdit ? drag.item : undefined}
-                />
-              ))}
+              {inColumn.map((card) => {
+                const actions = actionsFor(card);
+                return (
+                  <CardTile
+                    key={card.id}
+                    card={card}
+                    today={today}
+                    href={cardHref(card.id)}
+                    onOpen={onOpen}
+                    actions={actions}
+                    drag={actions === undefined ? undefined : drag.item}
+                    boardTitle={boardTitleOf?.(card)}
+                  />
+                );
+              })}
             </BoardColumnFrame>
           );
         })}

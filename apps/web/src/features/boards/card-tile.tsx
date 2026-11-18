@@ -20,12 +20,16 @@ import { cn } from '@/lib/utils';
 
 import { DueChip, StepProgress } from './due-chip';
 import { openPlainly } from './open-plainly';
-import { cardPlace, type BoardCard, type CardShelf } from './schema';
+import { cardPlace, initialsOf, type BoardCard, type CardShelf } from './schema';
 
+/**
+ * What can be done to one card from the board: a move for whoever works on it (the owner, an
+ * admin, its assignee); a copy and the shelves for the board's owner and an admin only.
+ */
 export interface CardActions {
   onMove: (card: BoardCard, column: BoardColumn) => void;
-  onDuplicate: (card: BoardCard) => void;
-  onShelve: (card: BoardCard, shelf: CardShelf) => void;
+  onDuplicate?: (card: BoardCard) => void;
+  onShelve?: (card: BoardCard, shelf: CardShelf) => void;
 }
 
 interface CardTileProps {
@@ -36,9 +40,11 @@ interface CardTileProps {
   href: string;
   /** A plain click opens the card over the board ('openPlainly'). */
   onOpen?: (cardId: string) => void;
-  /** The owner or an admin: the menu and the drag; another manager only reads. */
+  /** Whoever works on the card: the menu and the drag; anybody else only reads it. */
   actions?: CardActions;
   drag?: ItemDrag<BoardCard>;
+  /** The card's board, named on a card shown away from it («Назначено мне»). */
+  boardTitle?: string;
 }
 
 /**
@@ -48,7 +54,7 @@ interface CardTileProps {
  * it — so nothing is left to the mouse alone. The title's link covers the
  * card; the menu sits above it.
  */
-export function CardTile({ card, today, href, onOpen, actions, drag }: CardTileProps) {
+export function CardTile({ card, today, href, onOpen, actions, drag, boardTitle }: CardTileProps) {
   const { t } = useTranslation();
   const titleId = useId();
   const place = cardPlace(card);
@@ -91,11 +97,38 @@ export function CardTile({ card, today, href, onOpen, actions, drag }: CardTileP
         </Link>
         {actions === undefined ? null : <CardMenu card={card} actions={actions} />}
       </div>
+      {boardTitle === undefined ? null : (
+        <span className="text-xs text-muted-foreground">
+          {t('boards.onBoard', { title: boardTitle })}
+        </span>
+      )}
       {place === null ? null : <span className="text-xs text-muted-foreground">{place}</span>}
       <DueChip dueOn={card.due_on} column={card.column_key} today={today} />
-      <StepProgress steps={card.steps} />
+      <div className="flex items-center justify-between gap-2">
+        <StepProgress steps={card.steps} />
+        <AssigneeMark card={card} />
+      </div>
       {hasColor ? <span className="sr-only">{t(`boards.colors.${card.color}`)}</span> : null}
     </article>
+  );
+}
+
+/** The assignee's initials in the card's corner, the full name for a reader and on hover. */
+function AssigneeMark({ card }: { card: BoardCard }) {
+  const { t } = useTranslation();
+  if (card.assignee_id === null) {
+    return null;
+  }
+  const name = card.assignee?.full_name ?? t('boards.unknownPerson');
+  const label = t('boards.assigneeOn', { name });
+  return (
+    <span
+      title={label}
+      className="ml-auto inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground"
+    >
+      <span aria-hidden="true">{initialsOf(name) || '?'}</span>
+      <span className="sr-only">{label}</span>
+    </span>
   );
 }
 
@@ -117,16 +150,24 @@ function CardMenu({ card, actions }: { card: BoardCard; actions: CardActions }) 
               {t('boards.moveToColumn', { column: t(`problems.statuses.${column}`) })}
             </DropdownMenuItem>
           ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => actions.onDuplicate(card)}>
-            {t('boards.duplicate')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => actions.onShelve(card, 'archived')}>
-            {t('boards.archiveCard')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => actions.onShelve(card, 'deleted')}>
-            {t('boards.deleteCard')}
-          </DropdownMenuItem>
+          {actions.onDuplicate === undefined && actions.onShelve === undefined ? null : (
+            <DropdownMenuSeparator />
+          )}
+          {actions.onDuplicate === undefined ? null : (
+            <DropdownMenuItem onClick={() => actions.onDuplicate?.(card)}>
+              {t('boards.duplicate')}
+            </DropdownMenuItem>
+          )}
+          {actions.onShelve === undefined ? null : (
+            <>
+              <DropdownMenuItem onClick={() => actions.onShelve?.(card, 'archived')}>
+                {t('boards.archiveCard')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => actions.onShelve?.(card, 'deleted')}>
+                {t('boards.deleteCard')}
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

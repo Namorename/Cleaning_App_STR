@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-import { boardHref } from './address';
+import { boardHref, MY_CARDS } from './address';
 import { BoardNameDialog } from './board-name-dialog';
 import { useBoards } from './use-boards';
 
@@ -29,7 +29,8 @@ const PILL =
 
 /**
  * The boards of «Задания», one click each: the technicians' board first, as
- * it always was, then every manager board of the company that is not archived,
+ * it always was, then «Назначено мне» (the viewer's cards from every board),
+ * then every manager board of the company that is not archived,
  * oldest first, and «Новая доска». The archived ones wait under «Архив досок»,
  * each opening read-only with «Вернуть доску».
  */
@@ -58,6 +59,13 @@ export function BoardSwitcher({ activeId }: BoardSwitcherProps) {
         className={pill(activeId === null)}
       >
         {t('boards.techBoard')}
+      </Link>
+      <Link
+        href={boardHref(MY_CARDS)}
+        aria-current={activeId === MY_CARDS ? 'page' : undefined}
+        className={pill(activeId === MY_CARDS)}
+      >
+        {t('boards.assignedToMe')}
       </Link>
       {live.map((board) => (
         <Link

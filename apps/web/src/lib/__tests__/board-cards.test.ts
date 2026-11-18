@@ -1,5 +1,7 @@
 import {
   boardSummary,
+  BOARD_ENTRY_KINDS,
+  canWorkOnCard,
   CARD_COLORS,
   CARD_COLOR_NAMES,
   dueState,
@@ -274,3 +276,49 @@ function contrast(left: string, right: string): number {
   const [light, dark] = [luminance(left), luminance(right)].sort((x, y) => y - x);
   return (light + 0.05) / (dark + 0.05);
 }
+
+describe('the assignee (20261118230000)', () => {
+  const MINE = 'a0000000-0000-4000-8000-000000000001';
+  const HERS = 'a0000000-0000-4000-8000-000000000002';
+
+  test('filters by one person, by nobody, or by everybody', () => {
+    const mine = card({ assignee_id: MINE });
+    const hers = card({ assignee_id: HERS });
+    const nobodys = card({ assignee_id: null });
+    const cached = card();
+    const pick = (assignee: string) =>
+      [mine, hers, nobodys, cached].filter((c) =>
+        matchesCardFilters(c, { ...EMPTY_CARD_FILTERS, assignee }, TODAY),
+      );
+
+    expect(pick('all')).toEqual([mine, hers, nobodys, cached]);
+    expect(pick(MINE)).toEqual([mine]);
+    expect(pick('none')).toEqual([nobodys, cached]);
+    expect(hasCardFilters({ ...EMPTY_CARD_FILTERS, assignee: MINE })).toBe(true);
+    expect(hasCardFilters(EMPTY_CARD_FILTERS)).toBe(false);
+  });
+
+  test("the owner, an admin and the card's assignee work on a card; another manager does not", () => {
+    const board = { owner_id: MINE, archived_at: null };
+    const theirs = { assignee_id: HERS };
+    const third = 'a0000000-0000-4000-8000-000000000003';
+
+    expect(canWorkOnCard(board, theirs, { id: MINE, isAdmin: false })).toBe(true);
+    expect(canWorkOnCard(board, theirs, { id: HERS, isAdmin: false })).toBe(true);
+    expect(canWorkOnCard(board, theirs, { id: third, isAdmin: true })).toBe(true);
+    expect(canWorkOnCard(board, theirs, { id: third, isAdmin: false })).toBe(false);
+    expect(canWorkOnCard(board, {}, { id: HERS, isAdmin: false })).toBe(false);
+  });
+
+  test('nobody works on a card of an archived board', () => {
+    const archived = { owner_id: MINE, archived_at: '2026-11-18T10:00:00Z' };
+    expect(canWorkOnCard(archived, { assignee_id: HERS }, { id: HERS, isAdmin: false })).toBe(
+      false,
+    );
+    expect(canWorkOnCard(archived, {}, { id: MINE, isAdmin: true })).toBe(false);
+  });
+
+  test('the journal knows the change of assignee', () => {
+    expect(BOARD_ENTRY_KINDS).toContain('assignee_changed');
+  });
+});

@@ -4,8 +4,12 @@ import { z } from 'zod';
  * Where a manager board stands in the address of «Задания»: `?board=<id>`
  * opens it over the technicians' board (a bare `/problems` is theirs, as it
  * always was), `shelf=archive` shows its archive, `card=<id>` opens a card
- * over it — so a card can be linked, and «Назад» closes it.
+ * over it — so a card can be linked, and «Назад» closes it. `?board=mine` is
+ * «Назначено мне»: the viewer's cards from every board.
  */
+
+/** The address's name of «Назначено мне» in place of a board's id. */
+export const MY_CARDS = 'mine';
 export type BoardShelfView = 'board' | 'archive';
 
 export interface BoardAddress {
@@ -23,10 +27,14 @@ function readId(value: string | null): string | null {
 }
 
 export function readBoardAddress(params: URLSearchParams): BoardAddress {
-  const boardId = readId(params.get(PARAM.board));
+  const named = params.get(PARAM.board);
+  const boardId = named === MY_CARDS ? MY_CARDS : readId(named);
   return {
     boardId,
-    view: boardId !== null && params.get(PARAM.view) === 'archive' ? 'archive' : 'board',
+    view:
+      boardId !== null && boardId !== MY_CARDS && params.get(PARAM.view) === 'archive'
+        ? 'archive'
+        : 'board',
     cardId: boardId === null ? null : readId(params.get(PARAM.card)),
   };
 }
