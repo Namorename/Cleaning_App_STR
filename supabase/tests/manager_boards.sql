@@ -52,6 +52,25 @@ exception when others then
   return case when v_hint like 'serverErrors.%' then v_hint else sqlstate end;
 end $$;
 
+-- A call that is now allowed (20261119090000): run in a subtransaction and rolled back, so what it
+-- would write does not change the rest of the suite. 'allowed', or the refusal as refusal() says it.
+create or replace function pg_temp.allowed(statement text)
+returns text language plpgsql as $$
+declare
+  v_hint text;
+begin
+  begin
+    execute statement;
+    raise exception 'pg_temp.allowed: undone';
+  exception when others then
+    if sqlerrm = 'pg_temp.allowed: undone' then
+      return 'allowed';
+    end if;
+    get stacked diagnostics v_hint = pg_exception_hint;
+    return case when v_hint like 'serverErrors.%' then v_hint else sqlstate end;
+  end;
+end $$;
+
 create or replace function pg_temp.host() returns uuid language sql immutable as $$
   select 'b0a2d000-0000-4000-8000-00000000000a'::uuid $$;
 create or replace function pg_temp.other_host() returns uuid language sql immutable as $$
@@ -299,12 +318,13 @@ select pg_temp.check('2.14 nothing refused was written',
   (select count(*) from public.manager_board_cards where id = pg_temp.cid(3)), 0::bigint);
 
 select pg_temp.as_user(pg_temp.ina());
-select pg_temp.check('2.15 another manager adds no card to the board',
-  pg_temp.refusal($q$ select public.save_manager_card(pg_temp.cid(3), pg_temp.bid(1), 'x', '', null, null, null) $q$),
-  'serverErrors.boardNotYours');
-select pg_temp.check('2.16 nor changes one',
-  pg_temp.refusal($q$ select public.save_manager_card(pg_temp.cid(1), pg_temp.bid(1), 'Hers', '', null, null, null) $q$),
-  'serverErrors.boardNotYours');
+-- Since 20261119090000 every manager works on the cards of every board (manager_boards_office.sql).
+select pg_temp.check('2.15 another manager adds a card to the board too',
+  pg_temp.allowed($q$ select public.save_manager_card(pg_temp.cid(3), pg_temp.bid(1), 'x', '', null, null, null, 'open') $q$),
+  'allowed');
+select pg_temp.check('2.16 and changes one',
+  pg_temp.allowed($q$ select public.save_manager_card(pg_temp.cid(1), pg_temp.bid(1), 'Hers', '', null, null, null) $q$),
+  'allowed');
 select pg_temp.as_user(pg_temp.ada());
 select pg_temp.check('2.17 an admin adds a card to anybody''s board',
   (select pg_temp.who(created_by) from public.save_manager_card(pg_temp.cid(4), pg_temp.bid(1), 'Admin card', '', null, null, 'teal')),
@@ -335,8 +355,8 @@ select pg_temp.check('3.3 every column is a column',
 select pg_temp.check('3.4 an unknown column is refused',
   pg_temp.refusal($q$ select public.move_manager_card(pg_temp.cid(1), 'done') $q$), 'serverErrors.boardColumnUnknown');
 select pg_temp.as_user(pg_temp.ina());
-select pg_temp.check('3.5 another manager moves nothing',
-  pg_temp.refusal($q$ select public.move_manager_card(pg_temp.cid(1), 'resolved') $q$), 'serverErrors.boardNotYours');
+select pg_temp.check('3.5 another manager moves a card too',
+  pg_temp.allowed($q$ select public.move_manager_card(pg_temp.cid(1), 'resolved') $q$), 'allowed');
 select pg_temp.as_user(pg_temp.hector());
 select pg_temp.check('3.6 nor a head technician',
   pg_temp.refusal($q$ select public.move_manager_card(pg_temp.cid(1), 'resolved') $q$), 'serverErrors.managerOnly');
@@ -440,15 +460,14 @@ select pg_temp.check('5.16 a step deleted',
 select pg_temp.check('5.17 a step already gone changes nothing',
   pg_temp.refusal($q$ select public.delete_manager_step('b0a2d300-0000-4000-8000-000000000999') $q$), 'no error');
 select pg_temp.as_user(pg_temp.ina());
-select pg_temp.check('5.18 another manager ticks, writes, orders and deletes no step',
-  array[pg_temp.refusal($q$ select public.set_manager_step_done(pg_temp.sid(1), false) $q$),
-        pg_temp.refusal($q$ select public.save_manager_step(pg_temp.sid(1), null, 'Mine') $q$),
-        pg_temp.refusal($q$ select public.save_manager_step(pg_temp.sid(3), pg_temp.cid(1), 'Mine') $q$),
-        pg_temp.refusal($q$ select public.delete_manager_step(pg_temp.sid(1)) $q$),
-        pg_temp.refusal(format('select public.order_manager_steps(%L, %L::uuid[])', pg_temp.cid(1),
+select pg_temp.check('5.18 another manager ticks, writes, orders and deletes steps too',
+  array[pg_temp.allowed($q$ select public.set_manager_step_done(pg_temp.sid(1), false) $q$),
+        pg_temp.allowed($q$ select public.save_manager_step(pg_temp.sid(1), null, 'Mine') $q$),
+        pg_temp.allowed($q$ select public.save_manager_step(pg_temp.sid(3), pg_temp.cid(1), 'Mine') $q$),
+        pg_temp.allowed($q$ select public.delete_manager_step(pg_temp.sid(1)) $q$),
+        pg_temp.allowed(format('select public.order_manager_steps(%L, %L::uuid[])', pg_temp.cid(1),
           (select array_agg(id) from public.manager_board_steps where card_id = pg_temp.cid(1))))],
-  array['serverErrors.boardNotYours', 'serverErrors.boardNotYours', 'serverErrors.boardNotYours',
-        'serverErrors.boardNotYours', 'serverErrors.boardNotYours']);
+  array['allowed', 'allowed', 'allowed', 'allowed', 'allowed']);
 select pg_temp.as_user(pg_temp.olga());
 select pg_temp.check('5.19 another company does not find the step',
   pg_temp.refusal($q$ select public.set_manager_step_done(pg_temp.sid(1), false) $q$), 'serverErrors.boardStepNotFound');
@@ -512,10 +531,10 @@ select pg_temp.check('6.11 a system line is not a comment to change',
   'serverErrors.boardCommentNotYours');
 
 select pg_temp.as_user(pg_temp.ina());
-select pg_temp.check('6.12 another manager writes nothing on the card and deletes nothing',
-  array[pg_temp.refusal($q$ select public.save_manager_comment(pg_temp.eid(4), pg_temp.cid(1), 'Hello') $q$),
-        pg_temp.refusal($q$ select public.delete_manager_comment(pg_temp.eid(1)) $q$)],
-  array['serverErrors.boardNotYours', 'serverErrors.boardNotYours']);
+select pg_temp.check('6.12 another manager writes on the card too, but deletes no comment not hers',
+  array[pg_temp.allowed($q$ select public.save_manager_comment(pg_temp.eid(4), pg_temp.cid(1), 'Hello') $q$),
+        pg_temp.allowed($q$ select public.delete_manager_comment(pg_temp.eid(1)) $q$)],
+  array['allowed', 'serverErrors.boardCommentNotYours']);
 
 select pg_temp.as_user(pg_temp.boss());
 select public.delete_manager_comment(pg_temp.eid(1));
@@ -602,8 +621,8 @@ select pg_temp.check('8.5 back from the bin, in its column',
 select pg_temp.check('8.6 an unknown state is refused',
   pg_temp.refusal($q$ select public.set_manager_card_state(pg_temp.cid(2), 'gone') $q$), 'serverErrors.unknown');
 select pg_temp.as_user(pg_temp.ina());
-select pg_temp.check('8.7 another manager shelves nothing',
-  pg_temp.refusal($q$ select public.set_manager_card_state(pg_temp.cid(2), 'deleted') $q$), 'serverErrors.boardNotYours');
+select pg_temp.check('8.7 another manager shelves a card too',
+  pg_temp.allowed($q$ select public.set_manager_card_state(pg_temp.cid(2), 'deleted') $q$), 'allowed');
 
 select pg_temp.as_user(pg_temp.boss());
 select public.set_manager_card_state(pg_temp.cid(1), 'archived');
@@ -622,9 +641,9 @@ select pg_temp.check('8.11 the original stays archived, its steps as they were',
   pg_temp.card(pg_temp.cid(1)) || ' ' || pg_temp.steps(pg_temp.cid(1)),
   'assigned green - - archived Clean up and air✓|Book the painter|Call the plumber✓');
 select pg_temp.as_user(pg_temp.ina());
-select pg_temp.check('8.12 another manager copies nothing',
-  pg_temp.refusal($q$ select public.duplicate_manager_card(pg_temp.cid(6), pg_temp.cid(7), 'x') $q$),
-  'serverErrors.boardNotYours');
+select pg_temp.check('8.12 another manager copies a card too',
+  pg_temp.allowed($q$ select public.duplicate_manager_card(pg_temp.cid(6), pg_temp.cid(7), 'x') $q$),
+  'allowed');
 
 -- A board archived and back.
 select pg_temp.check('8.13 another manager archives no board',

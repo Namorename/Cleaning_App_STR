@@ -4,13 +4,14 @@
 --
 -- What is being protected:
 -- - a new card — made by the owner or an admin, or copied — is the board owner's;
--- - the owner and an admin assign, reassign and clear; an active manager or admin of the company
---   only; the same person again changes nothing; never on an archived board or a shelved card;
+-- - any manager or admin of the company assigns, reassigns and clears (20261119090000; before it,
+--   the owner and an admin); an active manager or admin of the company only; the same person again
+--   changes nothing; never on an archived board or a shelved card;
 -- - a change leaves one journal line with the two ids and no words, and one push to the new
 --   assignee whose row carries the card's id only — none when they assigned it to themselves;
--- - the assignee works on that card (fields, due date, column, steps, comments) and on nothing
---   else: not the board, not the card's shelf or copy, not its assignment, not other cards; taken
---   off the card, the assignee loses it;
+-- - the assignee works on that card as every manager of the company works on every card
+--   (20261119090000), and on the board itself not at all: renaming and archiving it stay its
+--   owner's and an admin's;
 -- - a save of the fields in the shape of before leaves the assignee where it is.
 --
 -- Fixture ids live under b0a2e…. Dates are from current_date.
@@ -38,6 +39,25 @@ begin
 exception when others then
   get stacked diagnostics v_hint = pg_exception_hint;
   return case when v_hint like 'serverErrors.%' then v_hint else sqlstate end;
+end $$;
+
+-- A call that is now allowed (20261119090000): run in a subtransaction and rolled back, so what it
+-- would write does not change the rest of the suite. 'allowed', or the refusal as refusal() says it.
+create or replace function pg_temp.allowed(statement text)
+returns text language plpgsql as $$
+declare
+  v_hint text;
+begin
+  begin
+    execute statement;
+    raise exception 'pg_temp.allowed: undone';
+  exception when others then
+    if sqlerrm = 'pg_temp.allowed: undone' then
+      return 'allowed';
+    end if;
+    get stacked diagnostics v_hint = pg_exception_hint;
+    return case when v_hint like 'serverErrors.%' then v_hint else sqlstate end;
+  end;
 end $$;
 
 create or replace function pg_temp.host() returns uuid language sql immutable as $$
@@ -171,17 +191,16 @@ select pg_temp.check('3.1 the assignee changes the fields and the due date, move
         pg_temp.refusal($q$ select public.save_manager_comment('b0a2e400-0000-4000-8000-000000000001', pg_temp.cid(1), 'Tiles bought') $q$),
         pg_temp.refusal($q$ select public.save_manager_comment('b0a2e400-0000-4000-8000-000000000001', null, 'Tiles bought, fitted') $q$)],
   array['no error', 'no error', 'no error', 'no error', 'no error', 'no error']);
-select pg_temp.check('3.2 but not the board, the card''s shelf, its copy, its assignment, a new card or another card',
+select pg_temp.check('3.2 not the board; the card''s shelf, its copy, its assignment, a new card and another card, as every manager (20261119090000)',
   array[pg_temp.refusal($q$ select public.save_manager_board(pg_temp.board(), 'Mine') $q$),
         pg_temp.refusal($q$ select public.set_manager_board_archived(pg_temp.board(), true) $q$),
-        pg_temp.refusal($q$ select public.set_manager_card_state(pg_temp.cid(1), 'archived') $q$),
-        pg_temp.refusal($q$ select public.duplicate_manager_card(pg_temp.cid(1), pg_temp.cid(9), 'x') $q$),
-        pg_temp.refusal($q$ select public.set_manager_card_assignee(pg_temp.cid(1), pg_temp.ada()) $q$),
-        pg_temp.refusal($q$ select public.save_manager_card(pg_temp.cid(8), pg_temp.board(), 'x', '', null, null, null, 'open') $q$),
-        pg_temp.refusal($q$ select public.move_manager_card(pg_temp.cid(2), 'resolved') $q$)],
-  array['serverErrors.boardNotYours', 'serverErrors.boardNotYours', 'serverErrors.boardNotYours',
-        'serverErrors.boardNotYours', 'serverErrors.boardNotYours', 'serverErrors.boardNotYours',
-        'serverErrors.boardNotYours']);
+        pg_temp.allowed($q$ select public.set_manager_card_state(pg_temp.cid(1), 'archived') $q$),
+        pg_temp.allowed($q$ select public.duplicate_manager_card(pg_temp.cid(1), pg_temp.cid(9), 'x') $q$),
+        pg_temp.allowed($q$ select public.set_manager_card_assignee(pg_temp.cid(1), pg_temp.ada()) $q$),
+        pg_temp.allowed($q$ select public.save_manager_card(pg_temp.cid(8), pg_temp.board(), 'x', '', null, null, null, 'open') $q$),
+        pg_temp.allowed($q$ select public.move_manager_card(pg_temp.cid(2), 'resolved') $q$)],
+  array['serverErrors.boardNotYours', 'serverErrors.boardNotYours', 'allowed', 'allowed', 'allowed',
+        'allowed', 'allowed']);
 select pg_temp.as_server();
 select pg_temp.check('3.3 her work is the card''s, with her name on it',
   (select c.title || ' ' || c.column_key || ' ' || (c.due_on - current_date)::text from public.manager_board_cards c where c.id = pg_temp.cid(1))
@@ -193,8 +212,8 @@ select pg_temp.check('3.4 a save of the fields leaves the assignee where it is',
 select pg_temp.as_user(pg_temp.boss());
 select public.set_manager_card_assignee(pg_temp.cid(1), pg_temp.ada());
 select pg_temp.as_user(pg_temp.ina());
-select pg_temp.check('3.5 taken off the card, she works on it no more',
-  pg_temp.refusal($q$ select public.move_manager_card(pg_temp.cid(1), 'resolved') $q$), 'serverErrors.boardNotYours');
+select pg_temp.check('3.5 taken off the card, she still works on it as a manager of the company',
+  pg_temp.allowed($q$ select public.move_manager_card(pg_temp.cid(1), 'resolved') $q$), 'allowed');
 select pg_temp.as_server();
 select pg_temp.check('3.6 the admin she was replaced by heard of it',
   (pg_temp.pushes())[cardinality(pg_temp.pushes())], 'ada board_card_assigned ' || jsonb_build_object('card_id', pg_temp.cid(1))::text);
@@ -210,8 +229,8 @@ select pg_temp.as_user(pg_temp.olga());
 select pg_temp.check('4.2 another company finds no card',
   pg_temp.refusal($q$ select public.set_manager_card_assignee(pg_temp.cid(1), pg_temp.olga()) $q$), 'serverErrors.boardCardNotFound');
 select pg_temp.as_user(pg_temp.ina());
-select pg_temp.check('4.3 another manager assigns nothing on a board not hers',
-  pg_temp.refusal($q$ select public.set_manager_card_assignee(pg_temp.cid(2), pg_temp.ina()) $q$), 'serverErrors.boardNotYours');
+select pg_temp.check('4.3 another manager assigns on a board not hers too',
+  pg_temp.allowed($q$ select public.set_manager_card_assignee(pg_temp.cid(2), pg_temp.ina()) $q$), 'allowed');
 select pg_temp.as_user(pg_temp.boss());
 select public.set_manager_card_state(pg_temp.cid(2), 'archived');
 select pg_temp.check('4.4 a shelved card is not assigned',

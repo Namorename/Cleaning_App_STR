@@ -637,12 +637,12 @@
     },
     "delete_manager_comment": {
       "status": "internal",
-      "reason": "deletes a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "reason": "deletes a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "delete_manager_step": {
       "status": "internal",
-      "reason": "deletes a step of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "reason": "deletes a step of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "delete_resolution_plan": {
@@ -657,7 +657,7 @@
     },
     "duplicate_manager_card": {
       "status": "internal",
-      "reason": "copies a card with its steps of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "reason": "copies a card with its steps of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "effective_cleaner_notes": {
@@ -980,6 +980,11 @@
       "reason": "internal helper of the board functions: a known column",
       "defined_in": "20261118200000_manager_boards.sql"
     },
+    "manager_board_for_cards": {
+      "status": "internal",
+      "reason": "internal helper of the board functions: the live board whose cards any active manager or admin of the company works on; no client may call it",
+      "defined_in": "20261119090000_manager_cards_office_wide.sql"
+    },
     "manager_board_for_edit": {
       "status": "internal",
       "reason": "internal helper of the board functions: the board the caller may change",
@@ -987,7 +992,7 @@
     },
     "manager_card_for_edit": {
       "status": "internal",
-      "reason": "internal helper of the board functions: the card the caller may change",
+      "reason": "internal helper of the board functions: the card the caller may change (any active manager or admin of the company on a live board since 20261119090000)",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "manager_step_card": {
@@ -1034,7 +1039,7 @@
     },
     "move_manager_card": {
       "status": "internal",
-      "reason": "moves a card between the columns of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "reason": "moves a card between the columns of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "name_cleaning_worker": {
@@ -1112,7 +1117,7 @@
     },
     "order_manager_steps": {
       "status": "internal",
-      "reason": "puts the steps in a new order of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "reason": "puts the steps in a new order of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "problem_category_for_report": {
@@ -1575,17 +1580,17 @@
     },
     "save_manager_card": {
       "status": "internal",
-      "reason": "creates a card with its steps or saves its fields of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "reason": "creates a card with its steps or saves its fields of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "save_manager_comment": {
       "status": "internal",
-      "reason": "writes or edits a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "reason": "writes or edits a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "save_manager_step": {
       "status": "internal",
-      "reason": "adds a step to a card or changes its words of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "reason": "adds a step to a card or changes its words of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "save_property_checklist": {
@@ -1657,17 +1662,17 @@
     },
     "set_manager_card_assignee": {
       "status": "internal",
-      "reason": "assigns a card of a manager board to a manager or admin in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "reason": "assigns a card of a manager board to a manager or admin in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118230000_manager_card_assignee.sql"
     },
     "set_manager_card_state": {
       "status": "internal",
-      "reason": "archives, soft-deletes or returns a card of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "reason": "archives, soft-deletes or returns a card of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "set_manager_step_done": {
       "status": "internal",
-      "reason": "ticks or unticks a step of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
+      "reason": "ticks or unticks a step of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "set_problem_theme": {
