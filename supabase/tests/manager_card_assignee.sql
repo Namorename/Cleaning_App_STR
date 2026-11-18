@@ -16,7 +16,8 @@
 -- Fixture ids live under b0a2e…. Dates are from current_date.
 begin;
 
-alter default privileges for role postgres grant execute on functions to authenticated;
+-- The test's own helpers are called as service_role too (5.1, the sender's read).
+alter default privileges for role postgres grant execute on functions to authenticated, service_role;
 
 create or replace function pg_temp.check(label text, got anyelement, want anyelement)
 returns void language plpgsql as $$

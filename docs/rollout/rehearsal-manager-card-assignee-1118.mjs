@@ -50,8 +50,22 @@ const BEFORE = {
   task_statuses: "unassigned,assigned,accepted,in_progress,paused,blocked,done,cancelled,expired",
   problem_statuses: "open,assigned,in_progress,resolved,cancelled",
 };
-// Filled from the first green run (the probe after the migration alone).
-const AFTER = null;
+// The probe after the migration alone, from the rehearsal of 2026-11-18 (checked against the cloud after db push).
+const AFTER = {
+  head: "20261118230000",
+  applied: 139,
+  assignee_column: "assignee_id:uuid:notnull=false",
+  journal_kinds: "CHECK ((kind = ANY (ARRAY['comment'::text, 'moved'::text, 'due_changed'::text, 'step_done'::text, 'assignee_changed'::text])))",
+  push_kinds: "cleaning_new,cleaning_assigned,cleaning_unassigned,cleaning_cancelled,cleaning_moved,cleaning_window,cleaning_free,cleaning_declined,cleaning_interrupted,booking_cancelled_live,board_card_assigned,problem_new,chat_message,daily_digest",
+  functions: "delete_manager_comment(1) 2b426551e6518325329b387704fb522f; delete_manager_step(1) 3416f9597ed38dede98c1a85df73e4e7; duplicate_manager_card(3) 22571005309b8e8ce98a3ab8d1b4a8a8; manager_board_column(1) 51a8c80f5d28b6cca728dd7841105a4d; manager_board_for_edit(2) d889671504b15b4093f503a4bdd12145; manager_card_for_edit(2) a8cf1cdb54d495c52287b4c5699804b6; manager_step_card(1) 755b5a8fb942f553ce7d7616abf70065; move_manager_card(2) 723afdf74ee7cd0ff4033f8a47818138; order_manager_steps(2) 11c0a417b3b40b1d16014cde65b8ad0e; save_manager_board(2) 1c1152328c04ee39fbb296a19d70a488; save_manager_card(9) 81b291bb834aaea4a82114745b5b662c; save_manager_comment(3) 11e4bb00b5e7b5458fa11923a475e7c2; save_manager_step(3) 32cf8041e6be25575477f6dcbd71947a; set_manager_board_archived(2) 94bd11315badc02a55c8ba57e8621b24; set_manager_card_assignee(2) e89ee4126ed94354750308675bb2a5f4; set_manager_card_state(2) 418ec55ee6987052df879864355d22dc; set_manager_step_done(2) 795ef857ed63da946946b15665c056fc",
+  client_execute: "delete_manager_comment:authenticated, delete_manager_step:authenticated, duplicate_manager_card:authenticated, move_manager_card:authenticated, order_manager_steps:authenticated, save_manager_board:authenticated, save_manager_card:authenticated, save_manager_comment:authenticated, save_manager_step:authenticated, set_manager_board_archived:authenticated, set_manager_card_assignee:authenticated, set_manager_card_state:authenticated, set_manager_step_done:authenticated",
+  push_functions: "push_board_card_titles 7b5f999f137163cee6803dbd8ceb785c; push_on_card_assigned 5795ee6007f20608c8caf36125d803ca",
+  journal_triggers: "manager_board_entries_push_assigned",
+  titles_execute: "service_role",
+  client_grants: "manager_board_cards:authenticated:SELECT, manager_board_entries:authenticated:SELECT, manager_board_steps:authenticated:SELECT, manager_boards:authenticated:SELECT",
+  task_statuses: "unassigned,assigned,accepted,in_progress,paused,blocked,done,cancelled,expired",
+  problem_statuses: "open,assigned,in_progress,resolved,cancelled",
+};
 
 const projectId = readFileSync('supabase/config.toml', 'utf8').match(/^project_id\s*=\s*"([^"]+)"/m);
 const CONTAINER = `supabase_db_${projectId[1]}`;
