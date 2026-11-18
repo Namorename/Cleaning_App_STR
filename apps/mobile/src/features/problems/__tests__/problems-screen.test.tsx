@@ -140,15 +140,30 @@ describe('the role decides the button', () => {
     expect(useMyProblems).not.toHaveBeenCalled();
   });
 
-  test.each(['cleaner', 'manager', 'auditor'])(
-    'a %s keeps «Создать задание», and no board',
+  test.each(['cleaner', 'auditor'])('a %s keeps «Создать задание», and no board', async (role) => {
+    mockRole = role;
+
+    await render(<ProblemsScreen />);
+
+    expect(screen.getByRole('button', { name: REPORT })).toBeTruthy();
+    expect(screen.queryByText('Сломан замок у соседей')).toBeNull();
+  });
+
+  // The office runs the company from the phone (owner, 2026-11-18): the head
+  // technician's board, and «Создать задание» it had on the phone before.
+  test.each(['manager', 'admin'])(
+    'a %s gets the board of every task, and keeps «Создать задание»',
     async (role) => {
       mockRole = role;
 
       await render(<ProblemsScreen />);
 
-      expect(screen.getByRole('button', { name: REPORT })).toBeTruthy();
-      expect(screen.queryByText('Сломан замок у соседей')).toBeNull();
+      expect(screen.getByText('Сломан замок у соседей')).toBeTruthy();
+      expect(screen.getByLabelText('Статус').props.accessibilityRole).toBe('tablist');
+      expect(screen.queryByText('Кран течёт')).toBeNull();
+      expect(useMyProblems).not.toHaveBeenCalled();
+      await fireEvent.press(screen.getByRole('button', { name: REPORT }));
+      expect(router.push).toHaveBeenCalledWith('/problem/new');
     },
   );
 });

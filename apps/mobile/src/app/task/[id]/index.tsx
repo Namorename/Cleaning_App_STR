@@ -12,6 +12,7 @@ import { useSession } from '@/features/auth/session';
 import { SignedInRoute } from '@/features/auth/signed-in-route';
 import { useRole } from '@/features/auth/use-role';
 import { PlaceInstructions } from '@/features/knowledge/place-instructions';
+import { OfficeCleaningScreen } from '@/features/office/office-cleaning-screen';
 import { useTaskSteps } from '@/features/steps/use-steps';
 import { propertyName } from '@/features/tasks/format';
 import { HandBackSheet } from '@/features/tasks/hand-back-sheet';
@@ -44,9 +45,24 @@ export default function TaskRoute() {
   // app cold too — so the wait says a word that is nobody's.
   return (
     <SignedInRoute loadingText={t('common.loading')}>
-      <TaskScreen />
+      <TaskByRole />
     </SignedInRoute>
   );
+}
+
+/**
+ * The office reads a cleaning on a card of its own (owner, 2026-11-18): who is
+ * on it, «Назначить», «Отменить уборку», «Вернуть» — never the cleaner's take,
+ * accept, start or finish. Everybody else gets the cleaner's screen as it was.
+ */
+function TaskByRole() {
+  const role = useRole();
+  const parsed = Params.safeParse(useLocalSearchParams());
+
+  if (isOffice(role) && parsed.success) {
+    return <OfficeCleaningScreen taskId={parsed.data.id} />;
+  }
+  return <TaskScreen />;
 }
 
 /**

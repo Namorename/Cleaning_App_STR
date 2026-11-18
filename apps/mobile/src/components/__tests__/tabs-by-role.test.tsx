@@ -16,8 +16,9 @@ import { TabBar } from '../tab-bar';
  * Which tabs a person meets, by the role in her token (docs/tech-plan.md §4).
  * The cleaner keeps her four. The technician and the head technician have
  * nothing to do with cleanings: «Мои работы» and «Задания», no «Свободные» and
- * no «Расходники». The office on the phone, and a role this build does not
- * know, get the cleaner's — the view her tests already cover.
+ * no «Расходники». The office — a manager, an admin — runs the company from
+ * the phone (owner, 2026-11-18): «Уборки» of everybody, «Задания», «Доски». A
+ * role this build does not know gets the cleaner's — the view her tests cover.
  *
  * The layout is rendered as it is, each screen's options are turned into the
  * bar's by expo-router's own `href` processor, and the phone's own bar draws
@@ -124,6 +125,7 @@ function shownTabs(): string[] {
 
 const CLEANER_TABS = ['Мои уборки', 'Свободные', 'Задания', 'Расходники'];
 const TECHNICIAN_TABS = ['Мои работы', 'Задания'];
+const OFFICE_TABS = ['Уборки', 'Задания', 'Доски'];
 
 let os: jest.ReplaceProperty<typeof Platform.OS>;
 
@@ -140,8 +142,8 @@ test.each([
   ['cleaner', CLEANER_TABS],
   ['tech', TECHNICIAN_TABS],
   ['head_tech', TECHNICIAN_TABS],
-  ['manager', CLEANER_TABS],
-  ['admin', CLEANER_TABS],
+  ['manager', OFFICE_TABS],
+  ['admin', OFFICE_TABS],
   ['auditor', CLEANER_TABS],
   [undefined, CLEANER_TABS],
 ])('a %s is shown the tabs %j', async (role, tabs) => {
@@ -178,18 +180,43 @@ test.each(['tech', 'head_tech'])(
     const hidden = mockScreens
       .filter(({ options }) => options.href === null)
       .map(({ name }) => name);
-    expect(hidden).toEqual(['queue', 'supplies']);
+    expect(hidden).toEqual(['queue', 'supplies', 'boards']);
   },
 );
 
-test('the cleaner’s screens are all in the bar, none hidden', async () => {
+test('the cleaner’s screens are all in the bar; only the office’s boards are hidden', async () => {
   signInAs('cleaner');
 
   await renderBar();
 
-  expect(mockScreens.map(({ name }) => name)).toEqual(['index', 'queue', 'problems', 'supplies']);
-  expect(mockScreens.some(({ options }) => 'href' in options)).toBe(false);
+  expect(mockScreens.map(({ name }) => name)).toEqual([
+    'index',
+    'queue',
+    'problems',
+    'supplies',
+    'boards',
+  ]);
+  expect(
+    mockScreens.filter(({ options }) => 'href' in options).map(({ name }) => name),
+  ).toEqual(['boards']);
 });
+
+test.each(['manager', 'admin'])(
+  'a %s never meets «Свободные», «Расходники» or «Мои уборки» in the bar',
+  async (role) => {
+    signInAs(role);
+
+    await renderBar();
+
+    const hidden = mockScreens
+      .filter(({ options }) => options.href === null)
+      .map(({ name }) => name);
+    expect(hidden).toEqual(['queue', 'supplies']);
+    for (const word of ['Свободные', 'Расходники', 'Мои уборки']) {
+      expect(screen.queryByText(word, { includeHiddenElements: true })).toBeNull();
+    }
+  },
+);
 
 test('on iOS the reader counts only the technician’s two tabs', async () => {
   // Arrange: VoiceOver knows no tab; the name says it is one, and where.
@@ -208,14 +235,18 @@ test('on iOS the reader counts only the technician’s two tabs', async () => {
 });
 
 test.each([
-  ['cleaner', 'house'],
-  ['tech', 'wrench'],
-  ['head_tech', 'wrench'],
-])('the first tab of a %s draws %s', async (role, glyph) => {
+  ['cleaner', 'index', 'house'],
+  ['tech', 'index', 'wrench'],
+  ['head_tech', 'index', 'wrench'],
+  // «Уборки» as the panel's menu draws them, and the boards' grid.
+  ['manager', 'index', 'brush-cleaning'],
+  ['admin', 'index', 'brush-cleaning'],
+  ['manager', 'boards', 'layout-grid'],
+])('a %s’s tab %s draws %s', async (role, tab, glyph) => {
   signInAs(role);
   mockScreens.length = 0;
   await render(<TabsLayout />);
-  const drawIcon = mockScreens.find(({ name }) => name === 'index')?.options.tabBarIcon as
+  const drawIcon = mockScreens.find(({ name }) => name === tab)?.options.tabBarIcon as
     ((props: { focused: boolean; color: string; size: number }) => ReactNode) | undefined;
   expect(drawIcon).toBeDefined();
 

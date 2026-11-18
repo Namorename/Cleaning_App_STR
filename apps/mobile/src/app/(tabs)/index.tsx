@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
 import { z } from 'zod';
 
-import { isTechnician } from '@/features/auth/role';
+import { isOffice, isTechnician } from '@/features/auth/role';
 import { useRole } from '@/features/auth/use-role';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
+import { OfficeCleaningsScreen } from '@/features/office/office-cleanings-screen';
 import { PUSH_NOTICES } from '@/features/push/destination';
 import { DoneFooter } from '@/features/tasks/done-footer';
 import { PushNotice } from '@/features/tasks/push-notice';
@@ -27,7 +28,15 @@ const NO_ACCEPTS: ReadonlySet<string> = new Set();
 /** Set by a tap on a push about a cleaning that is no longer hers (features/push/hooks.ts). */
 const Params = z.object({ notice: z.enum(PUSH_NOTICES).optional() });
 
-export default function MyTasksScreen() {
+/**
+ * The first tab: on the office's phone every cleaning of the company, as a
+ * list or a calendar (owner, 2026-11-18); for everybody else her own, as it was.
+ */
+export default function FirstTab() {
+  return isOffice(useRole()) ? <OfficeCleaningsScreen /> : <MyTasksScreen />;
+}
+
+function MyTasksScreen() {
   const { t } = useTranslation();
   const { data, isPending, error, refetch, isRefetching } = useMyTasks();
   const { mutateAsync: accept } = useAcceptTask();

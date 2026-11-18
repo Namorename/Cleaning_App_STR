@@ -3,12 +3,14 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { router } from 'expo-router';
 
 import TaskRoute from '@/app/task/[id]';
+import { fetchOfficeTask } from '@/features/office/api';
+import type { OfficeTask } from '@/features/office/schema';
+import { officeKeys } from '@/features/office/use-office';
 import { createAppQueryClient, persistOptions } from '@/lib/query-client';
 import { withClient } from '@/testing/restored-cache';
 
 import { cancelCleaning, declineCleaning, fetchTask, interruptCleaning } from '../api';
 import type { CleaningTask } from '../schema';
-import { taskKeys } from '../use-tasks';
 
 /**
  * A cleaning taken off from its own screen (20261118120000): she declines one
@@ -63,6 +65,25 @@ jest.mock('../api', () => ({
   interruptCleaning: jest.fn(),
   cancelCleaning: jest.fn(),
 }));
+
+// The office reads a cleaning on its own card (features/office), with its own read.
+jest.mock('@/features/office/api', () => ({
+  fetchOfficeTask: jest.fn(),
+  fetchOfficeTasks: jest.fn(),
+  assignCleaning: jest.fn(),
+  restoreCleaning: jest.fn(),
+}));
+
+// The office card names the cleaners from the directory; none are needed here.
+jest.mock('@/features/board/use-board', () => ({
+  ...jest.requireActual<typeof import('@/features/board/use-board')>('@/features/board/use-board'),
+  useStaffDirectory: () => ({ data: [], error: null, refetch: jest.fn() }),
+}));
+
+/** The cleaning as the office reads it: the same row, and nobody took it off. */
+function asOffice(task: CleaningTask): OfficeTask {
+  return { ...task, assignee: null, cancelled_at: null, release_kind: null, offs: null };
+}
 
 function cleaning(overrides: Partial<CleaningTask> = {}): CleaningTask {
   return {
@@ -120,6 +141,7 @@ function appClient(): QueryClient {
 async function show(task: CleaningTask, role = 'cleaner'): Promise<QueryClient> {
   mockSession.session = { user: { app_metadata: { role } } };
   jest.mocked(fetchTask).mockResolvedValue(task);
+  jest.mocked(fetchOfficeTask).mockResolvedValue(asOffice(task));
   const queryClient = appClient();
   await render(<TaskRoute />, { wrapper: withClient(queryClient) });
   expect(await screen.findByText('CZ - Nadrazni Apt 6')).toBeTruthy();
@@ -288,8 +310,8 @@ describe('the office’s cancel', () => {
   test('sends the cancel, closes the sheet over the cleaning shown closed, and stays', async () => {
     const queryClient = await show(cleaning({ assignee_id: COLLEAGUE }), 'manager');
     jest
-      .mocked(fetchTask)
-      .mockResolvedValue(cleaning({ assignee_id: COLLEAGUE, status: 'cancelled' }));
+      .mocked(fetchOfficeTask)
+      .mockResolvedValue(asOffice(cleaning({ assignee_id: COLLEAGUE, status: 'cancelled' })));
 
     await open('Отменить уборку');
     await fireEvent.changeText(
@@ -300,16 +322,22 @@ describe('the office’s cancel', () => {
 
     await waitFor(() => expect(screen.queryByTestId('hand-back-sheet')).toBeNull());
     expect(cancelCleaning).toHaveBeenCalledWith(TASK_ID, 'Гость продлил');
-    expect(queryClient.getQueryData<CleaningTask>(taskKeys.one(TASK_ID))?.status).toBe('cancelled');
+    expect(queryClient.getQueryData<OfficeTask>(officeKeys.one(TASK_ID))?.status).toBe(
+      'cancelled',
+    );
+    expect(await screen.findByText('Отменена')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Отменить уборку' })).toBeNull();
     expect(router.back).not.toHaveBeenCalled();
     expect(router.replace).not.toHaveBeenCalled();
   });
 
-  test('a manager on her own cleaning has both her decline and the cancel', async () => {
+  // The office's phone shows the office card (owner, 2026-11-18): the office
+  // reassigns or cancels; it hands nothing back.
+  test('a manager on her own cleaning gets the office card: the cancel, not a decline', async () => {
     await show(cleaning(), 'manager');
 
-    expect(screen.getByRole('button', { name: 'Отказаться' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Отменить уборку' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Переназначить' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Отказаться' })).toBeNull();
   });
 });
