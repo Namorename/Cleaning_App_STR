@@ -286,6 +286,15 @@ export default function RootLayout() {
                       title: t('notifications.intro.title'),
                     }}
                   />
+                  {/* A manager board's card (docs/manager-boards.md): its board's tab is behind it. */}
+                  <Stack.Screen
+                    name="board-card/[id]"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('boards.switcherLabel'),
+                    }}
+                  />
                 </Stack>
               </ThemeProvider>
             </FontsReadyProvider>

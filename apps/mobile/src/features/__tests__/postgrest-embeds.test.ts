@@ -7,6 +7,7 @@ import { fetchMessages } from '@/features/chat/api';
 import { fetchProblemEvents } from '@/features/history/api';
 import { fetchHostSettings } from '@/features/host/api';
 import { fetchKbArticles, fetchKbPlace } from '@/features/knowledge/api';
+import { fetchBoardCards, fetchBoards, fetchCard } from '@/features/manager-boards/api';
 import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
 import { fetchReportProperties } from '@/features/properties/api';
 import type * as ProblemsApi from '@/features/problems/api';
@@ -105,6 +106,10 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchTask(ANY_ID),
   () => fetchMyProblems(),
   () => fetchProblem(ANY_ID),
+  // The office's manager boards (20261118200000).
+  () => fetchBoards(),
+  () => fetchBoardCards(ANY_ID),
+  () => fetchCard(ANY_ID),
   // The catalogue a cleaner picks a task's category from (20261115100000).
   () => fetchProblemCategories(),
   () => fetchMySupplyRequests(),
