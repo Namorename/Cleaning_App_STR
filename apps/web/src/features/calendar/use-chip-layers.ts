@@ -23,7 +23,6 @@ import {
   useCalendarTasks,
 } from './use-calendar';
 
-
 /** A layer that could not be read, and the sentence that says which. */
 export interface LayerFailure {
   messageKey: string;
@@ -123,9 +122,10 @@ export function useChipLayers({
     () =>
       new Set([
         ...(expired.data ?? []).map((row) => row.id),
-        ...(cancelled.data ?? []).map((task) => task.id),
+        // Off, the layer's cache may be minutes old: a cleaning returned since must stay drawn.
+        ...(showCancelled ? (cancelled.data ?? []) : []).map((task) => task.id),
       ]),
-    [expired.data, cancelled.data],
+    [expired.data, cancelled.data, showCancelled],
   );
   const live = useMemo<CalendarTask[]>(
     () => [
@@ -173,9 +173,7 @@ export function useChipLayers({
   const layers = [
     { layer: tasks, messageKey: 'panel.calendar.tasksError' },
     { layer: expired, messageKey: 'panel.calendar.expiredError' },
-    ...(showCancelled
-      ? [{ layer: cancelled, messageKey: 'panel.calendar.cancelledError' }]
-      : []),
+    ...(showCancelled ? [{ layer: cancelled, messageKey: 'panel.calendar.cancelledError' }] : []),
   ];
   // Not a layer of chips — the chips draw without it — but the assignee
   // filter lists nobody when it fails, and must not do so in silence.

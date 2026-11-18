@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { cancelCleaning, declineCleaning, interruptCleaning } from './api';
 import type { CleaningOffKind } from './offs';
@@ -15,7 +15,7 @@ export interface CleaningOffVariables {
  * Its own key, under none of the queue's: no default is registered for it
  * (`registerTaskMutations`), so nothing could replay it after a restart.
  */
-const CLEANING_OFF_KEY = ['cleaning-off'] as const;
+export const CLEANING_OFF_KEY = ['cleaning-off'] as const;
 
 /**
  * A cleaning taken off is dispatch, as the head technician's hand-out is
@@ -39,6 +39,18 @@ function takeCleaningOff({ kind, taskId, reason }: CleaningOffVariables): Promis
     case 'cancel':
       return cancelCleaning(taskId, reason);
   }
+}
+
+/**
+ * Are any of the queue's moves still on their way — steps, photos, takes made without signal?
+ * An interrupt waits for them: once the cleaning is no longer hers the server refuses them.
+ */
+export function useMovesOnTheirWay(): boolean {
+  return (
+    useIsMutating({
+      predicate: (mutation) => mutation.options.mutationKey?.[0] !== CLEANING_OFF_KEY[0],
+    }) > 0
+  );
 }
 
 /**

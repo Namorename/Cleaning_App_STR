@@ -141,23 +141,37 @@ export function useClearCleaningTime() {
   });
 }
 
+/**
+ * After a cancel or a return (20261118120000): the tasks, and the calendar's own layers too — a
+ * cleaning that never happened may be cancelled and returned, and its mark lives outside `tasks`.
+ * Not awaited: the question closes on the server's answer, not on every read after it.
+ */
+function useRefreshAfterOff() {
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidateTasks();
+  return () => {
+    void invalidate();
+    void queryClient.invalidateQueries({ queryKey: CALENDAR_LAYERS });
+  };
+}
+
 export function useCancelTask() {
   const client = useSupabase();
-  const invalidate = useInvalidateTasks();
+  const refresh = useRefreshAfterOff();
   return useMutation({
     mutationFn: (variables: CancelTaskVariables) => cancelTask(client, variables),
     // A refusal means the task changed meanwhile: refresh either way.
-    onSettled: invalidate,
+    onSettled: refresh,
   });
 }
 
 /** «Вернуть» a cleaning the office cancelled (20261118120000); refresh either way. */
 export function useRestoreTask() {
   const client = useSupabase();
-  const invalidate = useInvalidateTasks();
+  const refresh = useRefreshAfterOff();
   return useMutation({
     mutationFn: (taskId: string) => restoreTask(client, taskId),
-    onSettled: invalidate,
+    onSettled: refresh,
   });
 }
 

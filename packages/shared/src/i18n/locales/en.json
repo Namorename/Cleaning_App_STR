@@ -2444,7 +2444,8 @@
       "cancelConfirm": "Yes, cancel",
       "keep": "No",
       "reason": "Reason",
-      "reasonOptional": "Reason (optional)"
+      "reasonOptional": "Reason (optional)",
+      "waitForQueue": "Wait until the steps and photos made without signal have been sent."
     },
     "pushNotice": {
       "unassigned": "This cleaning was taken off you.",

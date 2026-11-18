@@ -2484,7 +2484,8 @@
       "cancelConfirm": "Ano, zrušit",
       "keep": "Ne",
       "reason": "Důvod",
-      "reasonOptional": "Důvod (nepovinné)"
+      "reasonOptional": "Důvod (nepovinné)",
+      "waitForQueue": "Počkejte, až se odešlou kroky a fotky pořízené bez signálu."
     },
     "pushNotice": {
       "unassigned": "Tento úklid vám byl odebrán.",

@@ -55,7 +55,7 @@ export function TasksView() {
   // question owns its own write and says its own refusal (CancelTaskDialog).
   const restore = useRestoreTask();
   const complete = useCompleteCleaning();
-  const cancelFailure = restore.isError
+  const actionFailure = restore.isError
     ? serverErrorText(restore.error)
     : complete.isError
       ? serverErrorText(complete.error)
@@ -107,11 +107,11 @@ export function TasksView() {
 
       <TasksFilters filters={filters} onChange={setFilters} staff={staff.data ?? []} />
 
-      {cancelFailure === null ? null : (
+      {actionFailure === null ? null : (
         <p role="alert" className="text-sm text-destructive">
-          {cancelFailure.text}
-          {cancelFailure.detail === null ? null : (
-            <span className="block text-xs text-muted-foreground">{cancelFailure.detail}</span>
+          {actionFailure.text}
+          {actionFailure.detail === null ? null : (
+            <span className="block text-xs text-muted-foreground">{actionFailure.detail}</span>
           )}
         </p>
       )}
@@ -146,8 +146,12 @@ export function TasksView() {
                 onOpenWork={setReading}
                 onOpenChat={openChat}
                 onCancel={setConfirming}
-                onRestore={(task) => restore.mutate(task.id)}
+                onRestore={(task) => {
+                  complete.reset();
+                  restore.mutate(task.id);
+                }}
                 onComplete={(task) => {
+                  restore.reset();
                   complete.reset();
                   setCompleting(task);
                   setCompletingShown(task);

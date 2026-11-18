@@ -31,13 +31,7 @@ import {
 } from './schema';
 import { CleaningWorkerMark, TaskClosing } from './task-closing';
 import { hasOffLines, TaskOffs } from './task-offs';
-import {
-  useRestoreTask,
-  useSetDuration,
-  useTask,
-  useTaskProblems,
-  useTaskWork,
-} from './use-tasks';
+import { useRestoreTask, useSetDuration, useTask, useTaskProblems, useTaskWork } from './use-tasks';
 
 interface TaskDrawerProps {
   /** The task being read; finished or not. */

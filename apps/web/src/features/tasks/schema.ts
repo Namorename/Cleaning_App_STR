@@ -106,7 +106,7 @@ export const taskOffsSchema = z.object({
     .catch(null)
     .default(null),
 });
-export type TaskOffs = z.infer<typeof taskOffsSchema>;
+export type CleaningOffs = z.infer<typeof taskOffsSchema>;
 
 /** A task as the panel reads it: the row plus the names it needs to show. */
 export const taskSchema = z.object({

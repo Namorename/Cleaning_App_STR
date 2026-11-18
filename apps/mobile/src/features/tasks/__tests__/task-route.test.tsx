@@ -106,6 +106,7 @@ jest.mock('@/features/steps/use-steps', () => ({
 // A cleaning taken off has its own tests (cleaning-offs-route.test.tsx); here it idles.
 jest.mock('@/features/tasks/use-cleaning-off', () => ({
   useCleaningOff: () => ({ isPending: false, error: null, mutate: jest.fn(), reset: jest.fn() }),
+  useMovesOnTheirWay: () => false,
 }));
 
 beforeEach(() => {

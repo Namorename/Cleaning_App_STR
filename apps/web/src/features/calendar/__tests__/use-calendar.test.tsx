@@ -166,7 +166,7 @@ describe('the loader of the past', () => {
     fetchExpiredBetween.mockResolvedValue([]);
   });
 
-  test('reads the bars, the live and the done, what never happened and the cancelled of its months', async () => {
+  test('reads the bars, the live and the done and what never happened of its months, not the cancelled', async () => {
     const { result } = renderWithCache(() => useCalendarPastLoader(CLIENT, false));
 
     await act(async () => {
@@ -176,7 +176,8 @@ describe('the loader of the past', () => {
     const months = ['2026-09-01..2026-10-01', '2026-10-01..2026-11-01'];
     expect(asked()).toEqual(months);
     expect(tasksAsked('active')).toEqual(months);
-    expect(tasksAsked('cancelled')).toEqual(months);
+    // Drawn behind their switch alone (owner, 2026-11-18): their layer reads them when it is on.
+    expect(tasksAsked('cancelled')).toEqual([]);
     expect(expiredAsked()).toEqual(months);
   });
 

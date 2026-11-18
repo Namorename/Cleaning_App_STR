@@ -1,5 +1,5 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
@@ -18,7 +18,7 @@ import { HandBackSheet } from '@/features/tasks/hand-back-sheet';
 import { latestMoveError } from '@/features/tasks/moves';
 import type { CleaningOffKind } from '@/features/tasks/offs';
 import { TaskDetail, TaskDetailSkeleton } from '@/features/tasks/task-detail';
-import { useCleaningOff } from '@/features/tasks/use-cleaning-off';
+import { useCleaningOff, useMovesOnTheirWay } from '@/features/tasks/use-cleaning-off';
 import {
   acceptVariables,
   useAcceptTask,
@@ -76,6 +76,20 @@ function TaskScreen() {
   const off = useCleaningOff();
   // The way off asked about, while its sheet is open.
   const [offAsked, setOffAsked] = useState<CleaningOffKind | null>(null);
+  // Her moves still on their way, the queue's (steps, photos made without signal): an
+  // interrupt waits for them, or the server refuses them once the cleaning is not hers.
+  const isSending = useMovesOnTheirWay();
+  // The way back, once the sheet has faded: a native modal and a navigation in the same tick
+  // may swallow the pop on iOS. Dropped with the screen.
+  const leaving = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (leaving.current !== null) {
+        clearTimeout(leaving.current);
+      }
+    },
+    [],
+  );
   const now = useNow();
 
   const isBusy =
@@ -105,7 +119,7 @@ function TaskScreen() {
           // Handed back, the cleaning is no longer hers to show; cancelled,
           // the screen shows it closed.
           if (kind !== 'cancel') {
-            leaveTask();
+            leaving.current = setTimeout(leaveTask, SHEET_FADE_MS);
           }
         },
       },
@@ -181,6 +195,7 @@ function TaskScreen() {
         <HandBackSheet
           kind={offAsked}
           isBusy={off.isPending}
+          isWaiting={offAsked === 'interrupt' && isSending}
           error={off.error}
           onConfirm={(reason) => confirmOff(offAsked, reason)}
           onClose={() => setOffAsked(null)}
@@ -189,6 +204,9 @@ function TaskScreen() {
     </>
   );
 }
+
+/** The sheet's fade (React Native's Modal, 'fade'), and a little over it. */
+const SHEET_FADE_MS = 350;
 
 /**
  * Back to where she came from, or — opened cold from a push, with nothing

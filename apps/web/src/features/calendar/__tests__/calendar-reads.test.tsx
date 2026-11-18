@@ -152,17 +152,14 @@ describe('the default open', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Показать прошлое' }));
 
-    // 25 September to 8 October: September is new to what never happened and
-    // to the cancelled; October is new to the cancelled only.
+    // 25 September to 8 October: September is new to what never happened. The cancelled are
+    // read only behind their switch (owner, 2026-11-18), off here.
     await waitFor(() =>
       expect(screen.getAllByRole('columnheader')[1]).toHaveAttribute('data-day', '2026-09-25'),
     );
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(ranges(reads.expired)).toEqual(['2026-09-01..2026-10-01']);
-    expect(ranges(reads.tasks, 'cancelled')).toEqual([
-      '2026-09-01..2026-10-01',
-      '2026-10-01..2026-11-01',
-    ]);
+    expect(ranges(reads.tasks, 'cancelled')).toEqual([]);
     expect(ranges(reads.tasks, 'active')).toEqual([]);
     expect(ranges(reads.bookings)).toEqual([]);
     expect(reads.properties).not.toHaveBeenCalled();

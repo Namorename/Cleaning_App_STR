@@ -48,9 +48,15 @@ interface HandBackSheetProps {
   isBusy: boolean;
   /** The last attempt's failure, said on the sheet, which stays open with her words. */
   error: Error | null;
+  /**
+   * Her own moves made without signal are still on their way (steps, photos): an interrupt
+   * waits for them — once the cleaning is no longer hers the server refuses them, and the
+   * sheet promises they are kept.
+   */
+  isWaiting?: boolean;
   /** Her words as sent: trimmed, null when she wrote none. */
   onConfirm: (reason: string | null) => void;
-  /** Closing leaves an answer on its way alone: it still lands. */
+  /** Not while an answer is on its way: what she sent cannot be called back. */
   onClose: () => void;
 }
 
@@ -62,7 +68,14 @@ interface HandBackSheetProps {
  * is not blank. The app's own sheet, never the system's Alert; a refusal is
  * said on it, in her language, and she may try again from it.
  */
-export function HandBackSheet({ kind, isBusy, error, onConfirm, onClose }: HandBackSheetProps) {
+export function HandBackSheet({
+  kind,
+  isBusy,
+  isWaiting = false,
+  error,
+  onConfirm,
+  onClose,
+}: HandBackSheetProps) {
   const { t } = useTranslation();
   // The reader's words: a technician hands back work, not a cleaning.
   const context = wordContext();
@@ -71,9 +84,11 @@ export function HandBackSheet({ kind, isBusy, error, onConfirm, onClose }: HandB
   const isRequired = isReasonRequired(kind);
   const toSend = reasonToSend(reason);
   const isMissing = isRequired && toSend === null;
+  // A sheet whose answer is on its way stays: «Нет», the backdrop and Back would only hide it.
+  const close = isBusy ? noop : onClose;
 
   const confirm = () => {
-    if (isBusy || isMissing) {
+    if (isBusy || isMissing || isWaiting) {
       return;
     }
     onConfirm(toSend);
@@ -84,7 +99,7 @@ export function HandBackSheet({ kind, isBusy, error, onConfirm, onClose }: HandB
       testID="hand-back-sheet"
       isVisible
       title={t(words.title, { context })}
-      onClose={onClose}
+      onClose={close}
     >
       <ScrollView contentContainerStyle={layout.body} keyboardShouldPersistTaps="handled">
         <Text tone="secondary">{t(words.text, { context })}</Text>
@@ -92,6 +107,8 @@ export function HandBackSheet({ kind, isBusy, error, onConfirm, onClose }: HandB
           <TextField
             label={t(isRequired ? 'tasks.offs.reason' : 'tasks.offs.reasonOptional')}
             isDisabled={isBusy}
+            // Why «yes» waits: the reason is required, and the reader is told so.
+            hint={isMissing ? t('serverErrors.reasonRequired') : undefined}
             maxLength={MAX_OFF_REASON_LENGTH}
             multiline
             onChangeText={setReason}
@@ -103,17 +120,24 @@ export function HandBackSheet({ kind, isBusy, error, onConfirm, onClose }: HandB
         </View>
       </ScrollView>
       {error !== null ? <FailureText error={error} /> : null}
+      {isWaiting ? (
+        <Text tone="secondary" accessibilityLiveRegion="polite">
+          {t('tasks.offs.waitForQueue')}
+        </Text>
+      ) : null}
       <Button
         variant="destructive"
         label={t(words.confirm, { context })}
-        isDisabled={isMissing}
+        isDisabled={isMissing || isWaiting}
         isBusy={isBusy}
         onPress={confirm}
       />
-      <Button variant="outline" label={t('tasks.offs.keep')} onPress={onClose} />
+      <Button variant="outline" label={t('tasks.offs.keep')} isDisabled={isBusy} onPress={close} />
     </BottomSheet>
   );
 }
+
+function noop(): void {}
 
 /** Sizes only: the colours are the components'. */
 const layout = StyleSheet.create({

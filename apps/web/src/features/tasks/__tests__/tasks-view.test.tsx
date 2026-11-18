@@ -574,7 +574,7 @@ describe('TasksView', () => {
     ]);
   });
 
-  test('a job the manager wrote is the one the menu offers to call off', async () => {
+  test('a job the manager wrote is offered to be called off, as any cleaning', async () => {
     render(<TasksView />);
 
     expect(await menuItems(rowOf('Вечерний осмотр'))).toEqual([

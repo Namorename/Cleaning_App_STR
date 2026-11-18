@@ -47,6 +47,16 @@ describe('cleaningTaskSchema — the kinds the office creates, and its note', ()
     // Cached by an older build: not known, which is not the same as none.
     expect(cleaningTaskSchema.parse(rowWithoutNote()).reservation_id).toBeUndefined();
   });
+
+  test('keeps the task a repair fixes, its absence, and a row cached before it was asked for', () => {
+    const problem = 'cccccccc-cccc-4ccc-8ccc-000000000001';
+    expect(cleaningTaskSchema.parse(rowWithoutNote({ problem_id: problem })).problem_id).toBe(
+      problem,
+    );
+    expect(cleaningTaskSchema.parse(rowWithoutNote({ problem_id: null })).problem_id).toBeNull();
+    // Not known: no way off is offered on it until the screen reads it again (offs.ts).
+    expect(cleaningTaskSchema.parse(rowWithoutNote()).problem_id).toBeUndefined();
+  });
 });
 
 describe('canStartNow', () => {

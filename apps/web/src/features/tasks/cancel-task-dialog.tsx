@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,8 @@ export function CancelTaskDialog({ task, onClose, onCancelled }: CancelTaskDialo
   const cancel = useCancelTask();
   const [reason, setReason] = useState('');
   const reasonId = useId();
+  // The focus starts on «Нет»: an Enter pressed by habit calls nothing off (team/confirm-dialog.tsx).
+  const keepRef = useRef<HTMLButtonElement>(null);
   const failure = cancel.isError ? serverErrorText(cancel.error) : null;
   const tellsHolder = task.assignee_id !== null && !isTaskClosed(task);
 
@@ -61,7 +63,7 @@ export function CancelTaskDialog({ task, onClose, onCancelled }: CancelTaskDialo
 
   return (
     <Dialog open onOpenChange={(open) => (open || cancel.isPending ? undefined : onClose())}>
-      <DialogContent showCloseButton={false}>
+      <DialogContent showCloseButton={false} initialFocus={keepRef}>
         <DialogHeader>
           <DialogTitle>{t('panel.tasks.actions.cancelConfirm')}</DialogTitle>
           <DialogDescription>{taskSummary(task, language, t)}</DialogDescription>
@@ -89,6 +91,7 @@ export function CancelTaskDialog({ task, onClose, onCancelled }: CancelTaskDialo
         )}
         <DialogFooter>
           <Button
+            ref={keepRef}
             type="button"
             variant="outline"
             className="h-11"

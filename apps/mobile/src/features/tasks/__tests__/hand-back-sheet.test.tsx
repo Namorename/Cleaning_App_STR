@@ -17,14 +17,21 @@ const onClose = jest.fn();
 interface Drawn {
   kind: CleaningOffKind;
   isBusy?: boolean;
+  isWaiting?: boolean;
   error?: Error | null;
 }
 
-async function draw({ kind, isBusy = false, error = null }: Drawn): Promise<void> {
+async function draw({
+  kind,
+  isBusy = false,
+  isWaiting = false,
+  error = null,
+}: Drawn): Promise<void> {
   await render(
     <HandBackSheet
       kind={kind}
       isBusy={isBusy}
+      isWaiting={isWaiting}
       error={error}
       onConfirm={onConfirm}
       onClose={onClose}
@@ -188,4 +195,34 @@ test('a failure it cannot translate is said generally, the server’s words smal
 
   expect(sheet().getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
   expect(sheet().getByText('Network request failed')).toBeTruthy();
+});
+
+describe('after review (20261118120000)', () => {
+  test('while the answer is on its way, «Нет» and the sheet stay: what was sent cannot be called back', async () => {
+    await draw({ kind: 'decline', isBusy: true });
+
+    await fireEvent.press(sheet().getByRole('button', { name: 'Нет' }));
+    await fireEvent.press(sheet().getByRole('button', { name: 'Закрыть' }));
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  test('an interrupt waits for her steps and photos still on their way, and says so', async () => {
+    await draw({ kind: 'interrupt', isWaiting: true });
+    await type('Причина', 'Нет ключа');
+
+    expect(
+      sheet().getByText('Дождитесь, пока отправятся шаги и фото, сделанные без связи.'),
+    ).toBeTruthy();
+    await fireEvent.press(confirmButton('Прервать'));
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  test('a required reason says why «yes» waits', async () => {
+    await draw({ kind: 'interrupt' });
+
+    expect(sheet().getByText('Укажите причину')).toBeTruthy();
+    await type('Причина', 'Нет ключа');
+    expect(sheet().queryByText('Укажите причину')).toBeNull();
+  });
 });

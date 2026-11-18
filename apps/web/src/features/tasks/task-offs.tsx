@@ -72,7 +72,12 @@ export function TaskOffs({ task, className }: TaskOffsProps) {
   const [head, ...rest] = lines;
   return (
     <div className={cn('flex flex-col', className)} data-task-offs="">
-      <span className={task.status === 'unassigned' ? 'font-medium text-foreground' : undefined}>
+      <span
+        className={cn(
+          'break-words whitespace-normal',
+          task.status === 'unassigned' ? 'font-medium text-foreground' : null,
+        )}
+      >
         {head}
       </span>
       {rest.map((line) => (
