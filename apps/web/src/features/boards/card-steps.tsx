@@ -2,7 +2,15 @@
 
 import { BOARD_LIMITS } from '@str-ops/shared';
 import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react';
-import { useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -57,7 +65,7 @@ export function CardSteps({ card, canEdit }: CardStepsProps) {
     save.mutate(
       { stepId: newId, cardId: card.id, body },
       outcome(() => {
-        setNewBody('');
+        setNewBody((now) => (now.trim() === body ? '' : now));
         setNewId(crypto.randomUUID());
       }),
     );
@@ -196,6 +204,12 @@ function StepRow({
   const isDone = step.done_at !== null;
   // Enter and Escape settle the change themselves: the blur that follows them is not a save.
   const isSettled = useRef(false);
+  // A new change starts unsettled, whatever the last one ended in.
+  useEffect(() => {
+    if (editing === null) {
+      isSettled.current = false;
+    }
+  }, [editing]);
 
   const keys = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {

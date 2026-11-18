@@ -371,7 +371,7 @@ function QuickAdd({ boardId, column }: { boardId: string; column: BoardColumn })
       },
       {
         onSuccess: () => {
-          setTitle('');
+          setTitle((now) => (now.trim() === words ? '' : now));
           attempt.current = null;
         },
       },

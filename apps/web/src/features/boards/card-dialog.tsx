@@ -8,7 +8,7 @@ import {
   LAST_BOARD_COLUMN,
   type BoardColumn,
 } from '@str-ops/shared';
-import { useRef, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cardColorStyle, SWATCH_CLASS } from '@/components/board/card-color';
@@ -317,6 +317,11 @@ function CardFields({
   const [draft, setDraft] = useState<FieldsDraft | null>(null);
   const failure = save.isError ? serverErrorText(save.error) : null;
   const place = cardPlace(card);
+  // The card's own place, kept selectable when it is no longer offered (archived).
+  const currentPlace = useMemo(
+    () => (card.property_id === null ? null : { id: card.property_id, name: place ?? '—' }),
+    [card.property_id, place],
+  );
 
   if (draft !== null && canEdit) {
     const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -335,9 +340,7 @@ function CardFields({
           draft={draft}
           onChange={setDraft}
           idPrefix={`card-${card.id}`}
-          currentPlace={
-            card.property_id === null ? null : { id: card.property_id, name: place ?? '—' }
-          }
+          currentPlace={currentPlace}
         />
         {failure === null ? null : (
           <p role="alert" className="text-sm text-destructive">
@@ -350,7 +353,10 @@ function CardFields({
             variant="outline"
             className="h-11"
             disabled={save.isPending}
-            onClick={() => setDraft(null)}
+            onClick={() => {
+              save.reset();
+              setDraft(null);
+            }}
           >
             {t('boards.cancel')}
           </Button>

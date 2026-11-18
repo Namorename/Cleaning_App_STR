@@ -11,7 +11,7 @@ import {
   type DueFilter,
 } from '@str-ops/shared';
 import { Ellipsis, Plus } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageHeader } from '@/components/page-header';
@@ -82,6 +82,10 @@ export function ManagerBoardView({ boardId, viewer }: ManagerBoardViewProps) {
     );
   }
   const board = boards.data.find((candidate) => candidate.id === boardId);
+  if (board === undefined && boards.isFetching) {
+    // A board just made: the list that names it is on its way.
+    return <LoadingState>{t('boards.loading')}</LoadingState>;
+  }
   if (board === undefined) {
     return <EmptyState>{t('serverErrors.boardNotFound')}</EmptyState>;
   }
@@ -119,6 +123,12 @@ function BoardPage({
   const [failure, setFailure] = useState<ServerErrorText | null>(null);
   // A card opened from this page was pushed onto the history: closing it goes back.
   const openedHere = useRef(false);
+  // Closed by «Назад» in the browser: the next close has no entry of ours to go back over.
+  useEffect(() => {
+    if (address.cardId === null) {
+      openedHere.current = false;
+    }
+  }, [address.cardId]);
   // The copy each card's «Дублировать» is making: a repeat after a lost answer is the same copy.
   const copies = useRef(new Map<string, string>());
   const [filters, setFilters] = useState<CardFilters>(EMPTY_CARD_FILTERS);

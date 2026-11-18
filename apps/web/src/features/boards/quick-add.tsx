@@ -42,7 +42,7 @@ export function QuickAdd({ boardId, column }: QuickAddProps) {
       },
       {
         onSuccess: () => {
-          setTitle('');
+          setTitle((now) => (now.trim() === words ? '' : now));
           setCardId(crypto.randomUUID());
         },
       },

@@ -162,13 +162,20 @@ function count(text: string, char: string): number {
  * (`…/Foo_(bar)`): only the brackets the link did not open are the sentence's.
  */
 function linkOf(raw: string): string {
+  // The brackets of the link, counted once; a closing one stripped off the end leaves the count.
+  const OPENING: Readonly<Record<string, string>> = { ')': '(', ']': '[', '}': '{' };
+  const closes = new Map(Object.keys(OPENING).map((char) => [char, count(raw, char)]));
+  const opens = new Map(Object.values(OPENING).map((char) => [char, count(raw, char)]));
   let end = raw.length;
   while (end > 0 && TRAILING.has(raw[end - 1])) {
     const char = raw[end - 1];
-    const opening = char === ')' ? '(' : char === ']' ? '[' : char === '}' ? '{' : null;
-    const head = raw.slice(0, end);
-    if (opening !== null && count(head, opening) >= count(head, char)) {
-      break;
+    const opening = OPENING[char];
+    if (opening !== undefined) {
+      const closing = closes.get(char) ?? 0;
+      if ((opens.get(opening) ?? 0) >= closing) {
+        break;
+      }
+      closes.set(char, closing - 1);
     }
     end -= 1;
   }

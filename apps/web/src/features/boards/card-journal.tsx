@@ -114,7 +114,7 @@ export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
     save.mutate(
       { entryId, cardId: card.id, body: words },
       outcome(() => {
-        setBody('');
+        setBody((now) => (now.trim() === words ? '' : now));
         setEntryId(crypto.randomUUID());
       }),
     );
