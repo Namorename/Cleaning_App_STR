@@ -12,12 +12,12 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { FailureText } from '@/components/failure-text';
 import { IconButton } from '@/components/icon-button';
 import { Text } from '@/components/text';
 import { TextField } from '@/components/text-field';
 import { MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 import { reportError } from '@/lib/sentry';
 
 import { ActionsSheet } from './board-sheets';
@@ -235,9 +235,7 @@ export function CardStepsList({ card, canEdit }: { card: CardDetail; canEdit: bo
           isDisabled={save.isPending}
         />
       ) : null}
-      {failed === undefined ? null : (
-        <Text tone="danger">{serverErrorText(failed.error).text}</Text>
-      )}
+      {failed === undefined ? null : <FailureText error={failed.error} />}
       <ActionsSheet
         isVisible={menuFor !== null}
         title={menuFor?.body ?? ''}
@@ -385,9 +383,7 @@ export function CardJournalList({
           />
         </View>
       ) : null}
-      {failed === undefined ? null : (
-        <Text tone="danger">{serverErrorText(failed.error).text}</Text>
-      )}
+      {failed === undefined ? null : <FailureText error={failed.error} />}
       <ActionsSheet
         isVisible={menuFor !== null}
         title={t('boards.journal')}

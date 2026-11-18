@@ -11,7 +11,7 @@ import {
 } from '@str-ops/shared';
 import { randomUUID } from 'expo-crypto';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
@@ -19,7 +19,9 @@ import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
 import { ChoiceChips } from '@/components/choice-chips';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { ErrorBanner } from '@/components/error-banner';
 import { ErrorState } from '@/components/error-state';
+import { FailureText } from '@/components/failure-text';
 import { LoadingState } from '@/components/loading-state';
 import { MonthGrid } from '@/components/month-grid';
 import { Text } from '@/components/text';
@@ -57,16 +59,20 @@ export function CardScreen({ cardId }: { cardId: string }) {
   const boards = useBoards();
   const viewer = useViewer();
 
-  if (card.isPending || boards.isPending) {
-    return <LoadingState label={t('boards.cardLoading')} />;
-  }
-  if (card.isError || boards.isError) {
-    return (
+  const retry = () => {
+    void card.refetch();
+    void boards.refetch();
+  };
+  // Only a card never read shows the failure: one read before stays on screen under a banner.
+  if (card.data === undefined || boards.data === undefined) {
+    return card.isError || boards.isError ? (
       <ErrorState
         error={card.error ?? boards.error}
         title={t('boards.cardLoadError')}
-        onRetry={() => void card.refetch()}
+        onRetry={retry}
       />
+    ) : (
+      <LoadingState label={t('boards.cardLoading')} />
     );
   }
   if (card.data === null) {
@@ -74,7 +80,12 @@ export function CardScreen({ cardId }: { cardId: string }) {
   }
   const board = boards.data.find((one) => one.id === card.data?.board_id) ?? null;
   return (
-    <CardBody card={card.data} boardEditable={board !== null && canEditBoard(board, viewer)} />
+    <>
+      {card.isError || boards.isError ? (
+        <ErrorBanner title={t('boards.staleNote')} error={card.error ?? boards.error} />
+      ) : null}
+      <CardBody card={card.data} boardEditable={board !== null && canEditBoard(board, viewer)} />
+    </>
   );
 }
 
@@ -97,6 +108,7 @@ function CardBody({ card, boardEditable }: { card: CardDetail; boardEditable: bo
     card.column_key !== LAST_BOARD_COLUMN &&
     isEveryStepDone(card.steps);
   const failed = [move, shelve, duplicate].find((mutation) => mutation.isError);
+  const pendingCopy = useRef<string | null>(null);
 
   const putOn = (next: CardShelf) =>
     shelve.mutate(
@@ -104,16 +116,31 @@ function CardBody({ card, boardEditable }: { card: CardDetail; boardEditable: bo
       { onSuccess: () => (next === 'active' ? undefined : router.back()) },
     );
   const copy = () => {
-    const copyId = randomUUID();
+    if (duplicate.isPending) {
+      return;
+    }
+    // One copy per attempt: a repeat after a lost answer is the same copy, not a second one.
+    const copyId = pendingCopy.current ?? randomUUID();
+    pendingCopy.current = copyId;
     const title = t('boards.copyTitle', { title: card.title }).slice(0, BOARD_LIMITS.cardTitle);
     duplicate.mutate(
       { sourceId: card.id, cardId: copyId, title },
-      { onSuccess: () => router.replace({ pathname: '/board-card/[id]', params: { id: copyId } }) },
+      {
+        onSuccess: () => {
+          pendingCopy.current = null;
+          router.replace({ pathname: '/board-card/[id]', params: { id: copyId } });
+        },
+      },
     );
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      contentContainerStyle={styles.screen}
+      keyboardShouldPersistTaps="handled"
+      // The comment and the new step sit at the bottom: the keyboard must not cover them (iOS).
+      automaticallyAdjustKeyboardInsets
+    >
       <Text variant="heading">{card.title}</Text>
       <Text variant="caption" tone="secondary">
         {t('boards.created', {
@@ -161,7 +188,7 @@ function CardBody({ card, boardEditable }: { card: CardDetail; boardEditable: bo
               value: column,
               label: t(`problems.statuses.${column}`),
             }))}
-            value={card.column_key}
+            value={card.column_key as BoardColumn}
             onChange={(column: BoardColumn) => move.mutate({ cardId: card.id, column })}
             accessibilityLabel={t('boards.moveTo')}
             semantics="radio"
@@ -200,9 +227,7 @@ function CardBody({ card, boardEditable }: { card: CardDetail; boardEditable: bo
           />
         </View>
       ) : null}
-      {failed === undefined ? null : (
-        <Text tone="danger">{serverErrorText(failed.error).text}</Text>
-      )}
+      {failed === undefined ? null : <FailureText error={failed.error} />}
 
       <CardJournalList card={card} viewer={viewer} canEdit={canEdit} />
 

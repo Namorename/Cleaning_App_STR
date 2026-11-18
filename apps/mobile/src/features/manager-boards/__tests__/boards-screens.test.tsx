@@ -25,7 +25,15 @@ import {
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), replace: jest.fn() },
 }));
-jest.mock('expo-crypto', () => ({ randomUUID: () => 'f1a2b3c4-1111-4111-8111-f1a2b3c40001' }));
+jest.mock('expo-crypto', () => {
+  let minted = 0;
+  return {
+    randomUUID: () => {
+      minted += 1;
+      return `f1a2b3c4-1111-4111-8111-${String(minted).padStart(12, '0')}`;
+    },
+  };
+});
 jest.mock('@/features/properties/use-properties', () => ({
   useReportProperties: () => ({ data: [], isPending: false }),
 }));
@@ -129,11 +137,17 @@ const mockState: {
   boards: Board[];
   cards: BoardCard[];
   detail: CardDetail | null;
+  /** The last read failed, what was read before it still in hand. */
+  isStale: boolean;
+  /** The writes the server refuses. */
+  failing: Set<jest.Mock>;
 } = {
   viewer: { id: OWNER, isAdmin: false },
   boards: [board(BOARD, 'Проекты'), board(SECOND, 'Закупки', READER)],
   cards: CARDS,
   detail: DETAIL,
+  isStale: false,
+  failing: new Set(),
 };
 
 const mockSpies = {
@@ -151,9 +165,16 @@ function mockMutation(spy: jest.Mock) {
     isError: false,
     error: null,
     reset: jest.fn(),
-    mutate: (variables: unknown, options?: { onSuccess?: () => void }) => {
+    mutate: (
+      variables: unknown,
+      options?: { onSuccess?: () => void; onError?: (error: unknown) => void },
+    ) => {
       spy(variables);
-      options?.onSuccess?.();
+      if (mockState.failing.has(spy)) {
+        options?.onError?.({ message: 'lost' });
+      } else {
+        options?.onSuccess?.();
+      }
     },
   };
 }
@@ -173,7 +194,13 @@ jest.mock('../use-boards', () => ({
     data: mockState.cards,
     refetch: jest.fn(),
   }),
-  useCard: () => ({ isPending: false, isError: false, data: mockState.detail, refetch: jest.fn() }),
+  useCard: () => ({
+    isPending: false,
+    isError: mockState.isStale,
+    error: mockState.isStale ? new Error('offline') : null,
+    data: mockState.detail,
+    refetch: jest.fn(),
+  }),
   useSaveCard: () => mockMutation(mockSpies.saveCard),
   useMoveCard: () => mockMutation(mockSpies.move),
   useSetCardShelf: () => mockMutation(mockSpies.shelve),
@@ -193,7 +220,45 @@ beforeEach(() => {
   mockState.boards = [board(BOARD, 'Проекты'), board(SECOND, 'Закупки', READER)];
   mockState.cards = CARDS;
   mockState.detail = DETAIL;
+  mockState.isStale = false;
+  mockState.failing = new Set();
   jest.clearAllMocks();
+});
+
+describe('after the review of the phone', () => {
+  test('a refresh that fails keeps the card read before, under a banner', async () => {
+    mockState.isStale = true;
+    await render(<CardScreen cardId={DETAIL.id} />);
+    expect(screen.getByText('Ремонт ванной')).toBeOnTheScreen();
+    expect(screen.getByText(/^Не удалось обновить доску/)).toBeOnTheScreen();
+  });
+
+  test('a column or a journal line a later server adds leaves the screens readable', async () => {
+    mockState.detail = cardDetailSchema.parse({
+      ...DETAIL,
+      column_key: 'waiting',
+      entries: [...DETAIL.entries, { ...DETAIL.entries[0], id: 'e9', kind: 'reminded', facts: {} }],
+    });
+    await render(<CardScreen cardId={DETAIL.id} />);
+    expect(screen.getByText('Ремонт ванной')).toBeOnTheScreen();
+    expect(screen.getByText('Мастер придёт во вторник')).toBeOnTheScreen();
+  });
+
+  test('a quick add refused once is asked again under the same id; other words, another id', async () => {
+    mockState.failing.add(mockSpies.saveCard);
+    await render(<BoardsTab />);
+    const field = screen.getByLabelText('Новая карточка в колонке «Открыто»');
+    await fireEvent.changeText(field, 'Позвонить');
+    await fireEvent(field, 'submitEditing');
+    await fireEvent(field, 'submitEditing');
+    await fireEvent.changeText(field, 'Позвонить электрику');
+    await fireEvent(field, 'submitEditing');
+    const ids = mockSpies.saveCard.mock.calls.map(
+      ([variables]) => (variables as { cardId: string }).cardId,
+    );
+    expect(ids[1]).toBe(ids[0]);
+    expect(ids[2]).not.toBe(ids[0]);
+  });
 });
 
 describe('the boards tab', () => {

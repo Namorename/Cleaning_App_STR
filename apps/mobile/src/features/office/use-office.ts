@@ -13,12 +13,7 @@ import {
   type AssignCleaningVariables,
 } from './api';
 import { runProblemAction, type ProblemAction } from './problem-api';
-import {
-  officeTaskListSchema,
-  officeTaskSchema,
-  type DayRange,
-  type OfficeTask,
-} from './schema';
+import { officeTaskListSchema, officeTaskSchema, type DayRange, type OfficeTask } from './schema';
 
 /**
  * Under `tasks`, so whatever refreshes the cleanings — a move, a cancel, a push
@@ -47,7 +42,11 @@ function readOfficeTask(data: unknown): OfficeTask | null {
   return readCached(oneOrNoOfficeTaskSchema, data, 'office task');
 }
 
-/** The company's cleanings on the days of `range` (≤ 62), as the office's «Уборки» lists them. */
+/**
+ * The company's cleanings on the days of `range` (≤ 62), as the office's «Уборки» lists them.
+ * Read with a signal for the session only: every range a manager looks through would otherwise
+ * stay in the one value the disk keeps the cache in, and swell it past what the phone can store.
+ */
 export function useOfficeTasks(range: DayRange) {
   const { userId } = useSession();
 
@@ -56,6 +55,7 @@ export function useOfficeTasks(range: DayRange) {
     queryFn: () => fetchOfficeTasks(range),
     select: readOfficeTasks,
     enabled: userId !== null,
+    meta: { persist: false },
   });
 }
 

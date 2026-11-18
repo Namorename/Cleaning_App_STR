@@ -13,7 +13,7 @@ import {
 } from '@str-ops/shared';
 import { randomUUID } from 'expo-crypto';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
@@ -21,6 +21,7 @@ import { Button } from '@/components/button';
 import { ChoiceChips } from '@/components/choice-chips';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
+import { FailureText } from '@/components/failure-text';
 import { IconButton } from '@/components/icon-button';
 import { ListRow } from '@/components/list-row';
 import { LoadingState } from '@/components/loading-state';
@@ -58,16 +59,16 @@ export function BoardsTab() {
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'create' | 'archived' | null>(null);
 
-  if (boards.isPending) {
-    return <LoadingState label={t('boards.loading')} />;
-  }
-  if (boards.isError) {
-    return (
+  // Only boards never read show the failure: a refresh that fails keeps the ones read before.
+  if (boards.data === undefined) {
+    return boards.isError ? (
       <ErrorState
         error={boards.error}
         title={t('boards.loadError')}
         onRetry={() => void boards.refetch()}
       />
+    ) : (
+      <LoadingState label={t('boards.loading')} />
     );
   }
   const all = boards.data;
@@ -257,7 +258,6 @@ function BoardBody({ board, viewer }: BoardBodyProps) {
         <IconButton
           icon="action.search"
           accessibilityLabel={t('boards.filters.label')}
-          accessibilityValue={hasCardFilters(filters) ? { text: '•' } : undefined}
           onPress={() => setSheet('filters')}
         />
       </View>
@@ -269,15 +269,14 @@ function BoardBody({ board, viewer }: BoardBodyProps) {
         semantics="tabs"
       />
       {canEdit && pane !== 'archive' ? <QuickAdd boardId={board.id} column={pane} /> : null}
-      {failure === undefined ? null : (
-        <Text tone="danger">{serverErrorText(failure.error).text}</Text>
-      )}
+      {failure === undefined ? null : <FailureText error={failure.error} />}
     </View>
   );
 
   return (
     <>
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={shown}
         keyExtractor={(card) => card.id}
         ListHeaderComponent={header}
@@ -350,7 +349,9 @@ function QuickAdd({ boardId, column }: { boardId: string; column: BoardColumn })
   const { t } = useTranslation();
   const save = useSaveCard();
   const [title, setTitle] = useState('');
-  const [cardId, setCardId] = useState(() => randomUUID());
+  // One id per attempt — the same column and words: a repeat after a lost answer is the same
+  // card, and a changed title or column is a new card, not an answer of the old one.
+  const attempt = useRef<{ key: string; cardId: string } | null>(null);
   const failure = save.isError ? serverErrorText(save.error).text : null;
 
   const submit = () => {
@@ -358,6 +359,9 @@ function QuickAdd({ boardId, column }: { boardId: string; column: BoardColumn })
     if (words === '' || save.isPending) {
       return;
     }
+    const key = `${column}\n${words}`;
+    const cardId = attempt.current?.key === key ? attempt.current.cardId : randomUUID();
+    attempt.current = { key, cardId };
     save.mutate(
       {
         cardId,
@@ -368,7 +372,7 @@ function QuickAdd({ boardId, column }: { boardId: string; column: BoardColumn })
       {
         onSuccess: () => {
           setTitle('');
-          setCardId(randomUUID());
+          attempt.current = null;
         },
       },
     );
@@ -404,24 +408,32 @@ function ShelvedRow({
 }) {
   const { t } = useTranslation();
   const shelf = shelfOf(card);
+  // The row and «Вернуть» side by side, not one inside the other: a screen reader reaches both.
   return (
-    <ListRow
-      title={card.title}
-      subtitle={shelf === 'deleted' ? t('boards.deletedCards') : t('boards.archivedCards')}
-      onPress={() => onOpen(card.id)}
-      right={
-        canRestore ? (
-          <Button
-            label={t('boards.restoreCard')}
-            variant="outline"
-            isBusy={isBusy}
-            onPress={onRestore}
-          />
-        ) : undefined
-      }
-    />
+    <View style={shelvedStyles.row}>
+      <View style={shelvedStyles.title}>
+        <ListRow
+          title={card.title}
+          subtitle={shelf === 'deleted' ? t('boards.deletedCards') : t('boards.archivedCards')}
+          onPress={() => onOpen(card.id)}
+        />
+      </View>
+      {canRestore ? (
+        <Button
+          label={t('boards.restoreCard')}
+          variant="outline"
+          isBusy={isBusy}
+          onPress={onRestore}
+        />
+      ) : null}
+    </View>
   );
 }
+
+const shelvedStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  title: { flex: 1 },
+});
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({

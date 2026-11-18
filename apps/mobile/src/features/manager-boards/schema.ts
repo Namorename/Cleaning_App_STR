@@ -1,4 +1,4 @@
-import { BOARD_COLUMNS, BOARD_ENTRY_KINDS, propertyPathOf } from '@str-ops/shared';
+import { BOARD_ENTRY_KINDS, propertyPathOf } from '@str-ops/shared';
 import { z } from 'zod';
 
 /**
@@ -40,7 +40,9 @@ export const boardCardSchema = z.object({
   board_id: z.string(),
   title: z.string(),
   description: z.string(),
-  column_key: z.enum(BOARD_COLUMNS),
+  // A string, not the four: a column a later server adds leaves this phone's lists readable
+  // (the card simply stands in no column it shows) instead of failing the whole read.
+  column_key: z.string(),
   color: z.string().nullable(),
   due_on: z.string().nullable(),
   property_id: z.number().nullable(),
@@ -59,7 +61,8 @@ export type CardStep = z.infer<typeof cardStepSchema>;
 
 export const cardEntrySchema = z.object({
   id: z.string(),
-  kind: z.enum(BOARD_ENTRY_KINDS),
+  // A string for the same reason: a kind a later server adds is a line this phone skips.
+  kind: z.string(),
   body: z.string().nullable(),
   facts: z.record(z.string(), z.unknown()),
   author_id: z.string().nullable(),
@@ -95,11 +98,14 @@ export function orderedSteps(steps: readonly CardStep[]): CardStep[] {
   return [...steps].sort((left, right) => left.sort_order - right.sort_order);
 }
 
+/** The journal's lines this build can say, oldest first: the order the server wrote them in. */
 export function orderedEntries(entries: readonly CardEntry[]): CardEntry[] {
-  return [...entries].sort(
-    (left, right) =>
-      left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id),
-  );
+  return entries
+    .filter((entry) => (BOARD_ENTRY_KINDS as readonly string[]).includes(entry.kind))
+    .sort(
+      (left, right) =>
+        left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id),
+    );
 }
 
 /** Who looks: their id, and whether they are an admin (the server says the same). */

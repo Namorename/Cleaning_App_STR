@@ -73,5 +73,7 @@ export function entrySentence(entry: CardEntry, t: TFunction): string {
       });
     case 'comment':
       return entry.body ?? '';
+    default:
+      return '';
   }
 }
