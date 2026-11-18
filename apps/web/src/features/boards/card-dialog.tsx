@@ -184,7 +184,7 @@ function CardBody({
         </div>
       ) : null}
 
-      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <div className="flex min-w-0 flex-col gap-6">
           <ColumnLine card={card} canEdit={canEdit} isBusy={move.isPending} onMove={moveTo} />
           <CardFields card={card} today={today} canEdit={canEdit} />

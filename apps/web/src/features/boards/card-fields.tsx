@@ -99,7 +99,7 @@ export function CardFieldsForm({ draft, onChange, idPrefix }: CardFieldsFormProp
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Label htmlFor={id('due')}>{t('boards.due')}</Label>
           <div className="flex items-center gap-2">
