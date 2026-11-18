@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 316 | 382 |
+| Функции | 20 | 46 | 318 | 384 |
 | Таблицы и представления | 9 | 21 | 30 | 60 |
-| Всего | 29 | 67 | 346 | 442 |
+| Всего | 29 | 67 | 348 | 444 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 316
+### Внутреннее — 318
 
 | Имя | Причина |
 | --- | --- |
@@ -279,6 +279,7 @@
 | `purge_push_history` | scheduler job: nightly purge of the push queue and tickets |
 | `purge_signal_data` | scheduler job: nightly retention purge (purge-signal-data) of review texts and keys, irreversible; service_role only |
 | `purge_signal_stays` | scheduler job: nightly privacy sweep (purge-signal-stays) cutting settled stays to their month; service_role only |
+| `push_board_card_titles` | push plumbing: send-push reads the titles of a card-assigned push at the send, service_role only |
 | `push_digest_hour` | push plumbing: constant of the push queue and sender |
 | `push_history_kept` | push plumbing: constant of the push queue and sender |
 | `push_lease` | push plumbing: constant of the push queue and sender |
@@ -342,6 +343,7 @@
 | `save_manager_step` | adds a step to a card or changes its words of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 |
 | `save_resolution_plan` | the manager saves a draft in the panel; the public resource comes with stage 6 of the plan |
 | `set_manager_board_archived` | archives or returns a board of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 |
+| `set_manager_card_assignee` | assigns a card of a manager board to a manager or admin in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 |
 | `set_manager_card_state` | archives, soft-deletes or returns a card of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 |
 | `set_manager_step_done` | ticks or unticks a step of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 |
 | `set_problem_theme` | the manager corrects a task theme in the panel; the public resource comes with stage 6 of the plan |
