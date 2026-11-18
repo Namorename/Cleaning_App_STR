@@ -376,9 +376,10 @@ function cardIds(batch: Batch): string[] {
 }
 
 /**
- * The titles of the cards a batch speaks of, read now (push_board_card_titles): a card's words
- * live in the boards' tables and never in the queue. A read that fails is reported and the
- * pushes go without the titles — "a card is yours" still says what matters.
+ * The cards a batch speaks of, read now (push_board_card_titles): a card's words live in the
+ * boards' tables and never in the queue, and whether the push is still news is told by the card as
+ * it stands. A read that fails is reported, and the card pushes are set aside as failed — the next
+ * run asks again, within the push's lifetime.
  */
 async function withCardTitles(batch: Batch, db: PushDatabase, options: RunOptions): Promise<Batch> {
   const ids = cardIds(batch);
@@ -393,11 +394,17 @@ async function withCardTitles(batch: Batch, db: PushDatabase, options: RunOption
         isRecord(row) && typeof row.card_id === "string" && typeof row.card_title === "string" &&
         typeof row.board_title === "string"
       ) {
-        cards.set(row.card_id, { card: row.card_title, board: row.board_title });
+        cards.set(row.card_id, {
+          card: row.card_title,
+          board: row.board_title,
+          assigneeId: typeof row.assignee_id === "string" ? row.assignee_id : null,
+          isLive: row.is_live === true,
+        });
       }
     }
   } catch (error) {
-    options.error("send-push: the card titles could not be read; sent without them", error);
+    options.error("send-push: the cards could not be read; their pushes go in the next run", error);
+    return batch;
   }
   return { ...batch, groups: batch.groups.map((group) => ({ ...group, cards })) };
 }
@@ -411,6 +418,10 @@ async function withCardTitles(batch: Batch, db: PushDatabase, options: RunOption
  */
 function prepare(group: PushGroup, options: RunOptions): Outgoing | Settlement {
   try {
+    if (group.cards === undefined && group.rows.some((row) => row.kind === "board_card_assigned")) {
+      // Its card could not be read: whether it is still news is unknown — the next run asks again.
+      return settlement(group, "failed");
+    }
     const folded = fold(group);
     if (folded === null) {
       return settlement(group, "collapsed");

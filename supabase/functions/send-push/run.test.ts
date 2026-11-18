@@ -645,7 +645,13 @@ function cardDatabase(batch: unknown[], titles: () => { data: unknown; error: { 
 Deno.test("a card given to her: one push with the board and the card, read at the send, and a tap that names the card", async () => {
   // Arrange
   const { db, calls } = cardDatabase([cardGroup("ru")], () => ({
-    data: [{ card_id: CARD, card_title: "Плитка в ванной", board_title: "Ремонт" }],
+    data: [{
+      card_id: CARD,
+      card_title: "Плитка в ванной",
+      board_title: "Ремонт",
+      assignee_id: "ina",
+      is_live: true,
+    }],
     error: null,
   }));
   const { expo, sent } = sender(okTickets);
@@ -664,7 +670,7 @@ Deno.test("a card given to her: one push with the board and the card, read at th
   assertEquals(settled(calls).map((result) => result.outcome), ["sent"]);
 });
 
-Deno.test("a card push whose titles cannot be read still goes, saying only that a card is hers", async () => {
+Deno.test("a card push whose card cannot be read is set aside as failed, to go in the next run", async () => {
   // Arrange
   const errors: unknown[] = [];
   const { db, calls } = cardDatabase([cardGroup("en")], () => ({ data: null, error: { message: "boom" } }));
@@ -674,15 +680,58 @@ Deno.test("a card push whose titles cannot be read still goes, saying only that 
   await runSendPush(db, expo, { log: () => {}, error: (...args) => errors.push(args) });
 
   // Assert
-  assertEquals([sent[0][0].title, sent[0][0].body], ["Card assigned to you", ""]);
+  assertEquals(sent.length, 0);
   assertEquals(errors.length, 1);
-  assertEquals(settled(calls).map((result) => result.outcome), ["sent"]);
+  assertEquals(settled(calls).map((result) => result.outcome), ["failed"]);
+});
+
+for (
+  const [label, card] of [
+    ["given to somebody else since", { assignee_id: "olga", is_live: true }],
+    ["taken off her since", { assignee_id: null, is_live: true }],
+    ["archived or deleted since, or on an archived board", { assignee_id: "ina", is_live: false }],
+  ] as const
+) {
+  Deno.test(`a card push about a card ${label} is no longer news: not sent`, async () => {
+    // Arrange
+    const { db, calls } = cardDatabase([cardGroup("ru")], () => ({
+      data: [{ card_id: CARD, card_title: "Плитка", board_title: "Ремонт", ...card }],
+      error: null,
+    }));
+    const { expo, sent } = sender(okTickets);
+
+    // Act
+    await runSendPush(db, expo, quiet);
+
+    // Assert
+    assertEquals(sent.length, 0);
+    assertEquals(settled(calls).map((result) => result.outcome), ["collapsed"]);
+  });
+}
+
+Deno.test("a card push about a card not found is not sent", async () => {
+  // Arrange
+  const { db, calls } = cardDatabase([cardGroup("ru")], () => ({ data: [], error: null }));
+  const { expo, sent } = sender(okTickets);
+
+  // Act
+  await runSendPush(db, expo, quiet);
+
+  // Assert
+  assertEquals(sent.length, 0);
+  assertEquals(settled(calls).map((result) => result.outcome), ["collapsed"]);
 });
 
 Deno.test("a card push she switched off is settled as muted and its titles are still not queued anywhere", async () => {
   // Arrange
   const { db, calls } = cardDatabase([cardGroup("cs", ["board_card_assigned"])], () => ({
-    data: [{ card_id: CARD, card_title: "Karta", board_title: "Nástěnka" }],
+    data: [{
+      card_id: CARD,
+      card_title: "Karta",
+      board_title: "Nástěnka",
+      assignee_id: "ina",
+      is_live: true,
+    }],
     error: null,
   }));
   const { expo, sent } = sender(okTickets);

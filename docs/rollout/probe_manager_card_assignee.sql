@@ -1,8 +1,8 @@
 -- The assignee of a manager board card (20261118230000) in the cloud, read-only:
 --   node scripts/cloud-read.mjs docs/rollout/probe_manager_card_assignee.sql
 -- Answers before the migration as well as after (docs/rollout/manager-card-assignee-1118.md has
--- both). The migration only adds: a nullable column, a journal kind, a push kind, two functions;
--- three bodies change. Statuses old phones parse and the boards' tables' grants read the same.
+-- both). The migration only adds: a nullable column, a journal kind, a push kind, three functions
+-- and a trigger; three bodies change. Statuses old phones parse and the boards' tables' grants read the same.
 select
   (select max(version) from supabase_migrations.schema_migrations) as head,
   (select count(*) from supabase_migrations.schema_migrations) as applied,

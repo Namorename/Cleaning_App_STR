@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 318 | 384 |
+| Функции | 20 | 46 | 319 | 385 |
 | Таблицы и представления | 9 | 21 | 30 | 60 |
-| Всего | 29 | 67 | 348 | 444 |
+| Всего | 29 | 67 | 349 | 445 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 318
+### Внутреннее — 319
 
 | Имя | Причина |
 | --- | --- |
@@ -285,6 +285,7 @@
 | `push_lease` | push plumbing: constant of the push queue and sender |
 | `push_lifetime` | push plumbing: constant of the push queue and sender |
 | `push_on_booking_status` | trigger function: queues a push when a booking stops being live during its cleaning |
+| `push_on_card_assigned` | trigger function: queues the board_card_assigned push for the new assignee of a manager board card |
 | `push_on_chat_message` | trigger function: queues pushes for a new chat message |
 | `push_on_problem_reported` | trigger function: queues problem_new pushes for head technicians |
 | `push_on_task_change` | trigger function: queues pushes for changes of cleanings and repairs |

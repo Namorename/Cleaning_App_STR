@@ -54,10 +54,16 @@ export interface Place {
   readonly parentName: string | null;
 }
 
-/** A manager board card's words, read at the send (push_board_card_titles), never queued. */
+/**
+ * A manager board card as it stands at the send (push_board_card_titles): its words, never
+ * queued, and whether the push is still news — who holds it now, and whether it is on a live
+ * board, neither archived nor deleted.
+ */
 export interface CardTitles {
   readonly card: string;
   readonly board: string;
+  readonly assigneeId: string | null;
+  readonly isLive: boolean;
 }
 
 export interface PushToken {
@@ -74,7 +80,10 @@ export interface PushGroup {
   readonly places: ReadonlyMap<string, Place>;
   /** The kinds she switched off: the folded push is judged by them. */
   readonly muted: ReadonlySet<PushKind>;
-  /** Keyed by card id: the titles of the cards its rows are about; filled by the run. */
+  /**
+   * Keyed by card id: the cards its rows are about, as they stand; filled by the run. Absent when
+   * they could not be read.
+   */
   readonly cards?: ReadonlyMap<string, CardTitles>;
   /** The claim's lease: a group is settled under it. Null from an older database. */
   readonly lease: string | null;

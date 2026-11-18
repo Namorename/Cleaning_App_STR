@@ -32,6 +32,7 @@ const OLGA = 'b0a2ea03-0000-4000-8000-000000000003'; // cleaner
 const BOARD = 'b0a2ea10-0000-4000-8000-000000000001';
 const OLD_CARD = 'b0a2ea11-0000-4000-8000-000000000001'; // made before the migration
 const NEW_CARD = 'b0a2ea11-0000-4000-8000-000000000002'; // made after it, by an old client
+const UNTOUCHED = 'b0a2ea11-0000-4000-8000-000000000003'; // made before it, never assigned by a person
 
 // The cloud's answer, 2026-11-18 21:40 UTC (node scripts/cloud-read.mjs docs/rollout/probe_manager_card_assignee.sql).
 const BEFORE = {
@@ -49,22 +50,8 @@ const BEFORE = {
   task_statuses: "unassigned,assigned,accepted,in_progress,paused,blocked,done,cancelled,expired",
   problem_statuses: "open,assigned,in_progress,resolved,cancelled",
 };
-// The probe after the migration alone, from the rehearsal of 2026-11-18 (checked against the cloud after db push).
-const AFTER = {
-  head: "20261118230000",
-  applied: 139,
-  assignee_column: "assignee_id:uuid:notnull=false",
-  journal_kinds: "CHECK ((kind = ANY (ARRAY['comment'::text, 'moved'::text, 'due_changed'::text, 'step_done'::text, 'assignee_changed'::text])))",
-  push_kinds: "cleaning_new,cleaning_assigned,cleaning_unassigned,cleaning_cancelled,cleaning_moved,cleaning_window,cleaning_free,cleaning_declined,cleaning_interrupted,booking_cancelled_live,board_card_assigned,problem_new,chat_message,daily_digest",
-  functions: "delete_manager_comment(1) 2b426551e6518325329b387704fb522f; delete_manager_step(1) 3416f9597ed38dede98c1a85df73e4e7; duplicate_manager_card(3) fd2decbdf86a11fcc4952cf5be83ac26; manager_board_column(1) 51a8c80f5d28b6cca728dd7841105a4d; manager_board_for_edit(2) d889671504b15b4093f503a4bdd12145; manager_card_for_edit(2) a8cf1cdb54d495c52287b4c5699804b6; manager_step_card(1) 755b5a8fb942f553ce7d7616abf70065; move_manager_card(2) 723afdf74ee7cd0ff4033f8a47818138; order_manager_steps(2) 11c0a417b3b40b1d16014cde65b8ad0e; save_manager_board(2) 1c1152328c04ee39fbb296a19d70a488; save_manager_card(9) 923430df3af3866e9b367f364397eff1; save_manager_comment(3) 11e4bb00b5e7b5458fa11923a475e7c2; save_manager_step(3) 32cf8041e6be25575477f6dcbd71947a; set_manager_board_archived(2) 94bd11315badc02a55c8ba57e8621b24; set_manager_card_assignee(2) 5df7fcf82ea1e75ae5a523969c58a721; set_manager_card_state(2) 418ec55ee6987052df879864355d22dc; set_manager_step_done(2) 795ef857ed63da946946b15665c056fc",
-  client_execute: "delete_manager_comment:authenticated, delete_manager_step:authenticated, duplicate_manager_card:authenticated, move_manager_card:authenticated, order_manager_steps:authenticated, save_manager_board:authenticated, save_manager_card:authenticated, save_manager_comment:authenticated, save_manager_step:authenticated, set_manager_board_archived:authenticated, set_manager_card_assignee:authenticated, set_manager_card_state:authenticated, set_manager_step_done:authenticated",
-  push_functions: "push_board_card_titles 7933a0e93874b9c60e0f11fb41a97b87; push_on_card_assigned 5795ee6007f20608c8caf36125d803ca",
-  journal_triggers: "manager_board_entries_push_assigned",
-  titles_execute: "service_role",
-  client_grants: "manager_board_cards:authenticated:SELECT, manager_board_entries:authenticated:SELECT, manager_board_steps:authenticated:SELECT, manager_boards:authenticated:SELECT",
-  task_statuses: "unassigned,assigned,accepted,in_progress,paused,blocked,done,cancelled,expired",
-  problem_statuses: "open,assigned,in_progress,resolved,cancelled",
-};
+// Filled from the first green run (the probe after the migration alone).
+const AFTER = null;
 
 const projectId = readFileSync('supabase/config.toml', 'utf8').match(/^project_id\s*=\s*"([^"]+)"/m);
 const CONTAINER = `supabase_db_${projectId[1]}`;
@@ -149,10 +136,9 @@ values ('${MILA}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'aut
        ('${OLGA}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'olga.assignee1118@rehearsal.local', 'x', now(), now(), '{"full_name":"Olga"}', '{"role":"cleaner"}');
 update public.profiles set host_id = '${HOST}' where id in ('${MILA}', '${INA}', '${OLGA}');`);
 must('before the migration Mila makes a board and a card',
-  `${as(MILA)} select public.save_manager_board('${BOARD}', 'Ремонт'); select public.save_manager_card('${OLD_CARD}', '${BOARD}', 'Ванная', '', null, null, 'blue', 'open', '["Плитка"]');`);
+  `${as(MILA)} select public.save_manager_board('${BOARD}', 'Ремонт'); select public.save_manager_card('${OLD_CARD}', '${BOARD}', 'Ванная', '', null, null, 'blue', 'open', '["Плитка"]'); select public.save_manager_card('${UNTOUCHED}', '${BOARD}', 'Кухня', '', null, null, null, 'open');`);
 
 // ---------- 2. the migration alone, as db push applies it ----------
-const migrated = new Date(Date.now() + 1000).toISOString();
 must('the migration alone, in one transaction', push(MIGRATION), ['--single-transaction']);
 if (AFTER === null) {
   console.log('AFTER (fill in):', JSON.stringify(probeFile(PROBE)));
@@ -178,12 +164,17 @@ must("an old client makes a card as before (the first stage's shape)",
 check("it is the owner's from the start", assignee(NEW_CARD), 'Mila');
 must('and edits the old card as before', `${as(MILA)} select public.save_manager_card('${OLD_CARD}', '${BOARD}', 'Ванная', 'план', null, null, 'blue');`);
 check('which stays without an assignee', assignee(OLD_CARD), '?');
-must('the data script', `${asServer} ${file(DATA)}`);
+const answered = (res) => res.out.split('\n').map((line) => line.trim()).filter((line) => /^[0-9a-f-]{36}$/.test(line)).sort();
+const given = answered(must('the data script', `${asServer} ${file(DATA)}`));
+if (JSON.stringify(given) !== JSON.stringify([OLD_CARD, UNTOUCHED].sort())) fail('the data script answers the ids it gave', JSON.stringify(given));
+else console.log('ok   the data script answers the ids it gave');
 check("the old card is its owner's", assignee(OLD_CARD), 'Mila');
 check('without a journal line or a push',
   `${asServer} select (select count(*) from public.manager_board_entries where kind = 'assignee_changed') + (select count(*) from raw.push_outbox where host_id = '${HOST}');`, '0');
-must('a second run of it', `${asServer} ${file(DATA)}`);
-check('changed nothing', `${asServer} select count(*) from public.manager_board_cards where board_id = '${BOARD}' and assignee_id = '${MILA}';`, '2');
+const again = answered(must('a second run of it', `${asServer} ${file(DATA)}`));
+if (again.length !== 0) fail('a second run answers no ids', JSON.stringify(again));
+else console.log('ok   a second run answers no ids');
+check('changed nothing', `${asServer} select count(*) from public.manager_board_cards where board_id = '${BOARD}' and assignee_id = '${MILA}';`, '3');
 must('Mila gives the old card to Ina', `${as(MILA)} select public.set_manager_card_assignee('${OLD_CARD}', '${INA}');`);
 check("one journal line, one push to Ina with the card's id only",
   `${asServer} select (select string_agg(kind || ' ' || facts::text, ';') from public.manager_board_entries where card_id = '${OLD_CARD}' and kind = 'assignee_changed') || ' | ' || (select string_agg(kind::text || ' ' || params::text, ';') from raw.push_outbox where host_id = '${HOST}');`,
@@ -197,17 +188,17 @@ check('nothing reached the work log',
   `${asServer} select (select count(*) from public.task_events e join public.tasks t on t.id = e.task_id where t.host_id = '${HOST}') + (select count(*) from public.problem_events e join public.problems p on p.id = e.problem_id where p.host_id = '${HOST}');`, '0');
 
 // ---------- 5. the data's undo, then the migration's rollback ----------
-refused("the data's undo refuses without the moment of the push", `${asServer} ${file(DATA_UNDO)}`, /Fill in c_migrated/);
+refused("the data's undo refuses without the ids", `${asServer} ${file(DATA_UNDO)}`, /Fill in c_ids/);
 must('Mila takes the old card back', `${as(MILA)} select public.set_manager_card_assignee('${OLD_CARD}', '${MILA}');`);
-must("the data's undo with the moment filled in",
-  `${asServer} ${file(DATA_UNDO).replace('c_migrated constant timestamptz := null;', `c_migrated constant timestamptz := '${migrated}';`)}`);
-check('a card a person gave keeps its assignee; the one the server gave keeps it too',
-  `${asServer} select string_agg(coalesce(p.full_name, '?'), ',' order by c.id) from public.manager_board_cards c left join public.profiles p on p.id = c.assignee_id where c.board_id = '${BOARD}';`, 'Mila,Mila');
+must("the data's undo with the ids it answered",
+  `${asServer} ${file(DATA_UNDO).replace('c_ids constant uuid[] := null;', `c_ids constant uuid[] := array['${given.join("', '")}']::uuid[];`)}`);
+check("the untouched card is nobody's again; one a person gave, and one the server gave, keep theirs",
+  `${asServer} select string_agg(coalesce(p.full_name, '?'), ',' order by c.id) from public.manager_board_cards c left join public.profiles p on p.id = c.assignee_id where c.board_id = '${BOARD}';`, 'Mila,Mila,?');
 must("the migration's rollback", file(UNDO));
 must('migration repair --status reverted 20261118230000', repair(MIGRATION));
 expectProbe('back to what the cloud read before, the push kind aside', ROLLED_BACK);
 check('the cards, steps and comments are all there',
-  `${asServer} select (select count(*) from public.manager_board_cards where board_id = '${BOARD}') || ' ' || (select count(*) from public.manager_board_entries e join public.manager_board_cards c on c.id = e.card_id where c.board_id = '${BOARD}' and e.kind = 'comment');`, '2 1');
+  `${asServer} select (select count(*) from public.manager_board_cards where board_id = '${BOARD}') || ' ' || (select count(*) from public.manager_board_entries e join public.manager_board_cards c on c.id = e.card_id where c.board_id = '${BOARD}' and e.kind = 'comment');`, '3 1');
 must('a second push', push(MIGRATION), ['--single-transaction']);
 if (AFTER !== null) expectProbe('and the probe reads AFTER again', AFTER);
 

@@ -23,7 +23,7 @@
 2. Миграция `20261118230000_manager_card_assignee.sql` одна, под заставой: `HEAD_WANT=20261118200000`,
    `SHA_WANT` — sha256 файла, сухой прогон называет ровно этот файл. Проба = `AFTER` репетиции (колонка,
    виды журнала и пуша, хеши функций, триггер, права: клиенту — `set_manager_card_assignee`, титулы —
-   только `service_role`). **Момент миграции записать** — он нужен откату данных.
+   только `service_role`).
 3. Edge-функция `send-push` (новый вид пуша и чтение названий при отправке). `_shared/` не менялся;
    `send-push` его импортирует, но других функций правка не касается. До деплоя старая `send-push`
    откладывает строку нового вида как `skipped` (её назначений до выката клиентов не бывает).
@@ -31,8 +31,10 @@
 5. OTA: preview, затем field (republish) — экспорт `ota-export.cmd` в дереве
    `cleanings-cancel-overdue-1105`, `bundle-check` против живого №23
    (`~/dev-tools/str-ops/day-1118/dist-ota23`), натив против коммита №23 (2831963) пуст.
-6. Данные последними: `npx supabase db query --linked -f docs/one-off-writes/manager-cards-owner-assignee.sql`;
-   проба — у карточек без исполнителя остались только снятые людьми.
+6. Данные последними: `npx supabase db query --linked -f docs/one-off-writes/manager-cards-owner-assignee.sql`.
+   Скрипт отвечает id карточек, которые изменил, — **записать их сюда**: откат данных берёт ровно их.
+   Проба `probe_manager_card_assignee_rows.sql`: `unassigned_untouched` = 0 (если у всех владельцев
+   досок офисная роль).
 
 ## Старые телефоны и старая панель
 
@@ -46,11 +48,12 @@
 
 В обратном порядке, не в 03:00–04:40 UTC:
 
-1. Данные: в `manager-cards-owner-assignee-rollback.sql` вписать `c_migrated` (момент шага 2), затем
+1. Данные: в `manager-cards-owner-assignee-rollback.sql` вписать `c_ids` (id, которые ответил шаг 6), затем
    `npx supabase db query --linked -f docs/one-off-writes/manager-cards-owner-assignee-rollback.sql`.
 2. OTA: republish №23 — preview `b844f1fa-6694-417d-8a52-aaf71cd2cd2b`, field
    `9a4ff5cb-3045-481c-afc5-69e29a58b5ff`.
-3. `git revert` коммитов этапа в `main`, Vercel Ready.
+3. `git revert` коммитов этапа в `main`, Vercel Ready. Шаги 3–5 — подряд: панель до этапа не открывает
+   карточку со строкой «исполнитель изменён» (строгий разбор видов журнала), пока шаг 5 её не удалит.
 4. `send-push` из `main` до этапа (`bf25653`): `npx supabase functions deploy send-push`.
 5. `npx supabase db query --linked -f docs/one-off-writes/manager-card-assignee-rollback.sql` (вернёт три
    тела функций, снимет две функции и триггер, строки «исполнитель изменён», колонку), затем

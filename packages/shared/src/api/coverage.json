@@ -1246,6 +1246,11 @@
       "reason": "trigger function: queues a push when a booking stops being live during its cleaning",
       "defined_in": "20260928130000_push_events.sql"
     },
+    "push_on_card_assigned": {
+      "status": "internal",
+      "reason": "trigger function: queues the board_card_assigned push for the new assignee of a manager board card",
+      "defined_in": "20261118230000_manager_card_assignee.sql"
+    },
     "push_on_chat_message": {
       "status": "internal",
       "reason": "trigger function: queues pushes for a new chat message",

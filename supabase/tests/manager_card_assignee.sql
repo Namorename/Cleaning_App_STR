@@ -238,4 +238,44 @@ select pg_temp.check('4.10 and read as they are now, a card unknown left out',
    from public.push_board_card_titles(array[pg_temp.cid(1), 'b0a2e2ff-0000-4000-8000-0000000000ff'::uuid]) t),
   array['Bathroom, tiles / Projects']);
 
+-- ===========================================================================
+-- 5. After the review: the sender's read, people who change, the default
+-- ===========================================================================
+
+select pg_temp.as_user(pg_temp.boss());
+select public.set_manager_board_archived(pg_temp.board(), false);
+select pg_temp.as_server();
+select set_config('role', 'service_role', true);
+select pg_temp.check('5.1 the sender reads a card as it stands: its words, its assignee, whether it is live',
+  (select array_agg(t.card_title || ' / ' || t.board_title || ' / ' || pg_temp.who(t.assignee_id)
+                    || ' / ' || t.is_live::text order by t.card_title)
+   from public.push_board_card_titles(array[pg_temp.cid(1), pg_temp.cid(2)]) t),
+  array['Admin made / Projects / boss / false', 'Bathroom, tiles / Projects / ada / true']);
+
+select pg_temp.as_server();
+update public.profiles set role = 'cleaner' where id = pg_temp.ina();
+select pg_temp.as_user(pg_temp.ina());
+select pg_temp.check('5.2 an assignee made a cleaner works on her card no more',
+  pg_temp.refusal($q$ select public.move_manager_card(pg_temp.cid(3), 'resolved') $q$), 'serverErrors.managerOnly');
+select pg_temp.as_server();
+update public.profiles set role = 'manager', is_active = false where id = pg_temp.ina();
+select pg_temp.as_user(pg_temp.ada());
+select pg_temp.check('5.3 the same assignee again is the card as it stands, even one switched off since',
+  (select pg_temp.who(c.assignee_id) from public.set_manager_card_assignee(pg_temp.cid(3), pg_temp.ina()) c), 'ina');
+select pg_temp.check('5.4 but nobody gives a card to a person switched off',
+  pg_temp.refusal($q$ select public.set_manager_card_assignee(pg_temp.cid(1), pg_temp.ina()) $q$),
+  'serverErrors.boardAssigneeInvalid');
+
+select public.duplicate_manager_card(pg_temp.cid(1), pg_temp.cid(7), 'Bathroom (admin copy)');
+select pg_temp.as_server();
+select pg_temp.check('5.5 a copy an admin makes is the board owner''s',
+  pg_temp.assignee(pg_temp.cid(7)), 'boss');
+update public.profiles set is_active = false where id = pg_temp.boss();
+select pg_temp.as_user(pg_temp.ada());
+select public.save_manager_card(pg_temp.cid(6), pg_temp.board(), 'Owner away', '', null, null, null, 'open');
+select public.duplicate_manager_card(pg_temp.cid(1), pg_temp.cid(5), 'Bathroom (owner away)');
+select pg_temp.as_server();
+select pg_temp.check('5.6 an owner switched off is given no new card, made or copied',
+  pg_temp.assignee(pg_temp.cid(6)) || ' ' || pg_temp.assignee(pg_temp.cid(5)), '- -');
+
 rollback;

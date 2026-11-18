@@ -188,7 +188,11 @@ begin
        assignee_id)
     values
       (p_id, v_board.host_id, v_board.id, v_title, v_description, v_column, p_color, p_due_on,
-       p_property_id, (select auth.uid()), v_board.owner_id)
+       p_property_id, (select auth.uid()),
+       -- The owner, if they can hold a card: an active manager or admin of the company.
+       (select p.id from public.profiles p
+        where p.id = v_board.owner_id and p.host_id = v_board.host_id and p.is_active
+          and p.role in ('manager', 'admin')))
     on conflict (id) do nothing
     returning * into v_card;
 
@@ -262,7 +266,12 @@ begin
   values
     (p_id, v_source.host_id, v_source.board_id, v_title, v_source.description, 'open',
      v_source.color, null, v_source.property_id, (select auth.uid()),
-     (select b.owner_id from public.manager_boards b where b.id = v_source.board_id))
+     -- The board's owner, if they can hold a card: an active manager or admin of the company.
+     (select p.id
+      from public.manager_boards b
+      join public.profiles p on p.id = b.owner_id
+      where b.id = v_source.board_id and p.host_id = b.host_id and p.is_active
+        and p.role in ('manager', 'admin')))
   on conflict (id) do nothing
   returning * into v_card;
 
@@ -308,6 +317,10 @@ begin
     raise exception 'Card % is archived or deleted', p_id
       using errcode = 'check_violation', hint = 'serverErrors.boardCardShelved';
   end if;
+  -- A repeat first: the card as it stands, even if its assignee can no longer be given one.
+  if v_card.assignee_id is not distinct from p_assignee_id then
+    return v_card;
+  end if;
   if p_assignee_id is not null and not exists (
     select 1 from public.profiles p
     where p.id = p_assignee_id
@@ -317,9 +330,6 @@ begin
   ) then
     raise exception 'Person % cannot be assigned a card', p_assignee_id
       using errcode = 'check_violation', hint = 'serverErrors.boardAssigneeInvalid';
-  end if;
-  if v_card.assignee_id is not distinct from p_assignee_id then
-    return v_card;
   end if;
   v_from := v_card.assignee_id;
 
@@ -382,15 +392,19 @@ create trigger manager_board_entries_push_assigned
 
 /**
  * The words of a card-assigned push, read by send-push when it sends (never stored with the push):
- * each card's title and its board's, for the ids asked. A card not found is left out.
+ * each card's title and its board's, for the ids asked — and whether the push is still news: who
+ * holds the card now, and whether it is on a live board, not archived or deleted. A push queued at
+ * night and sent in the morning about a card given to somebody else since is not sent. A card not
+ * found is left out.
  */
 create or replace function public.push_board_card_titles(p_card_ids uuid[])
-returns table (card_id uuid, card_title text, board_title text)
+returns table (card_id uuid, card_title text, board_title text, assignee_id uuid, is_live boolean)
 language sql
 stable
 set search_path = ''
 as $$
-  select c.id, c.title, b.title
+  select c.id, c.title, b.title, c.assignee_id,
+         c.archived_at is null and c.deleted_at is null and b.archived_at is null
   from public.manager_board_cards c
   join public.manager_boards b on b.id = c.board_id
   where c.id = any (p_card_ids);

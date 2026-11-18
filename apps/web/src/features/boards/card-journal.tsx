@@ -91,6 +91,8 @@ export function entrySentence(
       });
     case 'comment':
       return entry.body ?? '';
+    default:
+      return '';
   }
 }
 

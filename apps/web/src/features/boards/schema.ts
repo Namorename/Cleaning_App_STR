@@ -84,7 +84,9 @@ export type CardStep = z.infer<typeof cardStepSchema>;
 
 export const cardEntrySchema = z.object({
   id: z.string(),
-  kind: z.enum(BOARD_ENTRY_KINDS),
+  // A string, not the known kinds: a kind a later server adds (or one an older panel in a tab
+  // left open does not know) is a line skipped, not a card that cannot be opened.
+  kind: z.string(),
   body: z.string().nullable(),
   facts: z.record(z.string(), z.unknown()),
   author_id: z.string().nullable(),
@@ -122,12 +124,14 @@ export function orderedSteps(steps: readonly CardStep[]): CardStep[] {
   return [...steps].sort((left, right) => left.sort_order - right.sort_order);
 }
 
-/** A card's journal, oldest first: the order the server wrote it in. */
+/** A card's journal lines this panel can say, oldest first: the order the server wrote them in. */
 export function orderedEntries(entries: readonly CardEntry[]): CardEntry[] {
-  return [...entries].sort(
-    (left, right) =>
-      left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id),
-  );
+  return entries
+    .filter((entry) => (BOARD_ENTRY_KINDS as readonly string[]).includes(entry.kind))
+    .sort(
+      (left, right) =>
+        left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id),
+    );
 }
 
 /**

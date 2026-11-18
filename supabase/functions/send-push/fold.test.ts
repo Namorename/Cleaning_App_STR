@@ -361,11 +361,17 @@ Deno.test("a manager offered the cleaning as free work hears of the hand-back, n
 
 Deno.test("a card given to her folds into one push with the titles the run read, or none without its id", () => {
   const cardId = "8c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f";
-  const titled = {
-    ...group([row("board_card_assigned", { card_id: cardId }), row("board_card_assigned", { card_id: cardId })]),
-    cards: new Map([[cardId, { card: "Tiles", board: "Repairs" }]]),
-  };
-  assertEquals(fold(titled), { type: "card", cardId, card: "Tiles", board: "Repairs" });
+  const rows = [row("board_card_assigned", { card_id: cardId }), row("board_card_assigned", { card_id: cardId })];
+  const base = group(rows);
+  const as = (assigneeId: string | null, isLive: boolean) => ({
+    ...base,
+    cards: new Map([[cardId, { card: "Tiles", board: "Repairs", assigneeId, isLive }]]),
+  });
+  assertEquals(fold(as(base.recipientId, true)), { type: "card", cardId, card: "Tiles", board: "Repairs" });
+  assertEquals(fold(as("someone-else", true)), null);
+  assertEquals(fold(as(null, true)), null);
+  assertEquals(fold(as(base.recipientId, false)), null);
+  assertEquals(fold({ ...base, cards: new Map() }), null);
   assertEquals(fold(group([row("board_card_assigned", { card_id: cardId })])), {
     type: "card",
     cardId,

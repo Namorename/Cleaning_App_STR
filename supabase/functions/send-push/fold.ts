@@ -20,7 +20,9 @@
  * A thread says how many messages came and who wrote the last. The morning
  * summary is sent as it is, and so is a new task: one row a task, written once.
  * A manager board card given to her (20261118230000) is said once, with the
- * card's and its board's titles as they are at the send.
+ * card's and its board's titles as they are at the send — and not at all when
+ * it is no longer news: the card is somebody else's by then, or nobody's, or
+ * archived, deleted, or on an archived board.
  */
 
 import type { PushGroup, PushKind, PushRow } from "./batch.ts";
@@ -272,8 +274,15 @@ function foldCard(group: PushGroup, rows: readonly PushRow[]): FoldedCard | null
   if (cardId === null) {
     return null;
   }
-  const titles = group.cards?.get(cardId);
-  return { type: "card", cardId, card: titles?.card ?? null, board: titles?.board ?? null };
+  if (group.cards === undefined) {
+    // Not read: the run sets such a group aside before it folds; without it, said bare.
+    return { type: "card", cardId, card: null, board: null };
+  }
+  const titles = group.cards.get(cardId);
+  if (titles === undefined || !titles.isLive || titles.assigneeId !== group.recipientId) {
+    return null;
+  }
+  return { type: "card", cardId, card: titles.card, board: titles.board };
 }
 
 export function fold(group: PushGroup): Folded | null {

@@ -758,3 +758,16 @@ describe('the assignee of a card (20261118230000)', () => {
     expect(screen.getByText('Вам пока не назначено ни одной карточки')).toBeInTheDocument();
   });
 });
+
+describe('a journal line of a kind this panel does not know', () => {
+  test('is skipped, and the card opens with the rest of its journal', () => {
+    state.detail = cardDetailSchema.parse({
+      ...DETAIL,
+      entries: [...DETAIL.entries, { ...DETAIL.entries[0], id: 'e8', kind: 'reminded', facts: {} }],
+    });
+    show({ id: OWNER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
+    expect(
+      within(screen.getByRole('dialog')).getByText('Сантехник придёт во вторник'),
+    ).toBeInTheDocument();
+  });
+});
