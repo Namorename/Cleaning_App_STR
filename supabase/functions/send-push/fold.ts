@@ -19,11 +19,16 @@
  *   news, and "free" would read as an offer of her own cleaning back.
  * A thread says how many messages came and who wrote the last. The morning
  * summary is sent as it is, and so is a new task: one row a task, written once.
+ * A manager board card given to her (20261118230000) is said once, with the
+ * card's and its board's titles as they are at the send.
  */
 
 import type { PushGroup, PushKind, PushRow } from "./batch.ts";
 
-export type TaskEvent = Exclude<PushKind, "chat_message" | "daily_digest" | "problem_new">;
+export type TaskEvent = Exclude<
+  PushKind,
+  "chat_message" | "daily_digest" | "problem_new" | "board_card_assigned"
+>;
 
 export interface MoveFacts {
   readonly fromDate: string | null;
@@ -83,7 +88,16 @@ export interface FoldedProblem {
   readonly urgent: boolean;
 }
 
-export type Folded = FoldedTask | FoldedChat | FoldedDigest | FoldedProblem;
+/** A manager board card given to her: what the card and its board are called now. */
+export interface FoldedCard {
+  readonly type: "card";
+  readonly cardId: string;
+  /** Null when the titles could not be read: the push then says only that a card is hers. */
+  readonly card: string | null;
+  readonly board: string | null;
+}
+
+export type Folded = FoldedTask | FoldedChat | FoldedDigest | FoldedProblem | FoldedCard;
 
 const TAKEN_AWAY: ReadonlySet<PushKind> = new Set(["cleaning_cancelled", "cleaning_unassigned"]);
 /** What the office hears of a cleaning a cleaner handed back (20261118120000). */
@@ -253,6 +267,15 @@ function foldProblem(rows: readonly PushRow[]): FoldedProblem | null {
   };
 }
 
+function foldCard(group: PushGroup, rows: readonly PushRow[]): FoldedCard | null {
+  const cardId = text(rows[rows.length - 1].params.card_id);
+  if (cardId === null) {
+    return null;
+  }
+  const titles = group.cards?.get(cardId);
+  return { type: "card", cardId, card: titles?.card ?? null, board: titles?.board ?? null };
+}
+
 export function fold(group: PushGroup): Folded | null {
   const rows = group.rows;
   const last = rows[rows.length - 1];
@@ -261,6 +284,9 @@ export function fold(group: PushGroup): Folded | null {
   }
   if (last.kind === "chat_message") {
     return foldChat(rows.filter((row) => row.kind === "chat_message"));
+  }
+  if (last.kind === "board_card_assigned") {
+    return foldCard(group, rows.filter((row) => row.kind === "board_card_assigned"));
   }
   if (last.kind === "problem_new") {
     return foldProblem(rows.filter((row) => row.kind === "problem_new"));

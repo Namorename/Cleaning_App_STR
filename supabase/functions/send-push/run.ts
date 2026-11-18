@@ -19,7 +19,8 @@
  * Nothing here is text for a person except what texts.ts writes.
  */
 
-import { type Batch, type PushGroup, type PushKind, readBatch } from "./batch.ts";
+import { isRecord } from "../_shared/coerce.ts";
+import { type Batch, type CardTitles, type PushGroup, type PushKind, readBatch } from "./batch.ts";
 import {
   type ExpoMessage,
   ExpoMixedProjectsError,
@@ -128,6 +129,8 @@ function pushData(folded: Folded): Record<string, unknown> {
       // A build that does not know the kind reads this as nothing: the system
       // shows the push, and a tap opens the app (apps/mobile push/payload.ts).
       return { kind: "problem_new", problemId: folded.problemId };
+    case "card":
+      return { kind: "board_card_assigned", cardId: folded.cardId };
   }
 }
 
@@ -142,6 +145,8 @@ function kindOf(folded: Folded): PushKind {
       return "daily_digest";
     case "problem":
       return "problem_new";
+    case "card":
+      return "board_card_assigned";
   }
 }
 
@@ -359,6 +364,44 @@ async function call(
   return data;
 }
 
+/** The card ids the batch's card-assigned rows name, each once. */
+function cardIds(batch: Batch): string[] {
+  const ids = batch.groups.flatMap((group) =>
+    group.rows.flatMap((row) => {
+      const id = row.params.card_id;
+      return row.kind === "board_card_assigned" && typeof id === "string" && id !== "" ? [id] : [];
+    })
+  );
+  return [...new Set(ids)];
+}
+
+/**
+ * The titles of the cards a batch speaks of, read now (push_board_card_titles): a card's words
+ * live in the boards' tables and never in the queue. A read that fails is reported and the
+ * pushes go without the titles — "a card is yours" still says what matters.
+ */
+async function withCardTitles(batch: Batch, db: PushDatabase, options: RunOptions): Promise<Batch> {
+  const ids = cardIds(batch);
+  if (ids.length === 0) {
+    return batch;
+  }
+  const cards = new Map<string, CardTitles>();
+  try {
+    const raw = await call(db, "push_board_card_titles", { p_card_ids: ids });
+    for (const row of Array.isArray(raw) ? raw : []) {
+      if (
+        isRecord(row) && typeof row.card_id === "string" && typeof row.card_title === "string" &&
+        typeof row.board_title === "string"
+      ) {
+        cards.set(row.card_id, { card: row.card_title, board: row.board_title });
+      }
+    }
+  } catch (error) {
+    options.error("send-push: the card titles could not be read; sent without them", error);
+  }
+  return { ...batch, groups: batch.groups.map((group) => ({ ...group, cards })) };
+}
+
 /**
  * What one group comes to: a push, or a settlement without one. The fold
  * decides first and the kinds she switched off are judged on what it decided
@@ -480,7 +523,8 @@ export async function runSendPush(
     }
     summary.batches += 1;
 
-    const settlements = await runBatch(readBatch(raw), expo, options, deadline);
+    const batch = await withCardTitles(readBatch(raw), db, options);
+    const settlements = await runBatch(batch, expo, options, deadline);
     await call(db, "record_push_results", { p_results: settlements });
     for (const settlement of settlements) {
       summary[settlement.outcome] += 1;

@@ -674,12 +674,18 @@ select pg_temp.check('9.2 no word of a card, a step or a comment is in the work 
   0::bigint);
 select pg_temp.check('9.3 a system line never has words',
   (select count(*) from public.manager_board_entries where kind <> 'comment' and body is not null), 0::bigint);
-select pg_temp.check('9.4 the tables have no trigger that could write anywhere else',
-  (select count(*) from pg_trigger
-   where not tgisinternal
-     and tgrelid in ('public.manager_boards'::regclass, 'public.manager_board_cards'::regclass,
-                     'public.manager_board_steps'::regclass, 'public.manager_board_entries'::regclass)),
-  0::bigint);
+-- One trigger only (20261118230000): the line «assignee changed» queues a push to the new assignee,
+-- carrying the card's id and nothing it says (push_on_card_assigned reads no title, body or words).
+select pg_temp.check('9.4 the tables have no trigger that could write anywhere else, but the assignment push',
+  (select coalesce(string_agg(t.tgname || ' ' || p.proname, ', ' order by t.tgname), '')
+   from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+   where not t.tgisinternal
+     and t.tgrelid in ('public.manager_boards'::regclass, 'public.manager_board_cards'::regclass,
+                       'public.manager_board_steps'::regclass, 'public.manager_board_entries'::regclass)),
+  'manager_board_entries_push_assigned push_on_card_assigned');
+select pg_temp.check('9.4b and that push reads no words of the boards',
+  (select p.prosrc ~ '\m(title|body|description)\M' from pg_proc p
+   where p.oid = 'public.push_on_card_assigned()'::regprocedure), false);
 select pg_temp.check('9.5 a system line names only columns, dates and counts',
   (select bool_and(case e.kind
                      when 'moved' then e.facts ?& array['from', 'to']

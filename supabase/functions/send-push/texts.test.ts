@@ -272,3 +272,18 @@ Deno.test("a hand-back without a name says the place and the day", () => {
     `Vinohradska House, ${day("2026-11-18", "en")}`,
   );
 });
+
+Deno.test("a card given to her names the board and the card in every language, and nothing when they are unknown", () => {
+  const card = (titles: { card: string | null; board: string | null }): Folded => ({
+    type: "card",
+    cardId: "8c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+    ...titles,
+  });
+  assertEquals(renderPush(card({ card: "Плитка", board: "Ремонт" }), group("ru")), {
+    title: "Вам назначена карточка",
+    body: "Ремонт: Плитка",
+  });
+  assertEquals(renderPush(card({ card: "Tiles", board: "Repairs" }), group("en")).body, "Repairs: Tiles");
+  assertEquals(renderPush(card({ card: "Dlažba", board: "Opravy" }), group("cs")).title, "Byla vám přidělena karta");
+  assertEquals(renderPush(card({ card: null, board: null }), group("en")), { title: "Card assigned to you", body: "" });
+});

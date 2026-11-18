@@ -46,6 +46,10 @@
       "title": "Новое задание",
       "titleUrgent": "Срочное задание"
     },
+    "board_card_assigned": {
+      "title": "Вам назначена карточка",
+      "body": "{{board}}: {{card}}"
+    },
     "chat_message": {
       "title": "Новое сообщение",
       "count_one": "{{count}} новое сообщение",
@@ -118,6 +122,10 @@
       "title": "New task",
       "titleUrgent": "Urgent task"
     },
+    "board_card_assigned": {
+      "title": "Card assigned to you",
+      "body": "{{board}}: {{card}}"
+    },
     "chat_message": {
       "title": "New message",
       "count_one": "{{count}} new message",
@@ -187,6 +195,10 @@
     "problem_new": {
       "title": "Nový úkol",
       "titleUrgent": "Naléhavý úkol"
+    },
+    "board_card_assigned": {
+      "title": "Byla vám přidělena karta",
+      "body": "{{board}}: {{card}}"
     },
     "chat_message": {
       "title": "Nová zpráva",

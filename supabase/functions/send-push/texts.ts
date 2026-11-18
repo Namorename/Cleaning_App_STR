@@ -14,7 +14,14 @@
  */
 
 import type { Language, Place, PushGroup } from "./batch.ts";
-import type { Folded, FoldedChat, FoldedDigest, FoldedProblem, FoldedTask } from "./fold.ts";
+import type {
+  Folded,
+  FoldedCard,
+  FoldedChat,
+  FoldedDigest,
+  FoldedProblem,
+  FoldedTask,
+} from "./fold.ts";
 import COPY from "./push-texts.json" with { type: "json" };
 
 export interface PushText {
@@ -204,6 +211,15 @@ function renderDigest(texts: Texts, folded: FoldedDigest): PushText {
   return { title: say(texts, "daily_digest.title"), body: parts.join(" · ") };
 }
 
+/** «Вам назначена карточка»: the board and the card as they are called now. */
+function renderCard(texts: Texts, folded: FoldedCard): PushText {
+  const title = say(texts, "board_card_assigned.title");
+  if (folded.board === null || folded.card === null) {
+    return { title, body: folded.card ?? folded.board ?? "" };
+  }
+  return { title, body: say(texts, "board_card_assigned.body", { board: folded.board, card: folded.card }) };
+}
+
 export function renderPush(folded: Folded, group: PushGroup): PushText {
   const texts = textsFor(group.language);
   switch (folded.type) {
@@ -215,5 +231,7 @@ export function renderPush(folded: Folded, group: PushGroup): PushText {
       return renderDigest(texts, folded);
     case "problem":
       return renderProblem(texts, folded, group);
+    case "card":
+      return renderCard(texts, folded);
   }
 }

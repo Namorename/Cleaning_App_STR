@@ -599,3 +599,111 @@ Deno.test("a head technician who switched new tasks off is not sent one", async 
   assertEquals(sent.length, 0);
   assertEquals(settled(calls)[0].outcome, "muted");
 });
+
+// ---------- a manager board card given to somebody (20261118230000) ----------
+
+const CARD = "8c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f";
+
+function cardGroup(language: string, muted: string[] = []) {
+  return {
+    recipient_id: "ina",
+    collapse_key: `card:${CARD}`,
+    language,
+    tokens: [{ token: "T9", platform: "ios" }],
+    places: {},
+    muted,
+    rows: [{
+      id: 31,
+      kind: "board_card_assigned",
+      task_id: null,
+      thread_id: null,
+      property_id: null,
+      params: { card_id: CARD },
+      urgent: false,
+    }],
+  };
+}
+
+function cardDatabase(batch: unknown[], titles: () => { data: unknown; error: { message: string } | null }) {
+  const calls: Rpc[] = [];
+  const batches = [batch];
+  const db: PushDatabase = {
+    rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_push_batch") {
+        return Promise.resolve({ data: batches.shift() ?? [], error: null });
+      }
+      if (name === "push_board_card_titles") {
+        return Promise.resolve(titles());
+      }
+      return Promise.resolve({ data: name === "claim_push_receipts" ? [] : null, error: null });
+    },
+  };
+  return { db, calls };
+}
+
+Deno.test("a card given to her: one push with the board and the card, read at the send, and a tap that names the card", async () => {
+  // Arrange
+  const { db, calls } = cardDatabase([cardGroup("ru")], () => ({
+    data: [{ card_id: CARD, card_title: "Плитка в ванной", board_title: "Ремонт" }],
+    error: null,
+  }));
+  const { expo, sent } = sender(okTickets);
+
+  // Act
+  await runSendPush(db, expo, quiet);
+
+  // Assert
+  assertEquals(calls.filter((call) => call.name === "push_board_card_titles").map((call) => call.args), [
+    { p_card_ids: [CARD] },
+  ]);
+  const message = sent[0][0];
+  assertEquals([message.title, message.body], ["Вам назначена карточка", "Ремонт: Плитка в ванной"]);
+  assertEquals(message.data, { kind: "board_card_assigned", cardId: CARD });
+  assertEquals([message.channelId, message.collapseId, message.tag], ["general", `card:${CARD}`, `card:${CARD}`]);
+  assertEquals(settled(calls).map((result) => result.outcome), ["sent"]);
+});
+
+Deno.test("a card push whose titles cannot be read still goes, saying only that a card is hers", async () => {
+  // Arrange
+  const errors: unknown[] = [];
+  const { db, calls } = cardDatabase([cardGroup("en")], () => ({ data: null, error: { message: "boom" } }));
+  const { expo, sent } = sender(okTickets);
+
+  // Act
+  await runSendPush(db, expo, { log: () => {}, error: (...args) => errors.push(args) });
+
+  // Assert
+  assertEquals([sent[0][0].title, sent[0][0].body], ["Card assigned to you", ""]);
+  assertEquals(errors.length, 1);
+  assertEquals(settled(calls).map((result) => result.outcome), ["sent"]);
+});
+
+Deno.test("a card push she switched off is settled as muted and its titles are still not queued anywhere", async () => {
+  // Arrange
+  const { db, calls } = cardDatabase([cardGroup("cs", ["board_card_assigned"])], () => ({
+    data: [{ card_id: CARD, card_title: "Karta", board_title: "Nástěnka" }],
+    error: null,
+  }));
+  const { expo, sent } = sender(okTickets);
+
+  // Act
+  await runSendPush(db, expo, quiet);
+
+  // Assert
+  assertEquals(sent.length, 0);
+  assertEquals(settled(calls).map((result) => result.outcome), ["muted"]);
+  assertEquals(JSON.stringify(settled(calls)).includes("Karta"), false);
+});
+
+Deno.test("a batch without card pushes never asks for titles", async () => {
+  // Arrange
+  const { db, calls } = database([[assignedGroup("anna", ["T1"], [41])]]);
+  const { expo } = sender(okTickets);
+
+  // Act
+  await runSendPush(db, expo, quiet);
+
+  // Assert
+  assertEquals(calls.some((call) => call.name === "push_board_card_titles"), false);
+});

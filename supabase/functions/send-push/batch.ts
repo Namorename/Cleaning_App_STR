@@ -12,7 +12,8 @@ import { isRecord } from "../_shared/coerce.ts";
 /**
  * push_kind, in the order the migrations declare it (20260928100000;
  * problem_new, the head technician's new task, 20261003150000; a cleaning a
- * cleaner handed back, for the office, 20261118120000).
+ * cleaner handed back, for the office, 20261118120000; a manager board card
+ * given to somebody, 20261118230000).
  */
 export const PUSH_KINDS = [
   "cleaning_new",
@@ -25,6 +26,7 @@ export const PUSH_KINDS = [
   "cleaning_declined",
   "cleaning_interrupted",
   "booking_cancelled_live",
+  "board_card_assigned",
   "problem_new",
   "chat_message",
   "daily_digest",
@@ -52,6 +54,12 @@ export interface Place {
   readonly parentName: string | null;
 }
 
+/** A manager board card's words, read at the send (push_board_card_titles), never queued. */
+export interface CardTitles {
+  readonly card: string;
+  readonly board: string;
+}
+
 export interface PushToken {
   readonly token: string;
   readonly platform: "ios" | "android";
@@ -66,6 +74,8 @@ export interface PushGroup {
   readonly places: ReadonlyMap<string, Place>;
   /** The kinds she switched off: the folded push is judged by them. */
   readonly muted: ReadonlySet<PushKind>;
+  /** Keyed by card id: the titles of the cards its rows are about; filled by the run. */
+  readonly cards?: ReadonlyMap<string, CardTitles>;
   /** The claim's lease: a group is settled under it. Null from an older database. */
   readonly lease: string | null;
   readonly rows: readonly PushRow[];

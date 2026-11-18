@@ -2255,6 +2255,7 @@
         "cleaning_interrupted": "Přerušený úklid",
         "booking_cancelled_live": "Rezervace zrušena během úklidu",
         "problem_new": "Nový úkol",
+        "board_card_assigned": "Přidělená karta nástěnky",
         "chat_message": "Zpráva v chatu",
         "daily_digest": "Ranní přehled"
       },
@@ -3092,7 +3093,7 @@
     "boardArchivedNote": "Nástěnka je v archivu: karty jsou jen ke čtení.",
     "boardMenu": "Akce nástěnky",
     "owner": "Vede: {{name}}",
-    "readOnly": "Jen ke čtení: nástěnku může měnit její vlastník nebo admin.",
+    "readOnly": "Nástěnku mění její vlastník nebo admin, kartu také její řešitel.",
     "noBoards": "Zatím žádné nástěnky. Vytvořte si nástěnku pro vlastní práci: projekty, hovory, nákupy.",
     "addCard": "Přidat kartu",
     "newCard": "Nová karta",
@@ -3147,7 +3148,10 @@
       "dueSet": "Termín nastaven: {{to}}",
       "dueChanged": "Termín změněn: {{from}} → {{to}}",
       "dueRemoved": "Termín odebrán (byl {{from}})",
-      "stepDone": "Krok odškrtnut · {{done}}/{{total}}"
+      "stepDone": "Krok odškrtnut · {{done}}/{{total}}",
+      "assigneeSet": "Řešitel přidělen: {{to}}",
+      "assigneeChanged": "Řešitel změněn: {{from}} → {{to}}",
+      "assigneeRemoved": "Řešitel odebrán (byl {{from}})"
     },
     "moveTo": "Přesunout do…",
     "moveToColumn": "Do „{{column}}“",
@@ -3183,6 +3187,8 @@
       "week": "7 dní",
       "none": "Bez termínu",
       "openSteps": "Má neodškrtnuté kroky",
+      "assignee": "Řešitel",
+      "assigneeAll": "Všichni",
       "reset": "Zrušit filtry"
     },
     "order": {
@@ -3212,7 +3218,13 @@
     "saveError": "Nepodařilo se uložit",
     "staleNote": "Nástěnku se nepodařilo obnovit — zobrazeno, co bylo načteno dříve",
     "dragHint": "Kartu přetáhněte do jiného sloupce nebo ji přesuňte z nabídky „⋯“",
-    "moved": "Karta přesunuta do „{{column}}“"
+    "moved": "Karta přesunuta do „{{column}}“",
+    "assignee": "Řešitel",
+    "noAssignee": "Bez řešitele",
+    "assigneeOn": "Řešitel: {{name}}",
+    "assignedToMe": "Přiděleno mně",
+    "assignedToMeEmpty": "Zatím vám není přidělena žádná karta",
+    "onBoard": "Nástěnka „{{title}}“"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Zdroj a cíl jsou tentýž apartmán",
@@ -3432,6 +3444,7 @@
     "signalMessagesOff": "Zprávy hostů jsou vypnuté.",
     "boardNotFound": "Nástěnka nenalezena",
     "boardNotYours": "Nástěnku může měnit jen její vlastník nebo admin",
+    "boardAssigneeInvalid": "Řešitelem může být jen aktivní manažer nebo admin společnosti",
     "boardArchived": "Nástěnka je v archivu — nejdřív ji obnovte",
     "boardTitleInvalid": "Název nástěnky má 1 až {{max}} znaků",
     "boardCardNotFound": "Karta nenalezena",
@@ -3491,6 +3504,10 @@
     "problem_new": {
       "title": "Nový úkol",
       "titleUrgent": "Naléhavý úkol"
+    },
+    "board_card_assigned": {
+      "title": "Byla vám přidělena karta",
+      "body": "{{board}}: {{card}}"
     },
     "chat_message": {
       "title": "Nová zpráva",

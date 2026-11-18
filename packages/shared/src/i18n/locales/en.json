@@ -2217,6 +2217,7 @@
         "cleaning_interrupted": "Cleaning interrupted",
         "booking_cancelled_live": "Booking cancelled during your cleaning",
         "problem_new": "New task",
+        "board_card_assigned": "A board card assigned to you",
         "chat_message": "Chat message",
         "daily_digest": "Morning summary"
       },
@@ -3040,7 +3041,7 @@
     "boardArchivedNote": "The board is archived: its cards are read-only.",
     "boardMenu": "Board actions",
     "owner": "Run by {{name}}",
-    "readOnly": "Read-only: only the board's owner or an admin can change it.",
+    "readOnly": "The board is changed by its owner or an admin, and a card also by its assignee.",
     "noBoards": "No boards yet. Create one for your own work: projects, calls, purchases.",
     "addCard": "Add a card",
     "newCard": "New card",
@@ -3095,7 +3096,10 @@
       "dueSet": "Due date set: {{to}}",
       "dueChanged": "Due date changed: {{from}} → {{to}}",
       "dueRemoved": "Due date removed (was {{from}})",
-      "stepDone": "Step ticked · {{done}}/{{total}}"
+      "stepDone": "Step ticked · {{done}}/{{total}}",
+      "assigneeSet": "Assignee set: {{to}}",
+      "assigneeChanged": "Assignee changed: {{from}} → {{to}}",
+      "assigneeRemoved": "Assignee removed (was {{from}})"
     },
     "moveTo": "Move to…",
     "moveToColumn": "To “{{column}}”",
@@ -3131,6 +3135,8 @@
       "week": "7 days",
       "none": "No due date",
       "openSteps": "Has unticked steps",
+      "assignee": "Assignee",
+      "assigneeAll": "Everyone",
       "reset": "Reset"
     },
     "order": {
@@ -3160,7 +3166,13 @@
     "saveError": "Could not save",
     "staleNote": "The board could not be refreshed — showing what was read before",
     "dragHint": "Drag a card to another column, or move it from its “⋯” menu",
-    "moved": "Card moved to “{{column}}”"
+    "moved": "Card moved to “{{column}}”",
+    "assignee": "Assignee",
+    "noAssignee": "No assignee",
+    "assigneeOn": "Assignee: {{name}}",
+    "assignedToMe": "Assigned to me",
+    "assignedToMeEmpty": "No card is assigned to you yet",
+    "onBoard": "Board “{{title}}”"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Source and target are the same apartment",
@@ -3368,6 +3380,7 @@
     "signalMessagesOff": "Guest messages are switched off.",
     "boardNotFound": "Board not found",
     "boardNotYours": "Only the board's owner or an admin can change it",
+    "boardAssigneeInvalid": "Only an active manager or admin of the company can be the assignee",
     "boardArchived": "The board is archived — restore it first",
     "boardTitleInvalid": "A board name is 1 to {{max}} characters",
     "boardCardNotFound": "Card not found",
@@ -3427,6 +3440,10 @@
     "problem_new": {
       "title": "New task",
       "titleUrgent": "Urgent task"
+    },
+    "board_card_assigned": {
+      "title": "Card assigned to you",
+      "body": "{{board}}: {{card}}"
     },
     "chat_message": {
       "title": "New message",
