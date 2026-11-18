@@ -137,7 +137,7 @@ const spies = {
   deleteComment: vi.fn(),
 };
 
-function mutation(spy: ReturnType<typeof vi.fn>) {
+function mutation(spy: (variables: unknown) => void) {
   return {
     isPending: false,
     isError: false,
