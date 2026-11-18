@@ -14,7 +14,7 @@ import type { CleaningTask } from './schema';
  */
 export type CleaningOffKind = 'decline' | 'interrupt' | 'cancel';
 
-/** The longest reason the server keeps (task_events.reason). */
+/** The longest reason the server keeps (task_off_notes.reason). */
 export const MAX_OFF_REASON_LENGTH = 500;
 
 /** Given or accepted, not started: what decline_cleaning takes. */

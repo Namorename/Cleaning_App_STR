@@ -26,7 +26,7 @@ const FLAT = 900118901;
 const STAY = 900118911;
 const PROBE = 'docs/rollout/probe_cleaning_offs.sql';
 
-// The cloud's answer, 2026-11-18 19:40 UTC.
+// The cloud's answer, 2026-11-18 17:35 UTC.
 const BEFORE = {
   head: '20261115150000',
   applied: 136,

@@ -63,7 +63,7 @@ interface HandBackSheetProps {
 /**
  * The question before a cleaning is taken off — her decline or interrupt, the
  * office's cancel: what follows from it, and a reason in her own words, which
- * only the office reads (task_events.reason). An interrupt needs one, as the
+ * only the office reads (task_off_notes.reason). An interrupt needs one, as the
  * server does (`serverErrors.reasonRequired`): its «yes» waits for a word that
  * is not blank. The app's own sheet, never the system's Alert; a refusal is
  * said on it, in her language, and she may try again from it.
