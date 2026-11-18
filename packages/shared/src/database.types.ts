@@ -6483,9 +6483,11 @@ export type Database = {
       push_board_card_titles: {
         Args: { p_card_ids: string[] }
         Returns: {
+          assignee_id: string
           board_title: string
           card_id: string
           card_title: string
+          is_live: boolean
         }[]
       }
       push_digest_hour: { Args: never; Returns: number }
