@@ -46,7 +46,8 @@ import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from
 // one made by hand: the second has no check-in to speak of (`urgencyText`).
 // `problem_id` tells a repair of a task, which only its task calls off, from a
 // job that can be handed back or cancelled on its own (features/tasks/offs.ts).
-const TASK_COLUMNS =
+// The office's reader asks for these and its own on top (features/office/api.ts).
+export const TASK_COLUMNS =
   'id, type, status, priority, scheduled_date, due_at, assignee_id, property_id, reservation_id, ' +
   'problem_id, ' +
   'time_from, time_to, guests_count, started_at, completed_at, is_parallel, ' +

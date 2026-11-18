@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { tabBarIcon } from '@/components/icon';
 import { LoadingState } from '@/components/loading-state';
 import { renderTabBar } from '@/components/tab-bar';
-import { isTechnician, wordContextOf } from '@/features/auth/role';
+import { isOffice, isTechnician, wordContextOf } from '@/features/auth/role';
 import { useSession } from '@/features/auth/session';
 import { useRole } from '@/features/auth/use-role';
 import { usePermissionPrompt, usePushTaps } from '@/features/push/hooks';
@@ -19,6 +19,9 @@ const TAB_ICON = {
   queue: tabBarIcon('nav.queue'),
   problems: tabBarIcon('nav.problems'),
   supplies: tabBarIcon('nav.supplies'),
+  // The office's: «Уборки» as the panel's menu draws them, and the boards.
+  cleanings: tabBarIcon('nav.tasks'),
+  boards: tabBarIcon('nav.dashboard'),
 } as const;
 
 /**
@@ -61,12 +64,17 @@ export default function TabsLayout() {
 
   // The technician and the head technician have nothing to do with cleanings
   // (docs/tech-plan.md §4): their first tab is their own work, «Мои работы»,
-  // and there is no free queue and no supplies. Only what is offered changes;
-  // what they read is the server's to decide. Any other role — and one this
-  // build does not know — gets the cleaner's four.
+  // and there is no free queue and no supplies. The office — a manager, an
+  // admin — runs the company from the phone too (owner, 2026-11-18): «Уборки»
+  // of everybody, «Задания» as the head technician's board, and «Доски»; no
+  // free queue and no supplies either. Only what is offered changes; what
+  // they read is the server's to decide. Any other role — and one this build
+  // does not know — gets the cleaner's four.
   const isTech = isTechnician(role);
+  const isOfficeRole = isOffice(role);
   const context = wordContextOf(role);
-  const forCleanersOnly = isTech ? HIDDEN : undefined;
+  const forCleanersOnly = isTech || isOfficeRole ? HIDDEN : undefined;
+  const forOfficeOnly = isOfficeRole ? undefined : HIDDEN;
 
   return (
     // The gear opens the settings; signing out lives at the bottom of them.
@@ -77,10 +85,14 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{
-          title: t('tabs.myTasks', { context }),
-          tabBarIcon: isTech ? TAB_ICON.myJobs : TAB_ICON.myTasks,
-        }}
+        options={
+          isOfficeRole
+            ? { title: t('office.tabs.cleanings'), tabBarIcon: TAB_ICON.cleanings }
+            : {
+                title: t('tabs.myTasks', { context }),
+                tabBarIcon: isTech ? TAB_ICON.myJobs : TAB_ICON.myTasks,
+              }
+        }
       />
       <Tabs.Screen
         name="queue"
@@ -93,6 +105,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="supplies"
         options={{ title: t('tabs.supplies'), tabBarIcon: TAB_ICON.supplies, ...forCleanersOnly }}
+      />
+      <Tabs.Screen
+        name="boards"
+        options={{ title: t('boards.switcherLabel'), tabBarIcon: TAB_ICON.boards, ...forOfficeOnly }}
       />
     </Tabs>
   );

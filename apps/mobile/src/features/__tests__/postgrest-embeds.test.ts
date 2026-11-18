@@ -7,6 +7,7 @@ import { fetchMessages } from '@/features/chat/api';
 import { fetchProblemEvents } from '@/features/history/api';
 import { fetchHostSettings } from '@/features/host/api';
 import { fetchKbArticles, fetchKbPlace } from '@/features/knowledge/api';
+import { fetchOfficeTask, fetchOfficeTasks } from '@/features/office/api';
 import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
 import { fetchReportProperties } from '@/features/properties/api';
 import type * as ProblemsApi from '@/features/problems/api';
@@ -125,6 +126,9 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   // The knowledge base, step 2 (docs/knowledge-base-step2.md).
   () => fetchKbArticles(),
   () => fetchKbPlace(1),
+  // The office's «Уборки» and its card (owner, 2026-11-18).
+  () => fetchOfficeTasks({ from: '2026-11-01', to: '2026-12-01' }),
+  () => fetchOfficeTask(ANY_ID),
 ];
 
 const schema = indexSchema(
