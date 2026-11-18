@@ -4,6 +4,24 @@
 `docs/one-off-writes/cleaning-offs-rollback.sql`; проба `docs/rollout/probe_cleaning_offs.sql`; репетиция
 `docs/rollout/rehearsal-cleaning-offs-1118.mjs`.
 
+## Выкачено 18.11.2026
+
+| UTC | Шаг | Итог |
+|---|---|---|
+| 17:39 | миграция `20261118120000_cleaning_offs` (застава: sha256 `08671c4b…`, голова `20261115150000`, сухой прогон = 1 файл) | проба = `AFTER` репетиции; права `task_off_notes` в облаке: `authenticated` только SELECT, RLS вкл., `anon` и PUBLIC — ничего |
+| 17:39 | Edge-функция `send-push` | v7 ACTIVE, `verify_jwt` как был; крон 17:43 succeeded, очередь пуста |
+| 17:42 | `main` 1cb759e → 188a0a1 | Vercel прод `woom-r9f1e8uo4` Ready, `/login` 200 |
+| 17:48 | OTA №22 **preview** | группа `74ec8993-4841-4fde-83a1-bdee503120c4` (Android `01a1efc6-866a-70b3…`, iOS `01a1efc6-866a-7dba…`); bundle-check против №21 OK; `dist` — `~/dev-tools/str-ops/day-1118/dist-ota22` |
+| 17:49 | OTA №22 **field** (republish) | группа `d8af26cb-9b6a-4eb6-87f5-be38de83dcf0` (Android `01a1efc7-2823-72db…`, iOS `01a1efc7-2823-79ea…`), runtime 1.2.0 |
+| 17:51 | пробы | статусы только из прежних девяти; меток и причин 0; откатываемая проба записи (`probe_cleaning_offs_write.sql`) — PROBE OK: отказ → свободная, офису 1 пуш, причина читается офисом, генератор новой уборки не пишет, «Вернуть» отдаёт; счётчики до и после равны |
+
+Проверено до выката: репетиция GREEN (52 шага, наборы `cleaning_offs` 178, `task_events` 36,
+`task_generation` 68, `task_accept` 29, `task_lifecycle` 26, `push_events` 59, `push_recipients` 36,
+`head_tech_push` 30, `staff_disable` 67, `table_grants` 26, `api_v1` 124); `test:rls` 66 наборов / 3368;
+панель tsc 0, eslint 0, vitest 207 / 2980; телефон tsc 0, lint 0 ошибок, jest 224 / 3825; функции 713;
+скрипты 70. Три независимых обзора (сервер, телефон, панель): находки исправлены, сервер перепроверен —
+APPROVE.
+
 ## Как устроено
 
 Новых статусов нет: старые телефоны разбирают статус строго. Отмена — прежний `cancelled`. Отказ и
