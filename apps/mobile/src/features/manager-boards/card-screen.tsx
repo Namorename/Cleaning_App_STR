@@ -314,6 +314,8 @@ function AssigneeSection({ card, canAssign }: { card: CardDetail; canAssign: boo
           accessibilityLabel={`${t('boards.assignee')}: ${name}`}
           variant="outline"
           isBusy={assign.isPending}
+          // Not before the directory is read: an empty sheet would offer only «Без исполнителя».
+          isDisabled={staff.data === undefined}
           onPress={() => setIsPicking(true)}
         />
       ) : (

@@ -501,7 +501,7 @@ describe('the assignee and the colour (20261118230000)', () => {
     expect(screen.queryByText(NOT_ON_SCREEN)).toBeNull();
   });
 
-  test('a shelved card and an archived board say only what they are', async () => {
+  test('a shelved card says only what it is', async () => {
     mockState.viewer = { id: READER, isAdmin: false };
     mockState.detail = cardDetailSchema.parse({ ...DETAIL, archived_at: '2026-11-15T10:00:00Z' });
     await render(<CardScreen cardId={DETAIL.id} />);
@@ -571,6 +571,13 @@ describe('the assignee and the colour (20261118230000)', () => {
     ];
     await render(<BoardsTab />);
     await fireEvent.press(screen.getByRole('button', { name: 'Фильтры' }));
+    const chips = screen.getAllByRole('radio').map((chip) => chip.props.accessibilityLabel);
+    const everyone = chips.indexOf('Все');
+    expect(chips.slice(everyone, everyone + 3)).toEqual([
+      'Все',
+      'Назначено мне',
+      'Без исполнителя',
+    ]);
     await fireEvent.press(screen.getByRole('radio', { name: 'Назначено мне' }));
     expect(screen.getByText('Звонок юристу')).toBeOnTheScreen();
     expect(screen.queryByText('Ремонт ванной')).toBeNull();
@@ -603,5 +610,24 @@ describe('the assignee and the colour (20261118230000)', () => {
     await render(<BoardsTab />);
     await fireEvent.press(screen.getByRole('tab', { name: 'Назначено мне' }));
     expect(screen.getByText('Вам пока не назначено ни одной карточки')).toBeOnTheScreen();
+  });
+});
+
+describe('after the review of the phone, stage 2', () => {
+  test('«Назначено мне» comes first among the boards', async () => {
+    await render(<BoardsTab />);
+    expect(screen.getAllByRole('tab')[0]).toHaveAccessibleName('Назначено мне');
+  });
+
+  test('a card saved to disk by the build before the assignee reads with nobody', () => {
+    const { assignee_id: _id, assignee: _person, ...old } = card(1);
+    const parsed = boardCardSchema.parse(old);
+    expect([parsed.assignee_id, parsed.assignee]).toEqual([null, null]);
+  });
+
+  test('the assignee cannot be picked before the people are read', async () => {
+    mockState.staff = undefined as unknown as OfficePerson[];
+    await render(<CardScreen cardId={DETAIL.id} />);
+    expect(screen.getByRole('button', { name: 'Исполнитель: Без исполнителя' })).toBeDisabled();
   });
 });

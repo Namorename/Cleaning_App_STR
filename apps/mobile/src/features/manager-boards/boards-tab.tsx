@@ -413,6 +413,8 @@ function MyCardsBody() {
   return (
     <>
       <FlatList
+        // The search sits in the header: a tap with the keyboard up acts, not only hides it.
+        keyboardShouldPersistTaps="handled"
         data={shown}
         keyExtractor={(card) => card.id}
         ListHeaderComponent={header}

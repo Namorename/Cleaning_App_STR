@@ -142,15 +142,11 @@ export const useSaveComment = () => useWrite(saveComment);
 export const useDeleteComment = () => useWrite(deleteComment);
 export const useSetCardAssignee = () => useWrite(setCardAssignee);
 
-/**
- * A move shows at once in the list on screen — a board's cards, or «Назначено мне» for a null
- * board — and goes back if the server refuses.
- */
-export function useMoveCard(boardId: string | null) {
+/** A move shows at once on the board's list, and goes back if the server refuses. */
+export function useMoveCard(boardId: string) {
   const { userId } = useSession();
   const queryClient = useQueryClient();
-  const key =
-    boardId === null ? boardKeys.mine(userId ?? '') : boardKeys.cards(userId ?? '', boardId);
+  const key = boardKeys.cards(userId ?? '', boardId);
   return useMutation({
     ...WRITE,
     mutationFn: (variables: { cardId: string; column: BoardColumn }) => moveCard(variables),
