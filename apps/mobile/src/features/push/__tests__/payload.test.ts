@@ -41,6 +41,16 @@ test.each(TASK_PUSH_KINDS)('a %s push names the cleaning', (kind) => {
   expect(readPushData({ kind, taskId: TASK_ID })).toEqual({ kind, taskId: TASK_ID });
 });
 
+// The office hears a hand-back (20261118120000) with the cleaning's id, as any
+// push about a cleaning; without it there is nothing to open.
+test.each(['cleaning_declined', 'cleaning_interrupted'])(
+  'a %s push is read, and without its cleaning reads as nothing',
+  (kind) => {
+    expect(readPushData({ kind, taskId: TASK_ID })).toEqual({ kind, taskId: TASK_ID });
+    expect(readPushData({ kind })).toBeNull();
+  },
+);
+
 test('a chat push names the subject and the thread', () => {
   const data = { kind: 'chat_message', subject: 'problem', id: PROBLEM_ID, threadId: THREAD_ID };
 

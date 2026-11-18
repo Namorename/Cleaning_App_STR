@@ -4,6 +4,8 @@
  *
  * The rows come in the order they were written. What matters to her is where
  * things ended up, so the order of precedence is:
+ * - for the office, a cleaning a cleaner handed back (declined or interrupted,
+ *   20261118120000): said, with her name;
  * - a booking cancelled while she cleans: always said;
  * - the last word is a cancellation or a taking-away: if she was given it in
  *   the same group, she never heard of it and hears nothing now; otherwise
@@ -47,6 +49,8 @@ export interface FoldedTask {
   readonly urgent: boolean;
   readonly move?: MoveFacts;
   readonly window?: WindowFacts;
+  /** A cleaning handed back: who, as her profile names her; never her words. */
+  readonly person?: string | null;
 }
 
 export interface FoldedChat {
@@ -82,6 +86,8 @@ export interface FoldedProblem {
 export type Folded = FoldedTask | FoldedChat | FoldedDigest | FoldedProblem;
 
 const TAKEN_AWAY: ReadonlySet<PushKind> = new Set(["cleaning_cancelled", "cleaning_unassigned"]);
+/** What the office hears of a cleaning a cleaner handed back (20261118120000). */
+const HANDED_BACK: ReadonlySet<PushKind> = new Set(["cleaning_declined", "cleaning_interrupted"]);
 const GIVEN: ReadonlySet<PushKind> = new Set(["cleaning_new", "cleaning_assigned"]);
 
 function text(value: unknown): string | null {
@@ -153,7 +159,28 @@ function foldWindow(rows: readonly PushRow[], row: PushRow): FoldedTask {
   });
 }
 
+/**
+ * The office told that a cleaner handed a cleaning back: the last word, with her name. A manager
+ * linked to the listing may also be offered it as free work in the same group; the hand-back is
+ * the news (20261118120000).
+ */
+function foldHandBack(rows: readonly PushRow[]): FoldedTask | null {
+  const last = [...rows].reverse().find((row) => HANDED_BACK.has(row.kind));
+  if (last === undefined) {
+    return null;
+  }
+  return {
+    ...taskPush([last], last.kind as TaskEvent, text(last.params.date)),
+    urgent: rows.some((row) => HANDED_BACK.has(row.kind) && row.urgent),
+    person: text(last.params.by_name),
+  };
+}
+
 function foldTask(rows: readonly PushRow[]): FoldedTask | null {
+  const handedBack = foldHandBack(rows);
+  if (handedBack !== null) {
+    return handedBack;
+  }
   const own = rows.filter((row) => row.kind !== "cleaning_free");
   if (own.length > 0 && own.length < rows.length) {
     return foldTask(own);

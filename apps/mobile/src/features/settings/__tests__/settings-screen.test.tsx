@@ -50,7 +50,10 @@ const saveLanguage = jest.mocked(saveMyLanguage);
 /** The one switch only the head technician is shown (owner's word 2026-10-03). */
 const NEW_TASK = 'Новое задание';
 
-/** Every push kind's switch, in the enum's order, as a cleaner reads it. */
+/**
+ * Every push kind's switch, in the enum's order, as a cleaner reads it — but
+ * the office's two of a cleaning handed back (`HANDED_BACK`, below).
+ */
 const KIND_LABELS = [
   'Новая уборка',
   'Вам назначена уборка',
@@ -206,8 +209,36 @@ describe('a technician', () => {
   });
 });
 
-test.each(['cleaner', 'manager', 'admin'])(
-  'a %s has no new-task switch at all, and every other one in its place',
+test('a cleaner has no new-task switch at all, and every other one in its place', async () => {
+  // Arrange
+  mockRole = 'cleaner';
+
+  // Act
+  await renderScreen();
+
+  // Assert: not a switch turned off or greyed out — no row, no words.
+  await waitFor(() => expect(screen.getAllByRole('switch')).toHaveLength(KIND_LABELS.length - 1));
+  expect(switchLabels()).toEqual(KIND_LABELS.filter((label) => label !== NEW_TASK));
+  expect(screen.queryByText(NEW_TASK, { includeHiddenElements: true })).toBeNull();
+  expect(screen.getByRole('switch', { name: 'Утренняя сводка' })).not.toBeChecked();
+  expect(screen.getByRole('switch', { name: 'Новая уборка' })).toBeChecked();
+});
+
+/** A cleaning handed back (20261118120000): told to the office alone. */
+const HANDED_BACK = ['Отказ от уборки', 'Уборка прервана'];
+
+test('a cleaner is shown no switch of a cleaning handed back', async () => {
+  mockRole = 'cleaner';
+
+  await renderScreen();
+
+  for (const label of HANDED_BACK) {
+    expect(screen.queryByText(label, { includeHiddenElements: true })).toBeNull();
+  }
+});
+
+test.each(['manager', 'admin'])(
+  'a %s has no new-task switch, and the two of a cleaning handed back after the free one',
   async (role) => {
     // Arrange
     mockRole = role;
@@ -215,12 +246,15 @@ test.each(['cleaner', 'manager', 'admin'])(
     // Act
     await renderScreen();
 
-    // Assert: not a switch turned off or greyed out — no row, no words.
-    await waitFor(() => expect(screen.getAllByRole('switch')).toHaveLength(KIND_LABELS.length - 1));
-    expect(switchLabels()).toEqual(KIND_LABELS.filter((label) => label !== NEW_TASK));
+    // Assert
+    const office = KIND_LABELS.filter((label) => label !== NEW_TASK);
+    const afterFree = office.indexOf('Свободная уборка') + 1;
+    const expected = [...office.slice(0, afterFree), ...HANDED_BACK, ...office.slice(afterFree)];
+    await waitFor(() => expect(screen.getAllByRole('switch')).toHaveLength(expected.length));
+    expect(switchLabels()).toEqual(expected);
     expect(screen.queryByText(NEW_TASK, { includeHiddenElements: true })).toBeNull();
-    expect(screen.getByRole('switch', { name: 'Утренняя сводка' })).not.toBeChecked();
-    expect(screen.getByRole('switch', { name: 'Новая уборка' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Отказ от уборки' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Уборка прервана' })).toBeChecked();
   },
 );
 

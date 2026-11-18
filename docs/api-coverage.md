@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 293 | 359 |
+| Функции | 20 | 46 | 299 | 365 |
 | Таблицы и представления | 9 | 21 | 25 | 55 |
-| Всего | 29 | 67 | 318 | 414 |
+| Всего | 29 | 67 | 324 | 420 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 293
+### Внутреннее — 299
 
 | Имя | Причина |
 | --- | --- |
@@ -140,6 +140,7 @@
 | `auth_role` | auth/RLS helper: role of the active caller from profiles |
 | `can_read_task_media` | Storage policy helper of the task-media bucket (read) |
 | `can_upload_task_media` | Storage policy helper of the task-media bucket (upload onto a waiting row) |
+| `cancel_cleaning` | the office cancels a cleaning in the panel or on the phone (soft cancel, any status); not in API v1 by the owner's word of 2026-11-18 |
 | `cancel_resolution_plan` | the manager closes a launched plan in the panel; the public resource comes with stage 6 of the plan |
 | `cascade_delete_property_units` | trigger function: deletes the rooms of a deleted listing |
 | `chat_body_max_length` | chat limit constant used by send_message |
@@ -167,6 +168,7 @@
 | `current_host_id` | auth/RLS helper: tenant of the caller |
 | `cut_signal_stay_links` | privacy cut: a settled review keeps only the month of its stay and loses the booking link (89-day rule); called inside the review functions, execute revoked from every role |
 | `decide_signal_finding` | decision rules of the classify job (no task, dropped, duplicate, already fixed, auto); called inside apply_signal_findings, execute revoked from every role |
+| `decline_cleaning` | a cleaner declines her own cleaning on the phone, before starting it; a person's own move, never an integration's (owner, 2026-11-18) |
 | `default_host_id` | tenant default of host_id columns (single-company phase A); internal plumbing |
 | `delete_resolution_plan` | the manager deletes a draft in the panel; the public resource comes with stage 6 of the plan |
 | `delete_supply_request` | forbidden: irreversible delete (hard delete of a new supply request by its author) |
@@ -197,10 +199,12 @@
 | `guest_messages_shown` | Guest chats (docs/guest-chats.md), behind a switch: whether chats are shown on «Качество объектов»; a helper of the panel's reads. |
 | `guest_signals_touch` | trigger function: stamps updated_at of a review, only its month once the stay is cut |
 | `guest_stay_json` | helper: the stay of a guest signal as a task shows it (days while exact, months after the cut); execute revoked from every role |
+| `hand_back_cleaning` | body of decline_cleaning and interrupt_cleaning; executable by no client |
 | `handle_new_user` | trigger function: creates the profile of a new auth.users row |
 | `head_tech_dispatching` | guard helper: marks a head-technician dispatch inside assign_problem/unassign_problem |
 | `head_tech_property_ids` | auth/RLS helper: listings the head technician may read |
 | `ingest_guest_reviews` | PMS sync (sync-guest-signals; the PMS stays the source of truth): upserts a portion of reviews by their HMAC key (provider:review:id) from the PMS's ids, service_role only |
+| `interrupt_cleaning` | a cleaner interrupts her own cleaning under way on the phone, with a reason; a person's own move, never an integration's (owner, 2026-11-18) |
 | `invoke_edge_function` | scheduler plumbing: pg_cron calls an Edge Function with the service key read from Vault, service_role only |
 | `is_active_user` | auth/RLS helper: caller is an active profile |
 | `is_head_tech` | auth/RLS helper: caller is the active head technician |
@@ -318,6 +322,7 @@
 | `resolve_report_property` | helper of report_problem: resolves the listing and checks the reporter may report there |
 | `resolve_signal_place` | the place of a guest signal from the PMS's ids, inside the company (one branch a provider); execute revoked from every role |
 | `resolve_signal_reservation` | the booking of a guest signal from the PMS's id, inside the company (one branch a provider); execute revoked from every role |
+| `restore_cleaning` | the office returns a cleaning it cancelled, in the panel; not in API v1 by the owner's word of 2026-11-18 |
 | `review_load_state` | PMS sync (sync-guest-signals): which parts of the reviews read are still missing, flags only, service_role only |
 | `review_text_allowed` | privacy rule: whether a review may keep a text (stay from the texts' line - the guest notice's day or the day texts first went on - hidden, archive, 18 months); execute revoked from every role |
 | `revoke_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
@@ -377,6 +382,7 @@
 | `task_media_video_tolerance_sec` | media limit constant used by the upload checks |
 | `task_media_written_meanwhile` | replay-race helper of the media RPCs; execute revoked from clients |
 | `task_note_line_count` | phone-only flow of the cleaner at work (task steps): counts note lines to tick, service_role only |
+| `task_offs` | computed field for the panel: the office cancel and the hand-back with names and reasons; the reasons are the office's alone |
 | `task_start_not_before` | start-gate helper of the cleaner flow (earliest start instant) |
 | `task_step_for_update` | phone-only flow of the cleaner at work (task steps): lock-and-check helper, service_role only |
 | `task_title_max_length` | validation limit constant of save_task |

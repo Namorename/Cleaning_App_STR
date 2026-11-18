@@ -18,9 +18,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { todayIso } from '@/lib/format-date';
 import { serverErrorHint, serverErrorText } from '@/lib/server-error';
 
+import { CancelTaskDialog } from './cancel-task-dialog';
 import { ManualTimeNote } from './manual-time-note';
 import {
   bookableTypes,
+  canCancelCleaning,
   canSetCleaningTime,
   draftFromTask,
   hasManualTimeGap,
@@ -104,6 +106,8 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
   const [draft, setDraft] = useState<TaskDraft>(() =>
     task === null ? { ...emptyDraft(), ...initial } : draftFromTask(task),
   );
+  // The question before a cancel, over the form while it is asked.
+  const [isCancelling, setCancelling] = useState(false);
   // Sorted and composed once per list, not once per keystroke in the notes.
   const places = useMemo(() => propertyOptions(properties.data ?? []), [properties.data]);
 
@@ -341,6 +345,17 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
           )}
 
           <div className="flex flex-wrap justify-end gap-2">
+            {/* The card's own cancel (owner, 2026-11-18): any cleaning that is there. */}
+            {task !== null && canCancelCleaning(task) ? (
+              <Button
+                type="button"
+                variant="destructive"
+                className="mr-auto"
+                onClick={() => setCancelling(true)}
+              >
+                {t('panel.tasks.actions.cancel')}
+              </Button>
+            ) : null}
             <Button type="button" variant="outline" onClick={onClose}>
               {t('panel.tasks.form.close')}
             </Button>
@@ -362,6 +377,13 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
             </Button>
           </div>
         </form>
+        {task !== null && isCancelling ? (
+          <CancelTaskDialog
+            task={task}
+            onClose={() => setCancelling(false)}
+            onCancelled={onClose}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );

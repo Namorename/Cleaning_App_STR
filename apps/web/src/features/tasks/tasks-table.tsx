@@ -26,6 +26,8 @@ interface TasksTableProps {
   onOpenWork: (task: Task) => void;
   onOpenChat: (task: Task) => void;
   onCancel: (task: Task) => void;
+  /** «Вернуть» a cleaning the office cancelled (20261118120000). */
+  onRestore?: (task: Task) => void;
   onComplete?: (task: Task) => void;
 }
 
@@ -46,6 +48,7 @@ export function TasksTable({
   onOpenWork,
   onOpenChat,
   onCancel,
+  onRestore,
   onComplete,
 }: TasksTableProps) {
   const { t } = useTranslation();
@@ -90,6 +93,7 @@ export function TasksTable({
                 onOpenWork={onOpenWork}
                 onOpenChat={onOpenChat}
                 onCancel={onCancel}
+                onRestore={onRestore}
                 onComplete={onComplete}
                 hasUnread={unread.has(task.id)}
               />

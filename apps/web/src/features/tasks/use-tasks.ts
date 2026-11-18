@@ -19,9 +19,11 @@ import {
   fetchTasks,
   handHoursOf,
   nameCleaningWorker,
+  restoreTask,
   saveTask,
   setCleaningTime,
   setDurationOverride,
+  type CancelTaskVariables,
   type ClearCleaningTimeVariables,
   type CompleteCleaningVariables,
   type NameWorkerVariables,
@@ -143,8 +145,18 @@ export function useCancelTask() {
   const client = useSupabase();
   const invalidate = useInvalidateTasks();
   return useMutation({
-    mutationFn: (taskId: string) => cancelTask(client, taskId),
+    mutationFn: (variables: CancelTaskVariables) => cancelTask(client, variables),
     // A refusal means the task changed meanwhile: refresh either way.
+    onSettled: invalidate,
+  });
+}
+
+/** «Вернуть» a cleaning the office cancelled (20261118120000); refresh either way. */
+export function useRestoreTask() {
+  const client = useSupabase();
+  const invalidate = useInvalidateTasks();
+  return useMutation({
+    mutationFn: (taskId: string) => restoreTask(client, taskId),
     onSettled: invalidate,
   });
 }

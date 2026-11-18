@@ -24,9 +24,11 @@ import { cn } from '@/lib/utils';
 import { formatWindow } from './format';
 import { TaskClosing } from './task-closing';
 import { TaskNote } from './task-note';
+import { hasOffLines, TaskOffs } from './task-offs';
 import {
+  canCancelCleaning,
+  canRestoreCleaning,
   canSetCleaningTime,
-  isManualTask,
   isTaskClosed,
   isTechnicianJob,
   localizedTitle,
@@ -92,8 +94,10 @@ interface TaskRowProps {
   onOpenWork: (task: Task) => void;
   /** The conversation about the job, in its sheet: offered on every row. */
   onOpenChat: (task: Task) => void;
-  /** Ask whether to call the job off; the view asks, and owns the write. */
+  /** Ask whether to call the cleaning off; the view opens the question. */
   onCancel: (task: Task) => void;
+  /** «Вернуть» a cleaning the office cancelled (20261118120000). */
+  onRestore?: (task: Task) => void;
   /** «Отметить выполненной»: the manager closes a live cleaning, naming who did it. */
   onComplete?: (task: Task) => void;
   /** Somebody said something in the conversation about this job that the manager has not read. */
@@ -128,6 +132,7 @@ export function TaskRow({
   onOpenWork,
   onOpenChat,
   onCancel,
+  onRestore,
   onComplete,
   hasUnread = false,
 }: TaskRowProps) {
@@ -146,7 +151,11 @@ export function TaskRow({
   // Shown only when the manager asked for them, and then muted: their status
   // says «Отменена» in words.
   const isCancelled = task.status === 'cancelled';
-  const canCancel = !closed && isManualTask(task);
+  // Any cleaning, any status (owner, 2026-11-18); a repair goes with its task.
+  const canCancel = canCancelCleaning(task);
+  const canRestore = onRestore !== undefined && canRestoreCleaning(task);
+  // The office's own words on a cancel or a hand-back say more than the closing (20261118120000).
+  const hasOffs = hasOffLines(task);
 
   return (
     <TableRow
@@ -194,8 +203,13 @@ export function TaskRow({
         ) : (
           <Person name={task.assignee.full_name} role={task.assignee.role} />
         )}
-        {/* Who did it and who closed it, under the person it was given to (20261106125500). */}
-        {closed ? <TaskClosing task={task} className="text-xs text-muted-foreground" /> : null}
+        {/* Who did it and who closed it, under the person it was given to (20261106125500);
+            who cancelled it and why, or who handed it back and why (20261118120000). */}
+        {hasOffs ? (
+          <TaskOffs task={task} className="max-w-64 text-xs text-muted-foreground" />
+        ) : closed ? (
+          <TaskClosing task={task} className="text-xs text-muted-foreground" />
+        ) : null}
       </TableCell>
       <TableCell className="py-1">
         <TaskMarks
@@ -238,6 +252,11 @@ export function TaskRow({
             <DropdownMenuItem onClick={() => onOpenChat(task)}>
               {t('panel.chat.open')}
             </DropdownMenuItem>
+            {canRestore ? (
+              <DropdownMenuItem onClick={() => onRestore?.(task)}>
+                {t('panel.tasks.offs.restore')}
+              </DropdownMenuItem>
+            ) : null}
             {canCancel ? (
               <>
                 <DropdownMenuSeparator />

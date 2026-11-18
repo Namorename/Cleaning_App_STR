@@ -1559,6 +1559,16 @@
         "openRepairWorkLive": "Jak práce probíhá",
         "menu": "Akce: {{name}}"
       },
+      "offs": {
+        "cancelled": "Zrušení: {{name}}, {{date}}",
+        "declined": "Odmítnutí: {{name}}",
+        "interrupted": "Přerušeno, je třeba dokončit: {{name}}",
+        "someone": "pracovník",
+        "quoted": "„{{reason}}“",
+        "restore": "Vrátit",
+        "cancelReason": "Důvod (nepovinné)",
+        "cancelLive": "Pracovník dostane oznámení „Úklid zrušen“."
+      },
       "complete": {
         "action": "Označit jako hotový",
         "title": "Označit jako hotový?",
@@ -2241,6 +2251,8 @@
         "cleaning_window": "Změnil se čas úklidu",
         "cleaning_window_tech": "Změnil se čas práce",
         "cleaning_free": "Volný úklid",
+        "cleaning_declined": "Odmítnutý úklid",
+        "cleaning_interrupted": "Přerušený úklid",
         "booking_cancelled_live": "Rezervace zrušena během úklidu",
         "problem_new": "Nový úkol",
         "chat_message": "Zpráva v chatu",
@@ -2454,6 +2466,25 @@
     },
     "repairs": {
       "heading": "Opravy"
+    },
+    "offs": {
+      "decline": "Odmítnout",
+      "declineTitle": "Odmítnout úklid?",
+      "declineTitle_tech": "Odmítnout práci?",
+      "declineText": "Manažer se to dozví a najde náhradu.",
+      "interrupt": "Přerušit úklid",
+      "interrupt_tech": "Přerušit práci",
+      "interruptTitle": "Přerušit úklid?",
+      "interruptTitle_tech": "Přerušit práci?",
+      "interruptText": "Hotové kroky a fotky zůstanou: dokončí to někdo jiný.",
+      "interruptConfirm": "Přerušit",
+      "cancel": "Zrušit úklid",
+      "cancelTitle": "Zrušit úklid?",
+      "cancelText": "Zmizí ze seznamů i z telefonu pracovníka; kroky a fotky zůstanou.",
+      "cancelConfirm": "Ano, zrušit",
+      "keep": "Ne",
+      "reason": "Důvod",
+      "reasonOptional": "Důvod (nepovinné)"
     },
     "pushNotice": {
       "unassigned": "Tento úklid vám byl odebrán.",
@@ -2958,6 +2989,7 @@
     "propertyHasOpenTasks_other": "Objekt má {{total}} nedokončených úklidů — vyřazením z provozu se zruší.",
     "unitParentNotActive": "Nejprve vraťte do provozu samotnou nabídku — archivovaná nabídka nemůže mít aktivní pokoje.",
     "reasonRequired": "Uveďte důvod",
+    "reasonTooLong": "Důvod je příliš dlouhý — nejvýše {{max}} znaků",
     "requiredStepNotSkippable": "Povinný krok nelze přeskočit",
     "requiredStepsLeft": "Zbývá povinných kroků: {{count}}",
     "startTooEarly": "Úklid nelze začít dříve než v {{time}} ({{date}})",
@@ -3007,6 +3039,7 @@
     "problemNotOpen": "Úkol už někdo převzal — nelze ho změnit",
     "problemArchived": "Úkol je v archivu — před přidělením ho obnovte",
     "taskChangedMeanwhile": "Mezitím se to změnilo — obrazovka byla obnovena",
+    "cleaningRestoreTaken": "Tato rezervace už má jiný úklid tohoto místa — tento nelze vrátit",
     "problemNoProperty": "Úkol nemá objekt — nelze ho přidělit",
     "problemAssigneeInvalid": "Řešitel není mezi aktivními členy týmu",
     "problemCompleterInvalid": "Vyberte technika této firmy, nebo «Nikdo, manažer sám»",
@@ -3182,6 +3215,14 @@
       "title": "Volný úklid",
       "titleWork": "Volná práce"
     },
+    "cleaning_declined": {
+      "title": "Úklid odmítnut",
+      "titleWork": "Práce odmítnuta"
+    },
+    "cleaning_interrupted": {
+      "title": "Úklid přerušen",
+      "titleWork": "Práce přerušena"
+    },
     "booking_cancelled_live": {
       "title": "Rezervace zrušena",
       "body": "{{place}}: rezervace byla zrušena během úklidu. Ověřte si to u manažera."
@@ -3212,6 +3253,7 @@
     "windowFrom": "od {{time}}",
     "windowUntil": "do {{time}}",
     "messageFrom": "{{place}} · {{author}}",
+    "releaseBody": "{{place}}, {{date}} · {{person}}",
     "unknownPlace": "Objekt {{id}}"
   },
   "iosPermissions": {

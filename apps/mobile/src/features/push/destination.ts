@@ -22,7 +22,8 @@ export type PushDestination =
  * Where each cleaning push leads. A Record, so a kind added to the enum does
  * not compile until it is given a place.
  *
- * - `task`: the cleaning itself — hers, or free for her to take.
+ * - `task`: the cleaning itself — hers, or free for her to take; on the
+ *   office's phone, the one a cleaner handed back.
  * - a notice: her list, saying why the cleaning is not there. The server
  *   already hides it from her, and opening it by id would first draw the copy
  *   cached in the lists as if it still were.
@@ -34,6 +35,9 @@ const TASK_LANDING: Record<TaskPushKind, 'task' | 'moved' | PushNotice> = {
   cleaning_assigned: 'task',
   cleaning_window: 'task',
   cleaning_free: 'task',
+  // The office's: the cleaning handed back, to give to somebody else.
+  cleaning_declined: 'task',
+  cleaning_interrupted: 'task',
   booking_cancelled_live: 'task',
   cleaning_moved: 'moved',
   cleaning_unassigned: 'unassigned',

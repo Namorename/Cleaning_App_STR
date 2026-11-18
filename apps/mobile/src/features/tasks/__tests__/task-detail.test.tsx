@@ -1436,3 +1436,170 @@ describe('the question before a finish', () => {
     }
   });
 });
+
+// A cleaning taken off (20261118120000): her decline before the start, her
+// interrupt after it, the office's cancel — each a button under the job's own,
+// which only opens the question (the route's sheet); nothing is sent from here.
+describe('the ways off the job', () => {
+  const PROBLEM_ID = '5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d';
+  const COLLEAGUE = '1b2c3d4e-5f60-4718-8a9b-0c1d2e3f4a5b';
+  const onTakeOff = jest.fn();
+
+  /** A job whose row says it is no repair of a task, as the screen's own read does. */
+  const job = (overrides: Partial<CleaningTask> = {}) => task({ problem_id: null, ...overrides });
+
+  const under = (overrides: Partial<CleaningTask> = {}) =>
+    job({ status: 'in_progress', started_at: '2026-11-10T08:05:00+00:00', ...overrides });
+
+  async function draw(
+    shown: CleaningTask,
+    { canCancel = false, isBusy = false }: { canCancel?: boolean; isBusy?: boolean } = {},
+  ): Promise<void> {
+    await render(
+      <TaskDetail
+        task={shown}
+        userId={ME}
+        now={NOW}
+        isBusy={isBusy}
+        error={null}
+        {...actions}
+        canCancel={canCancel}
+        onTakeOff={onTakeOff}
+      />,
+    );
+  }
+
+  const decline = () => screen.queryByRole('button', { name: 'Отказаться' });
+  const interrupt = () => screen.queryByRole('button', { name: 'Прервать уборку' });
+  const cancel = () => screen.queryByRole('button', { name: 'Отменить уборку' });
+
+  test.each(['assigned', 'accepted'] as const)(
+    'her %s cleaning offers «Отказаться» under the start, and no interrupt',
+    async (status) => {
+      await draw(job({ status }));
+
+      expect(decline()).toBeTruthy();
+      expect(interrupt()).toBeNull();
+      expect(screen.getByRole('button', { name: 'Начать уборку' })).toBeTruthy();
+    },
+  );
+
+  test('«Отказаться» comes after the start and the accept, not before them', async () => {
+    await draw(job());
+
+    const names = screen
+      .getAllByRole('button')
+      .map((button) => button.props.accessibilityLabel as string);
+    expect(names.indexOf('Отказаться')).toBeGreaterThan(names.indexOf('Начать уборку'));
+    expect(names.indexOf('Отказаться')).toBeGreaterThan(names.indexOf('Принять'));
+  });
+
+  test('«Отказаться» only opens the question, naming the decline', async () => {
+    await draw(job());
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отказаться' }));
+
+    expect(onTakeOff).toHaveBeenCalledWith('decline');
+    expect(actions.onStart).not.toHaveBeenCalled();
+  });
+
+  test('her cleaning under way offers «Прервать уборку», the finish staying the main button', async () => {
+    await draw(under());
+
+    expect(interrupt()).toBeTruthy();
+    expect(decline()).toBeNull();
+    expect(screen.getByRole('button', { name: 'Завершить уборку' })).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Прервать уборку' }));
+    expect(onTakeOff).toHaveBeenCalledWith('interrupt');
+    expect(actions.onFinish).not.toHaveBeenCalled();
+  });
+
+  test('a colleague’s cleaning offers her neither', async () => {
+    await draw(job({ assignee_id: COLLEAGUE }));
+    expect(decline()).toBeNull();
+
+    await draw(under({ assignee_id: COLLEAGUE }));
+    expect(interrupt()).toBeNull();
+  });
+
+  test('a free cleaning offers neither', async () => {
+    await draw(job({ status: 'unassigned', assignee_id: null }));
+
+    expect(decline()).toBeNull();
+    expect(interrupt()).toBeNull();
+  });
+
+  test('a done cleaning offers neither', async () => {
+    await draw(job({ status: 'done', completed_at: '2026-11-10T11:00:00+00:00' }));
+
+    expect(decline()).toBeNull();
+    expect(interrupt()).toBeNull();
+  });
+
+  test('a repair of a task is called off with the task, never here', async () => {
+    const fix = job({
+      type: 'maintenance',
+      reservation_id: null,
+      problem_id: PROBLEM_ID,
+      problem: { id: PROBLEM_ID, title: 'Течёт кран', priority: 'normal' },
+    });
+
+    await draw(fix);
+    expect(decline()).toBeNull();
+
+    await draw({ ...fix, status: 'in_progress' }, { canCancel: true });
+    expect(screen.queryByRole('button', { name: 'Прервать работу' })).toBeNull();
+    expect(interrupt()).toBeNull();
+    expect(cancel()).toBeNull();
+  });
+
+  // A copy saved by an earlier build carries no problem_id: not known to be
+  // no repair, so nothing is offered until the screen's own read.
+  test('a row that does not say whether it is a repair offers nothing yet', async () => {
+    await draw(task());
+
+    expect(decline()).toBeNull();
+  });
+
+  test('a technician interrupts work, in his words', async () => {
+    await setWordContext('tech');
+    try {
+      await draw(under({ type: 'maintenance', reservation_id: null }));
+
+      expect(screen.getByRole('button', { name: 'Прервать работу' })).toBeTruthy();
+      expect(screen.queryByText(/уборк/i)).toBeNull();
+    } finally {
+      await setWordContext(undefined);
+    }
+  });
+
+  test('held while a move of hers is under way', async () => {
+    await draw(job(), { isBusy: true });
+
+    expect(decline()?.props.accessibilityState).toMatchObject({ disabled: true });
+  });
+
+  test('the office is offered «Отменить уборку» on anybody’s cleaning', async () => {
+    await draw(job({ assignee_id: COLLEAGUE }), { canCancel: true });
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отменить уборку' }));
+    expect(onTakeOff).toHaveBeenCalledWith('cancel');
+  });
+
+  test('no cancel without the office’s phone, nor on a cleaning already cancelled', async () => {
+    await draw(job({ assignee_id: COLLEAGUE }));
+    expect(cancel()).toBeNull();
+
+    await draw(job({ status: 'cancelled' }), { canCancel: true });
+    expect(cancel()).toBeNull();
+  });
+
+  test('without the route’s question, nothing is offered — the screen as before', async () => {
+    await render(
+      <TaskDetail task={job()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+    );
+
+    expect(decline()).toBeNull();
+  });
+});

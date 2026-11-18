@@ -199,7 +199,6 @@ function CalendarBody({
     isStand,
     days,
     windowDays: shownWindow,
-    pastDays: past.days,
     byId,
     initialAssignee,
     initialCleaningsOnly,

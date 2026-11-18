@@ -32,6 +32,18 @@ describe('destinationOf', () => {
     },
   );
 
+  // The office's (20261118120000): the cleaning a cleaner handed back, to give
+  // to somebody else — opened, never a notice on a list.
+  test.each(['cleaning_declined', 'cleaning_interrupted'] as const)(
+    '%s opens the cleaning handed back, asking nothing first',
+    async (kind) => {
+      const findTask = jest.fn(async () => null);
+
+      await expect(destinationOf({ kind, taskId: TASK_ID }, findTask)).resolves.toEqual(toTask);
+      expect(findTask).not.toHaveBeenCalled();
+    },
+  );
+
   test('a booking cancelled during the cleaning opens the cleaning she is in', async () => {
     await expect(
       destinationOf({ kind: 'booking_cancelled_live', taskId: TASK_ID }, gone),

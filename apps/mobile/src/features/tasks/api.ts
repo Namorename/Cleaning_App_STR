@@ -44,8 +44,11 @@ import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from
 //
 // `reservation_id` is asked for only to tell a job that follows a booking from
 // one made by hand: the second has no check-in to speak of (`urgencyText`).
+// `problem_id` tells a repair of a task, which only its task calls off, from a
+// job that can be handed back or cancelled on its own (features/tasks/offs.ts).
 const TASK_COLUMNS =
   'id, type, status, priority, scheduled_date, due_at, assignee_id, property_id, reservation_id, ' +
+  'problem_id, ' +
   'time_from, time_to, guests_count, started_at, completed_at, is_parallel, ' +
   'notes, title, title_i18n, ' +
   'property:properties(name, address, hostaway_unit_id, effective_cleaner_notes, parent:parent_id(name)), ' +
@@ -455,4 +458,55 @@ export function finishTask(taskId: string): Promise<CleaningTask> {
     failureKey: 'tasks.finishFailed',
     landed: atStatus('done'),
   });
+}
+
+/*
+ * A cleaning taken off (20261118120000): handed back by her, or cancelled by
+ * the office. Each server function answers with the bare row, which nobody
+ * reads — it carries none of the embeds the screens draw from: the screens
+ * read the cleaning again, as after any move of the office. A refusal comes
+ * back in the server's shape (`serverErrors.*` in `hint`) and is translated
+ * where it is shown.
+ *
+ * No reason is sent as no argument at all: the function's own default, «she
+ * said nothing», never an empty text.
+ */
+
+/** «Отказаться»: her cleaning, given or accepted, not started; the reason hers to give. */
+export async function declineCleaning(taskId: string, reason: string | null): Promise<void> {
+  const { error } = await supabase.rpc('decline_cleaning', {
+    p_task_id: taskId,
+    p_reason: reason ?? undefined,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+/**
+ * «Прервать уборку»: her cleaning under way, with the reason the server
+ * requires (`serverErrors.reasonRequired`); its steps and photos stay with it.
+ */
+export async function interruptCleaning(taskId: string, reason: string): Promise<void> {
+  const { error } = await supabase.rpc('interrupt_cleaning', {
+    p_task_id: taskId,
+    p_reason: reason,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+/** «Отменить уборку»: the office's (`serverErrors.managerOnly` to anybody else), in any status. */
+export async function cancelCleaning(taskId: string, reason: string | null): Promise<void> {
+  const { error } = await supabase.rpc('cancel_cleaning', {
+    p_task_id: taskId,
+    p_reason: reason ?? undefined,
+  });
+
+  if (error) {
+    throw error;
+  }
 }

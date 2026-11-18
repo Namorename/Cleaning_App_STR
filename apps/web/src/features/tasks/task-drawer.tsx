@@ -18,8 +18,11 @@ import { formatDateTime } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
+import { CancelTaskDialog } from './cancel-task-dialog';
 import { splitMinutes } from './format';
 import {
+  canCancelCleaning,
+  canRestoreCleaning,
   isTechnicianJob,
   localizedTitle,
   taskMinutes,
@@ -27,7 +30,14 @@ import {
   type Task,
 } from './schema';
 import { CleaningWorkerMark, TaskClosing } from './task-closing';
-import { useSetDuration, useTask, useTaskProblems, useTaskWork } from './use-tasks';
+import { hasOffLines, TaskOffs } from './task-offs';
+import {
+  useRestoreTask,
+  useSetDuration,
+  useTask,
+  useTaskProblems,
+  useTaskWork,
+} from './use-tasks';
 
 interface TaskDrawerProps {
   /** The task being read; finished or not. */
@@ -84,6 +94,10 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
   // The closing as the server has it now: the drawer opens on a row's snapshot, and a worker
   // named here must show at once (useTask refreshes with every write of the section).
   const fresh = useTask(task.id).data ?? task;
+  // The card's own cancel and return (owner, 2026-11-18): the question is a dialog over it.
+  const restore = useRestoreTask();
+  const [isCancelling, setCancelling] = useState(false);
+  const restoreFailure = restore.isError ? serverErrorText(restore.error) : null;
   const [correction, setCorrection] = useState(() =>
     task.duration_override_min === null ? '' : task.duration_override_min.toString(),
   );
@@ -126,8 +140,13 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
           <span className="font-medium">{title}</span>
           <span className="text-muted-foreground">{taskPropertyName(task) ?? ''}</span>
           <span className="text-muted-foreground">{task.assignee?.full_name ?? ''}</span>
-          {/* Who did it and who closed it; «Указать исполнителя» where it says «не указано». */}
-          <TaskClosing task={fresh} className="gap-1" />
+          {/* Who did it and who closed it; «Указать исполнителя» where it says «не указано».
+              Who cancelled it and why, or who handed it back and why (20261118120000). */}
+          {hasOffLines(fresh) ? (
+            <TaskOffs task={fresh} className="gap-1" />
+          ) : (
+            <TaskClosing task={fresh} className="gap-1" />
+          )}
           <CleaningWorkerMark task={fresh} />
         </div>
 
@@ -299,11 +318,46 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
           )}
         </div>
 
-        <div className="flex justify-end">
-          <Button type="button" variant="outline" onClick={onClose}>
+        {restoreFailure === null ? null : (
+          <p role="alert" className="text-sm text-destructive">
+            {restoreFailure.text}
+            {restoreFailure.detail === null ? null : (
+              <span className="block text-xs text-muted-foreground">{restoreFailure.detail}</span>
+            )}
+          </p>
+        )}
+
+        <div className="flex flex-wrap justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            {canRestoreCleaning(fresh) ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                disabled={restore.isPending}
+                onClick={() => restore.mutate(fresh.id)}
+              >
+                {t('panel.tasks.offs.restore')}
+              </Button>
+            ) : null}
+            {canCancelCleaning(fresh) ? (
+              <Button
+                type="button"
+                variant="destructive"
+                className="h-11"
+                onClick={() => setCancelling(true)}
+              >
+                {t('panel.tasks.actions.cancel')}
+              </Button>
+            ) : null}
+          </div>
+          <Button type="button" variant="outline" className="h-11" onClick={onClose}>
             {t('panel.tasks.work.close')}
           </Button>
         </div>
+        {isCancelling ? (
+          <CancelTaskDialog task={fresh} onClose={() => setCancelling(false)} />
+        ) : null}
       </SheetContent>
     </Sheet>
   );

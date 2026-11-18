@@ -262,7 +262,8 @@ describe('the menu of a row', () => {
   test('a job nobody has started offers its conversation, and no work', async () => {
     renderRow(task({}));
 
-    expect(await menuItems()).toEqual(['Изменить', 'Чат']);
+    // Any cleaning may be called off, in any status (owner, 2026-11-18).
+    expect(await menuItems()).toEqual(['Изменить', 'Чат', 'Отменить уборку']);
   });
 
   test('a job under way offers how it is going, then the conversation', async () => {
@@ -274,7 +275,7 @@ describe('the menu of a row', () => {
       }),
     );
 
-    expect(await menuItems()).toEqual(['Изменить', 'Как идёт уборка', 'Чат']);
+    expect(await menuItems()).toEqual(['Изменить', 'Как идёт уборка', 'Чат', 'Отменить уборку']);
   });
 
   test('a technician’s job under way is named a job', async () => {
@@ -300,7 +301,7 @@ describe('the menu of a row', () => {
     });
     renderRow(done);
 
-    expect(await menuItems()).toEqual(['Как прошла уборка', 'Чат']);
+    expect(await menuItems()).toEqual(['Как прошла уборка', 'Чат', 'Отменить уборку']);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Чат' }));
     expect(handlers.onOpenChat).toHaveBeenCalledWith(done);
 

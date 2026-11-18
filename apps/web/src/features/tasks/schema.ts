@@ -65,6 +65,49 @@ export const cleaningClosingSchema = z.object({
   closed_at: z.string().nullable().default(null),
 });
 
+/** How a cleaner handed a cleaning back (20261118120000): before starting it, or after. */
+export const RELEASE_KINDS = ['declined', 'interrupted'] as const;
+export type ReleaseKind = (typeof RELEASE_KINDS)[number];
+
+const offPersonSchema = z
+  .object({
+    id: z.uuid(),
+    name: z.string().nullable().default(null),
+    role: z.string().nullable().default(null),
+  })
+  .nullable()
+  .catch(null)
+  .default(null);
+
+/**
+ * The office's cancel and a cleaner's hand-back of a cleaning, with the names and the words (the
+ * computed field task_offs, 20261118120000). The office's alone: null for anybody else, and on a
+ * cleaning that has neither.
+ */
+export const taskOffsSchema = z.object({
+  cancelled: z
+    .object({
+      at: z.string(),
+      from: z.string().nullable().default(null),
+      by: offPersonSchema,
+      reason: z.string().nullable().default(null),
+    })
+    .nullable()
+    .catch(null)
+    .default(null),
+  released: z
+    .object({
+      kind: z.enum(RELEASE_KINDS),
+      at: z.string(),
+      by: offPersonSchema,
+      reason: z.string().nullable().default(null),
+    })
+    .nullable()
+    .catch(null)
+    .default(null),
+});
+export type TaskOffs = z.infer<typeof taskOffsSchema>;
+
 /** A task as the panel reads it: the row plus the names it needs to show. */
 export const taskSchema = z.object({
   id: z.uuid(),
@@ -124,6 +167,12 @@ export const taskSchema = z.object({
    * 20261106125500). Absent from the bare row an RPC returns; null while it is live.
    */
   closing: cleaningClosingSchema.nullable().catch(null).default(null),
+  // Set on a cleaning the office cancelled (cancel_cleaning, 20261118120000): the one «Вернуть»
+  // returns. Null on a cancel by a booking, and before then.
+  cancelled_at: z.string().nullable().default(null),
+  // A cleaner handed it back and nobody has been put on it since (20261118120000).
+  release_kind: z.enum(RELEASE_KINDS).nullable().catch(null).default(null),
+  offs: taskOffsSchema.nullable().catch(null).default(null),
 });
 export type Task = z.infer<typeof taskSchema>;
 export const taskListSchema = z.array(taskSchema);
@@ -389,6 +438,21 @@ export function bookableTypes(current: TaskType | null): TaskType[] {
 /** Written by a person, rather than generated from a booking or a report. */
 export function isManualTask(task: Pick<Task, 'reservation_id' | 'problem_id'>): boolean {
   return task.reservation_id === null && task.problem_id === null;
+}
+
+/**
+ * The office may call off any cleaning in any status (owner, 2026-11-18); a repair goes with its
+ * task, and a cancelled one is already off.
+ */
+export function canCancelCleaning(task: Pick<Task, 'status' | 'problem_id'>): boolean {
+  return task.problem_id === null && task.status !== 'cancelled';
+}
+
+/** «Вернуть»: only a cancel the office made; a booking's cancel is the booking's. */
+export function canRestoreCleaning(
+  task: Pick<Task, 'status' | 'problem_id' | 'cancelled_at'>,
+): boolean {
+  return task.problem_id === null && task.status === 'cancelled' && task.cancelled_at !== null;
 }
 
 /** What the day rule reads of a job: its status, its day, its listing's zone. */

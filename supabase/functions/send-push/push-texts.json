@@ -30,6 +30,14 @@
       "title": "Свободная уборка",
       "titleWork": "Свободная работа"
     },
+    "cleaning_declined": {
+      "title": "Отказ от уборки",
+      "titleWork": "Отказ от работы"
+    },
+    "cleaning_interrupted": {
+      "title": "Уборка прервана",
+      "titleWork": "Работа прервана"
+    },
     "booking_cancelled_live": {
       "title": "Бронь отменена",
       "body": "{{place}}: бронь отменена, пока идёт уборка. Уточните у менеджера."
@@ -60,6 +68,7 @@
     "windowFrom": "с {{time}}",
     "windowUntil": "до {{time}}",
     "messageFrom": "{{place}} · {{author}}",
+    "releaseBody": "{{place}}, {{date}} · {{person}}",
     "unknownPlace": "Объект {{id}}"
   },
   "en": {
@@ -93,6 +102,14 @@
       "title": "Free cleaning",
       "titleWork": "Free job"
     },
+    "cleaning_declined": {
+      "title": "Cleaning declined",
+      "titleWork": "Job declined"
+    },
+    "cleaning_interrupted": {
+      "title": "Cleaning interrupted",
+      "titleWork": "Job interrupted"
+    },
     "booking_cancelled_live": {
       "title": "Booking cancelled",
       "body": "{{place}}: the booking was cancelled while the cleaning is under way. Check with the office."
@@ -121,6 +138,7 @@
     "windowFrom": "from {{time}}",
     "windowUntil": "until {{time}}",
     "messageFrom": "{{place}} · {{author}}",
+    "releaseBody": "{{place}}, {{date}} · {{person}}",
     "unknownPlace": "Property {{id}}"
   },
   "cs": {
@@ -154,6 +172,14 @@
       "title": "Volný úklid",
       "titleWork": "Volná práce"
     },
+    "cleaning_declined": {
+      "title": "Úklid odmítnut",
+      "titleWork": "Práce odmítnuta"
+    },
+    "cleaning_interrupted": {
+      "title": "Úklid přerušen",
+      "titleWork": "Práce přerušena"
+    },
     "booking_cancelled_live": {
       "title": "Rezervace zrušena",
       "body": "{{place}}: rezervace byla zrušena během úklidu. Ověřte si to u manažera."
@@ -184,6 +210,7 @@
     "windowFrom": "od {{time}}",
     "windowUntil": "do {{time}}",
     "messageFrom": "{{place}} · {{author}}",
+    "releaseBody": "{{place}}, {{date}} · {{person}}",
     "unknownPlace": "Objekt {{id}}"
   }
 }

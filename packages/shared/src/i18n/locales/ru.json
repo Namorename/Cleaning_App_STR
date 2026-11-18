@@ -1559,6 +1559,16 @@
         "openRepairWorkLive": "Как идёт работа",
         "menu": "Действия: {{name}}"
       },
+      "offs": {
+        "cancelled": "Отмена: {{name}}, {{date}}",
+        "declined": "Отказ: {{name}}",
+        "interrupted": "Прервана, нужно закончить: {{name}}",
+        "someone": "сотрудник",
+        "quoted": "«{{reason}}»",
+        "restore": "Вернуть",
+        "cancelReason": "Причина (необязательно)",
+        "cancelLive": "Исполнителю придёт уведомление «Уборка отменена»."
+      },
       "complete": {
         "action": "Отметить выполненной",
         "title": "Отметить выполненной?",
@@ -2241,6 +2251,8 @@
         "cleaning_window": "Изменилось время уборки",
         "cleaning_window_tech": "Изменилось время работы",
         "cleaning_free": "Свободная уборка",
+        "cleaning_declined": "Отказ от уборки",
+        "cleaning_interrupted": "Уборка прервана",
         "booking_cancelled_live": "Бронь отменена во время уборки",
         "problem_new": "Новое задание",
         "chat_message": "Сообщение в чате",
@@ -2454,6 +2466,25 @@
     },
     "repairs": {
       "heading": "Ремонт"
+    },
+    "offs": {
+      "decline": "Отказаться",
+      "declineTitle": "Отказаться от уборки?",
+      "declineTitle_tech": "Отказаться от работы?",
+      "declineText": "Менеджер узнает об отказе и найдёт замену.",
+      "interrupt": "Прервать уборку",
+      "interrupt_tech": "Прервать работу",
+      "interruptTitle": "Прервать уборку?",
+      "interruptTitle_tech": "Прервать работу?",
+      "interruptText": "Сделанные шаги и фото сохранятся: закончит другой человек.",
+      "interruptConfirm": "Прервать",
+      "cancel": "Отменить уборку",
+      "cancelTitle": "Отменить уборку?",
+      "cancelText": "Она пропадёт из списков и у исполнителя; шаги и фото останутся.",
+      "cancelConfirm": "Да, отменить",
+      "keep": "Нет",
+      "reason": "Причина",
+      "reasonOptional": "Причина (необязательно)"
     },
     "pushNotice": {
       "unassigned": "Эту уборку с вас сняли.",
@@ -2958,6 +2989,7 @@
     "propertyHasOpenTasks_other": "У объекта {{total}} незакрытой уборки — при снятии с работы они будут отменены.",
     "unitParentNotActive": "Сначала верните в работу сам листинг — у архивного объекта не может быть работающих комнат.",
     "reasonRequired": "Укажите причину",
+    "reasonTooLong": "Причина слишком длинная — не больше {{max}} знаков",
     "requiredStepNotSkippable": "Обязательный шаг нельзя пропустить",
     "requiredStepsLeft": "Обязательных шагов осталось: {{count}}",
     "startTooEarly": "Уборку нельзя начать раньше {{time}} ({{date}})",
@@ -3007,6 +3039,7 @@
     "problemNotOpen": "Задание уже взяли в работу — изменить его нельзя",
     "problemArchived": "Задание в архиве — верните его из архива, прежде чем назначать",
     "taskChangedMeanwhile": "Это уже изменилось — экран обновлён",
+    "cleaningRestoreTaken": "У этой брони уже есть другая уборка этого места — вернуть эту нельзя",
     "problemNoProperty": "У задания нет объекта — назначить нельзя",
     "problemAssigneeInvalid": "Исполнитель не найден среди активных сотрудников",
     "problemCompleterInvalid": "Выберите техника этой компании или «Никто, менеджер сам»",
@@ -3182,6 +3215,14 @@
       "title": "Свободная уборка",
       "titleWork": "Свободная работа"
     },
+    "cleaning_declined": {
+      "title": "Отказ от уборки",
+      "titleWork": "Отказ от работы"
+    },
+    "cleaning_interrupted": {
+      "title": "Уборка прервана",
+      "titleWork": "Работа прервана"
+    },
     "booking_cancelled_live": {
       "title": "Бронь отменена",
       "body": "{{place}}: бронь отменена, пока идёт уборка. Уточните у менеджера."
@@ -3212,6 +3253,7 @@
     "windowFrom": "с {{time}}",
     "windowUntil": "до {{time}}",
     "messageFrom": "{{place}} · {{author}}",
+    "releaseBody": "{{place}}, {{date}} · {{person}}",
     "unknownPlace": "Объект {{id}}"
   },
   "iosPermissions": {

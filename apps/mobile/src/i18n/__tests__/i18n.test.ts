@@ -267,6 +267,14 @@ describe('words shared by every kind of job', () => {
     // set_cleaning_time, clear_cleaning_time: a manager's hours, the panel's (20261027120000).
     'serverErrors.cleaningTimeNotFromBooking',
     'serverErrors.cleaningTimeStarted',
+    // The office's cancel (20261118120000): a manager's or an admin's button, never a technician's.
+    'tasks.offs.cancel',
+    'tasks.offs.cancelTitle',
+    // A cleaning handed back is told to the office alone; his settings hide both switches.
+    'settings.notifications.kinds.cleaning_declined',
+    'settings.notifications.kinds.cleaning_interrupted',
+    // restore_cleaning: the panel's return of a cancelled cleaning, never his phone's.
+    'serverErrors.cleaningRestoreTaken',
   ];
 
   /**

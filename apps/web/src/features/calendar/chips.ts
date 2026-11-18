@@ -372,5 +372,9 @@ export function expiredAsTask(
     problem: null,
     // The drawer re-reads the cleaning whole (fetchTask), closing and all.
     closing: null,
+    // An expired cleaning is neither an office cancel nor a hand-back (20261118120000).
+    cancelled_at: null,
+    release_kind: null,
+    offs: null,
   };
 }

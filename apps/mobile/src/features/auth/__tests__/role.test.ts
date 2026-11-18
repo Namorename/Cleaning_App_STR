@@ -1,6 +1,6 @@
 import { Constants } from '@str-ops/shared';
 
-import { isTechnician, knownRole, roleOf, wordContextOf } from '../role';
+import { isOffice, isTechnician, knownRole, roleOf, wordContextOf } from '../role';
 
 /**
  * The role travels in the session's token, in `app_metadata`, which only the
@@ -65,4 +65,16 @@ test.each([
   [null, undefined],
 ] as const)('%s reads the words of context %s', (role, context) => {
   expect(wordContextOf(role)).toBe(context);
+});
+
+/** The office may cancel a cleaning on the phone and hears a hand-back (20261118120000). */
+test.each([
+  ['manager', true],
+  ['admin', true],
+  ['cleaner', false],
+  ['tech', false],
+  ['head_tech', false],
+  [null, false],
+] as const)('%s is the office: %s', (role, expected) => {
+  expect(isOffice(role)).toBe(expected);
 });

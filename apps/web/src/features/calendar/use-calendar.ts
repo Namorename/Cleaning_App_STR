@@ -254,8 +254,8 @@ export function useCalendarCancelled(
 /**
  * Reads a chunk of the past before it is shown (the owner's word of
  * 2026-10-10, block 7): every layer its days draw — the bars, the live and the
- * done, what never happened, and the cancelled, which the past shows whatever
- * their switch says — for the months the chunk touches, into the same cache
+ * done, what never happened, and the cancelled (shown only behind their switch
+ * since 2026-11-18) — for the months the chunk touches, into the same cache
  * the layers read from. What is already held is not asked again; one read
  * that fails fails the chunk, and nothing of it is shown.
  */

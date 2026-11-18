@@ -89,6 +89,7 @@ const properties = [{ id: 1, name: 'Vinohrady 12' }];
 const useTasks = vi.fn();
 const saveTask = vi.fn();
 const cancelTask = vi.fn();
+const restoreTask = vi.fn();
 const setDuration = vi.fn();
 const saveState = { isPending: false, isError: false, error: null as unknown };
 const cancelState = {
@@ -97,6 +98,7 @@ const cancelState = {
   error: null as unknown,
   variables: undefined as unknown,
 };
+const restoreState = { isPending: false, isError: false, error: null as unknown };
 const idle = { isPending: false, isError: false, error: null, reset: vi.fn() };
 
 /** «Отметить выполненной»: what the manager's choice sends. */
@@ -134,6 +136,7 @@ vi.mock('../use-tasks', () => ({
   useReservationGuest: () => ({ data: undefined, isPending: true, isError: false }),
   useSaveTask: () => ({ ...saveState, mutate: saveTask, reset: idle.reset }),
   useCancelTask: () => ({ ...cancelState, mutate: cancelTask, reset: idle.reset }),
+  useRestoreTask: () => ({ ...restoreState, mutate: restoreTask, reset: idle.reset }),
   useSetDuration: () => ({ ...idle, mutate: setDuration }),
 }));
 
@@ -216,6 +219,8 @@ beforeEach(() => {
   saveState.error = null;
   cancelState.isError = false;
   cancelState.error = null;
+  restoreState.isError = false;
+  restoreState.error = null;
   useTasks.mockReturnValue({
     data: [morning, evening, upcoming, finished],
     isPending: false,
@@ -224,6 +229,117 @@ beforeEach(() => {
 });
 
 describe('TasksView', () => {
+  describe('a cleaning taken off (20261118120000)', () => {
+    const BOSS = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001';
+    const officeCancelled = task({
+      id: id(5),
+      title: 'Отменённая уборка',
+      status: 'cancelled',
+      reservation_id: 78,
+      assignee_id: MARIA,
+      assignee: { full_name: 'Maria Test', role: 'cleaner' },
+      cancelled_at: '2026-09-10T07:00:00+00:00',
+      offs: {
+        cancelled: {
+          at: '2026-09-10T07:00:00+00:00',
+          from: 'assigned',
+          by: { id: BOSS, name: 'Boss Test', role: 'manager' },
+          reason: 'Хозяин убирает сам',
+        },
+        released: null,
+      },
+    });
+    const bookingCancelled = task({
+      id: id(6),
+      title: 'Отменила бронь',
+      status: 'cancelled',
+      reservation_id: 79,
+    });
+    const declined = task({
+      id: id(7),
+      title: 'Брошенная уборка',
+      status: 'unassigned',
+      release_kind: 'declined',
+      offs: {
+        cancelled: null,
+        released: {
+          kind: 'declined',
+          at: '2026-09-10T06:00:00+00:00',
+          by: { id: MARIA, name: 'Maria Test', role: 'cleaner' },
+          reason: 'Заболела',
+        },
+      },
+    });
+    const interrupted = task({
+      id: id(8),
+      title: 'Начатая уборка',
+      status: 'unassigned',
+      started_at: '2026-09-10T08:00:00+00:00',
+      release_kind: 'interrupted',
+      offs: {
+        cancelled: null,
+        released: {
+          kind: 'interrupted',
+          at: '2026-09-10T09:00:00+00:00',
+          by: null,
+          reason: 'Нет ключа от кладовки',
+        },
+      },
+    });
+
+    beforeEach(() => {
+      useTasks.mockReturnValue({
+        data: [morning, officeCancelled, bookingCancelled, declined, interrupted],
+        isPending: false,
+        isError: false,
+      });
+    });
+
+    test('a declined cleaning waits on Today, saying who handed it back and why', () => {
+      render(<TasksView />);
+
+      const row = rowOf('Брошенная уборка');
+      expect(row).toHaveTextContent('Отказ: Maria Test');
+      expect(row).toHaveTextContent('«Заболела»');
+    });
+
+    test('an interrupted one says it needs finishing, and the words', () => {
+      render(<TasksView />);
+
+      const row = rowOf('Начатая уборка');
+      expect(row).toHaveTextContent('Прервана, нужно закончить: сотрудник');
+      expect(row).toHaveTextContent('«Нет ключа от кладовки»');
+    });
+
+    test('the cancelled stay out until asked for; then the office cancel says who and why', async () => {
+      render(<TasksView />);
+      expect(screen.queryByText('Отменённая уборка')).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
+      expect(screen.queryByText('Отменённая уборка')).not.toBeInTheDocument();
+      await userEvent.click(screen.getByLabelText('Показать отменённые'));
+
+      const row = rowOf('Отменённая уборка');
+      expect(row).toHaveTextContent('Отмена: Boss Test');
+      expect(row).toHaveTextContent('«Хозяин убирает сам»');
+    });
+
+    test('«Вернуть» is on the office cancel, not on a booking cancel', async () => {
+      render(<TasksView />);
+      await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
+      await userEvent.click(screen.getByLabelText('Показать отменённые'));
+
+      expect(await menuItems(rowOf('Отменённая уборка'))).toEqual(['Чат', 'Вернуть']);
+      await userEvent.keyboard('{Escape}');
+      expect(await menuItems(rowOf('Отменила бронь'))).toEqual(['Чат']);
+      await userEvent.keyboard('{Escape}');
+
+      const menu = await openMenu(rowOf('Отменённая уборка'));
+      await userEvent.click(within(menu).getByRole('menuitem', { name: 'Вернуть' }));
+      expect(restoreTask).toHaveBeenCalledWith(id(5));
+    }, 20000);
+  });
+
   test('is headed by the common header', () => {
     render(<TasksView />);
 
@@ -449,8 +565,13 @@ describe('TasksView', () => {
     await userEvent.click(screen.getByRole('tab', { name: /Ближайшие/ }));
     const row = rowOf('Уборка завтра');
     expect(row).toHaveTextContent('Из брони');
-    // A task from a booking is not the manager's to call off; he may close it as done.
-    expect(await menuItems(row)).toEqual(['Изменить', 'Отметить выполненной', 'Чат']);
+    // Any cleaning is the office's to call off, a booking's too (owner, 2026-11-18).
+    expect(await menuItems(row)).toEqual([
+      'Изменить',
+      'Отметить выполненной',
+      'Чат',
+      'Отменить уборку',
+    ]);
   });
 
   test('a job the manager wrote is the one the menu offers to call off', async () => {
@@ -607,7 +728,35 @@ describe('TasksView', () => {
     expect(cancelTask).not.toHaveBeenCalled();
 
     await userEvent.click(within(question).getByRole('button', { name: 'Да, отменить' }));
-    expect(cancelTask).toHaveBeenCalledWith(id(2));
+    expect(cancelTask).toHaveBeenCalledWith({ taskId: id(2), reason: '' }, expect.anything());
+  }, 20000);
+
+  test('the question takes a reason, and the cleaning it names goes with it', async () => {
+    render(<TasksView />);
+
+    const menu = await openMenu(rowOf('Вечерний осмотр'));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Отменить уборку' }));
+    const question = await screen.findByRole('dialog');
+    await userEvent.type(
+      within(question).getByLabelText('Причина (необязательно)'),
+      'Хозяин убирает сам',
+    );
+    await userEvent.click(within(question).getByRole('button', { name: 'Да, отменить' }));
+
+    expect(cancelTask).toHaveBeenCalledWith(
+      { taskId: id(2), reason: 'Хозяин убирает сам' },
+      expect.anything(),
+    );
+  }, 20000);
+
+  test('a cleaning somebody holds: the question says she will be told', async () => {
+    render(<TasksView />);
+
+    const menu = await openMenu(rowOf('Генеральная уборка'));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Отменить уборку' }));
+    const question = await screen.findByRole('dialog');
+
+    expect(question).toHaveTextContent('Исполнителю придёт уведомление «Уборка отменена».');
   }, 20000);
 
   test('«Нет» leaves the job as it was', async () => {
@@ -626,9 +775,23 @@ describe('TasksView', () => {
   // before the refusal arrives, so the row that asked is gone by then: the
   // sentence has to live in the view, or the refusal reads as a cancel that
   // worked.
-  test('tells a refused cancel above the list, after the row has moved away', () => {
+  test('tells a refused cancel in its question, which stays open', async () => {
     cancelState.isError = true;
-    cancelState.error = { hint: 'serverErrors.taskChangedMeanwhile' };
+    cancelState.error = { hint: 'serverErrors.managerOnly' };
+    render(<TasksView />);
+
+    const menu = await openMenu(rowOf('Вечерний осмотр'));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Отменить уборку' }));
+    const question = await screen.findByRole('dialog');
+
+    expect(within(question).getByRole('alert')).toBeInTheDocument();
+    cancelState.isError = false;
+    cancelState.error = null;
+  }, 20000);
+
+  test('tells a refused return above the list, after the row has moved away', () => {
+    restoreState.isError = true;
+    restoreState.error = { hint: 'serverErrors.taskChangedMeanwhile' };
     useTasks.mockReturnValue({
       // Nothing is left on Today, so no row is there to carry the sentence.
       data: [{ ...evening, status: 'done' }, upcoming, finished],
@@ -674,7 +837,12 @@ describe('TasksView', () => {
 
     await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
     // A closed job is not edited any more: its menu reads it and its conversation.
-    expect(await menuItems(rowOf('Вчерашняя уборка'))).toEqual(['Как прошла уборка', 'Чат']);
+    // ...and calls it off, as any cleaning (owner, 2026-11-18).
+    expect(await menuItems(rowOf('Вчерашняя уборка'))).toEqual([
+      'Как прошла уборка',
+      'Чат',
+      'Отменить уборку',
+    ]);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Как прошла уборка' }));
 
     const drawer = await screen.findByRole('dialog', { name: 'Как прошла уборка' });

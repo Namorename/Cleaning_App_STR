@@ -45,6 +45,17 @@ export function isTechnician(role: AppRole | null): boolean {
   return role !== null && TECHNICIANS.has(role);
 }
 
+/** The office's roles: the manager and the admin, who run the company's cleanings. */
+const OFFICE: ReadonlySet<AppRole> = new Set(['manager', 'admin']);
+
+/**
+ * The manager and the admin: on the phone they may cancel a cleaning
+ * (cancel_cleaning, 20261118120000) and hear when a cleaner hands one back.
+ */
+export function isOffice(role: AppRole | null): boolean {
+  return role !== null && OFFICE.has(role);
+}
+
 /**
  * The i18next context of the words this role reads (tech-plan §6): both
  * technicians read the `_tech` variant of a key where there is one — «работа»

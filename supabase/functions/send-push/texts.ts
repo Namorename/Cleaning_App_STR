@@ -153,6 +153,15 @@ function renderTask(texts: Texts, folded: FoldedTask, group: PushGroup): PushTex
         title: say(texts, "booking_cancelled_live.title"),
         body: say(texts, "booking_cancelled_live.body", { place }),
       };
+    // The office hears who handed the cleaning back; her words wait in the panel (20261118120000).
+    case "cleaning_declined":
+    case "cleaning_interrupted":
+      return {
+        title,
+        body: folded.person == null || folded.person === ""
+          ? say(texts, "placeDay", { place, date })
+          : say(texts, "releaseBody", { place, date, person: folded.person }),
+      };
     default:
       return { title, body: say(texts, "placeDay", { place, date }) };
   }

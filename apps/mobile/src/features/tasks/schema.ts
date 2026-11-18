@@ -86,6 +86,13 @@ export const cleaningTaskSchema = z.object({
   // that means "not known", not "no booking" — reading it as null would strip
   // the check-in from a turnover she is looking at offline.
   reservation_id: z.number().nullable().optional(),
+  // The task a repair fixes, by its id: such a repair is called off with its
+  // task, never declined, interrupted or cancelled on its own (`cleaningOffs`).
+  // Read beside the embed below, which the row policies may leave empty while
+  // the id is set. Optional rather than defaulted, as `reservation_id`: a row
+  // cached before the column was asked for has no key, and that means "not
+  // known" — nothing is offered on it until the screen's own read.
+  problem_id: z.string().uuid().nullable().optional(),
   // Set on a maintenance task: the report it fixes.
   problem: z
     .object({

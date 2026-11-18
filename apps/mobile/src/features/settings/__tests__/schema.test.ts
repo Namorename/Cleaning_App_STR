@@ -27,6 +27,8 @@ test('lists the push kinds in the order the owner approved them', () => {
     'cleaning_moved',
     'cleaning_window',
     'cleaning_free',
+    'cleaning_declined',
+    'cleaning_interrupted',
     'booking_cancelled_live',
     'problem_new',
     'chat_message',
@@ -67,24 +69,49 @@ test('the head technician is offered the same, and a new task — eight kinds', 
   ]);
 });
 
-// Read off the enum: a role added later is checked here without a word.
-const NOT_TECHNICIANS = Constants.public.Enums.app_role.filter(
-  (role) => role !== 'head_tech' && role !== 'tech',
+/**
+ * A cleaning declined or interrupted (20261118120000) is told to every
+ * manager and admin of the company and to nobody else: only the office is
+ * shown those two switches.
+ */
+const OFFICE_KINDS: readonly string[] = ['cleaning_declined', 'cleaning_interrupted'];
+
+/** Every kind but a new task and the office's two: the cleaner's list. */
+const CLEANER_KINDS = PUSH_KINDS.filter(
+  (kind) => kind !== 'problem_new' && !OFFICE_KINDS.includes(kind),
 );
 
-test.each(NOT_TECHNICIANS)('a %s is not offered a new task, and every other kind stays', (role) => {
+// Read off the enum: a role added later is checked here without a word.
+const OFFICE: readonly string[] = Constants.public.Enums.app_role.filter(
+  (role) => role === 'manager' || role === 'admin',
+);
+const NEITHER_TECHNICIAN_NOR_OFFICE = Constants.public.Enums.app_role.filter(
+  (role) => role !== 'head_tech' && role !== 'tech' && !OFFICE.includes(role),
+);
+
+test.each(OFFICE)('a %s is not offered a new task, and every other kind stays', (role) => {
   expect(kindsFor(role)).toEqual(PUSH_KINDS.filter((kind) => kind !== 'problem_new'));
 });
 
-test('the roles offered every kind but a new task include the cleaner and the manager', () => {
-  expect(NOT_TECHNICIANS).toEqual(expect.arrayContaining(['cleaner', 'manager', 'admin']));
+test.each(NEITHER_TECHNICIAN_NOR_OFFICE)(
+  'a %s is offered neither a new task nor a cleaning handed back',
+  (role) => {
+    expect(kindsFor(role)).toEqual(CLEANER_KINDS);
+  },
+);
+
+test('the office is the manager and the admin, and the cleaner is neither', () => {
+  expect(OFFICE).toEqual(['manager', 'admin']);
+  expect(NEITHER_TECHNICIAN_NOR_OFFICE).toEqual(['cleaner']);
 });
 
-test('a token without a role, or with one this build does not know, is not offered a new task', () => {
-  const withoutNewTask = PUSH_KINDS.filter((kind) => kind !== 'problem_new');
+test.each(['tech', 'head_tech'])('a %s is offered no cleaning handed back', (role) => {
+  expect(kindsFor(role).filter((kind) => OFFICE_KINDS.includes(kind))).toEqual([]);
+});
 
-  expect(kindsFor(null)).toEqual(withoutNewTask);
-  expect(kindsFor('auditor')).toEqual(withoutNewTask);
+test('a token without a role, or with one this build does not know, reads as a cleaner', () => {
+  expect(kindsFor(null)).toEqual(CLEANER_KINDS);
+  expect(kindsFor('auditor')).toEqual(CLEANER_KINDS);
 });
 
 test('a kind this build does not know is dropped, not thrown', () => {

@@ -1,4 +1,5 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
@@ -6,15 +7,18 @@ import { z } from 'zod';
 import { ErrorState } from '@/components/error-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
-import { isTechnician } from '@/features/auth/role';
+import { isOffice, isTechnician } from '@/features/auth/role';
 import { useSession } from '@/features/auth/session';
 import { SignedInRoute } from '@/features/auth/signed-in-route';
 import { useRole } from '@/features/auth/use-role';
 import { PlaceInstructions } from '@/features/knowledge/place-instructions';
 import { useTaskSteps } from '@/features/steps/use-steps';
 import { propertyName } from '@/features/tasks/format';
+import { HandBackSheet } from '@/features/tasks/hand-back-sheet';
 import { latestMoveError } from '@/features/tasks/moves';
+import type { CleaningOffKind } from '@/features/tasks/offs';
 import { TaskDetail, TaskDetailSkeleton } from '@/features/tasks/task-detail';
+import { useCleaningOff } from '@/features/tasks/use-cleaning-off';
 import {
   acceptVariables,
   useAcceptTask,
@@ -56,9 +60,10 @@ function TaskScreen() {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const { userId } = useSession();
+  const role = useRole();
   // No «Расходники» for a technician (docs/tech-plan.md §0, §4): a request
   // sent from his job would land in a tab he does not have.
-  const canRequestSupplies = !isTechnician(useRole());
+  const canRequestSupplies = !isTechnician(role);
   const parsed = Params.safeParse(useLocalSearchParams());
   const taskId = parsed.success ? parsed.data.id : null;
 
@@ -68,11 +73,44 @@ function TaskScreen() {
   const accept = useAcceptTask();
   const start = useStartTask();
   const finish = useFinishTask();
+  const off = useCleaningOff();
+  // The way off asked about, while its sheet is open.
+  const [offAsked, setOffAsked] = useState<CleaningOffKind | null>(null);
   const now = useNow();
 
-  const isBusy = claim.isPending || accept.isPending || start.isPending || finish.isPending;
-  // One line for a failure, and it is about the move she made last.
+  const isBusy =
+    claim.isPending || accept.isPending || start.isPending || finish.isPending || off.isPending;
+  // One line for a failure, and it is about the move she made last. A way
+  // off says its own failure on its sheet.
   const error = latestMoveError([claim, accept, start, finish]);
+
+  const askOff = (kind: CleaningOffKind) => {
+    // An answer on its way is never forgotten: its sheet and its failure stay.
+    if (off.isPending) {
+      return;
+    }
+    off.reset();
+    setOffAsked(kind);
+  };
+
+  const confirmOff = (kind: CleaningOffKind, reason: string | null) => {
+    if (taskId === null || off.isPending) {
+      return;
+    }
+    off.mutate(
+      { kind, taskId, reason },
+      {
+        onSuccess: () => {
+          setOffAsked(null);
+          // Handed back, the cleaning is no longer hers to show; cancelled,
+          // the screen shows it closed.
+          if (kind !== 'cancel') {
+            leaveTask();
+          }
+        },
+      },
+    );
+  };
 
   if (taskId === null || userId === null) {
     return (
@@ -136,9 +174,32 @@ function TaskScreen() {
           router.push({ pathname: '/chat/[subject]/[id]', params: { subject: 'task', id } })
         }
         instructions={<PlaceInstructions propertyId={query.data.property_id} />}
+        canCancel={isOffice(role)}
+        onTakeOff={askOff}
       />
+      {offAsked !== null ? (
+        <HandBackSheet
+          kind={offAsked}
+          isBusy={off.isPending}
+          error={off.error}
+          onConfirm={(reason) => confirmOff(offAsked, reason)}
+          onClose={() => setOffAsked(null)}
+        />
+      ) : null}
     </>
   );
+}
+
+/**
+ * Back to where she came from, or — opened cold from a push, with nothing
+ * behind — to her list.
+ */
+function leaveTask(): void {
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
+  router.replace('/(tabs)');
 }
 
 interface MessageProps {

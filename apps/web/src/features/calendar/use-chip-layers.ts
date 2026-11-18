@@ -23,7 +23,6 @@ import {
   useCalendarTasks,
 } from './use-calendar';
 
-const NO_DAYS: readonly string[] = [];
 
 /** A layer that could not be read, and the sentence that says which. */
 export interface LayerFailure {
@@ -38,8 +37,6 @@ interface ChipLayersOptions {
   days: readonly string[];
   /** The window alone: what is read ahead of; the days shown unless told. */
   windowDays?: readonly string[];
-  /** The past shown before the window (block 7); none unless asked for. */
-  pastDays?: readonly string[];
   byId: ReadonlyMap<number, Property>;
   /** What the assignee filter opens on: the address's, or everybody. */
   initialAssignee?: AssigneeFilter;
@@ -50,17 +47,16 @@ interface ChipLayersOptions {
 /**
  * The chips of the window, all their layers as one (docs/f10-plan.md, 7.4,
  * 7.5): the live and the done; what never happened, one mark per booking;
- * the cancelled while their switch is on — and, whatever it says, on the past
- * shown before the window (the owner's word of 2026-10-10, block 7: the past
- * shows every status). The filters act on the result: «Статус» on the live and
- * the done only, the assignee on all (§2).
+ * the cancelled while their switch is on, the past's too (owner, 2026-11-18: a
+ * cancelled cleaning is nowhere unless asked for — it replaced the word of
+ * 2026-10-10, block 7, that the past shows every status). The filters act on
+ * the result: «Статус» on the live and the done only, the assignee on all (§2).
  */
 export function useChipLayers({
   client,
   isStand,
   days,
   windowDays = days,
-  pastDays = NO_DAYS,
   byId,
   initialAssignee = ANY_ASSIGNEE,
   initialCleaningsOnly = false,
@@ -68,15 +64,9 @@ export function useChipLayers({
   const tasks = useCalendarTasks(client, isStand, days, windowDays);
   const expired = useCalendarExpired(client, isStand, days);
   const [showCancelled, setShowCancelled] = useState(false);
-  const hasPast = pastDays.length > 0;
-  // With the switch off, only the past's months: its chunks have read them.
-  const cancelled = useCalendarCancelled(
-    client,
-    isStand,
-    showCancelled ? days : pastDays,
-    showCancelled || hasPast,
-  );
-  const windowStart = windowDays[0];
+  // The cancelled show behind their switch alone, the past's included (owner, 2026-11-18: a
+  // cancelled cleaning is nowhere unless the office asks for the cancelled).
+  const cancelled = useCalendarCancelled(client, isStand, days, showCancelled);
   const staff = useCalendarStaff(client, isStand);
 
   const [status, setStatus] = useState<StatusFilter>('all');
@@ -140,11 +130,9 @@ export function useChipLayers({
   const live = useMemo<CalendarTask[]>(
     () => [
       ...(tasks.data ?? []).filter((task) => !closedIds.has(task.id)),
-      ...(cancelled.data ?? []).filter(
-        (task) => showCancelled || task.scheduled_date < windowStart,
-      ),
+      ...(showCancelled ? (cancelled.data ?? []) : []),
     ],
-    [tasks.data, closedIds, showCancelled, cancelled.data, windowStart],
+    [tasks.data, closedIds, showCancelled, cancelled.data],
   );
 
   const byRowDay = useMemo(
@@ -185,7 +173,7 @@ export function useChipLayers({
   const layers = [
     { layer: tasks, messageKey: 'panel.calendar.tasksError' },
     { layer: expired, messageKey: 'panel.calendar.expiredError' },
-    ...(showCancelled || hasPast
+    ...(showCancelled
       ? [{ layer: cancelled, messageKey: 'panel.calendar.cancelledError' }]
       : []),
   ];

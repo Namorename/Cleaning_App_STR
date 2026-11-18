@@ -1535,6 +1535,16 @@
         "openRepairWorkLive": "How the job is going",
         "menu": "Actions: {{name}}"
       },
+      "offs": {
+        "cancelled": "Cancelled by {{name}}, {{date}}",
+        "declined": "Declined by {{name}}",
+        "interrupted": "Interrupted, needs finishing: {{name}}",
+        "someone": "a staff member",
+        "quoted": "“{{reason}}”",
+        "restore": "Restore",
+        "cancelReason": "Reason (optional)",
+        "cancelLive": "The assignee gets a “Cleaning cancelled” notification."
+      },
       "complete": {
         "action": "Mark as done",
         "title": "Mark as done?",
@@ -2203,6 +2213,8 @@
         "cleaning_window": "Cleaning hours changed",
         "cleaning_window_tech": "Job hours changed",
         "cleaning_free": "Free cleaning",
+        "cleaning_declined": "Cleaning declined",
+        "cleaning_interrupted": "Cleaning interrupted",
         "booking_cancelled_live": "Booking cancelled during your cleaning",
         "problem_new": "New task",
         "chat_message": "Chat message",
@@ -2414,6 +2426,25 @@
     },
     "repairs": {
       "heading": "Repairs"
+    },
+    "offs": {
+      "decline": "Decline",
+      "declineTitle": "Decline this cleaning?",
+      "declineTitle_tech": "Decline this job?",
+      "declineText": "The manager is told and will find someone else.",
+      "interrupt": "Interrupt cleaning",
+      "interrupt_tech": "Interrupt job",
+      "interruptTitle": "Interrupt this cleaning?",
+      "interruptTitle_tech": "Interrupt this job?",
+      "interruptText": "The steps done and the photos are kept: someone else will finish.",
+      "interruptConfirm": "Interrupt",
+      "cancel": "Cancel cleaning",
+      "cancelTitle": "Cancel this cleaning?",
+      "cancelText": "It leaves every list and the assignee's phone; the steps and photos stay.",
+      "cancelConfirm": "Yes, cancel",
+      "keep": "No",
+      "reason": "Reason",
+      "reasonOptional": "Reason (optional)"
     },
     "pushNotice": {
       "unassigned": "This cleaning was taken off you.",
@@ -2906,6 +2937,7 @@
     "propertyHasOpenTasks_other": "This listing still has {{total}} open cleanings on the books — taking it out of service cancels them.",
     "unitParentNotActive": "Put the listing itself back to work first — an archived listing cannot have working rooms.",
     "reasonRequired": "Please give a reason",
+    "reasonTooLong": "The reason is too long: {{max}} characters at most",
     "requiredStepNotSkippable": "A required step cannot be skipped",
     "requiredStepsLeft": "Required steps left: {{count}}",
     "startTooEarly": "The cleaning cannot start before {{time}} ({{date}})",
@@ -2955,6 +2987,7 @@
     "problemNotOpen": "The task has been picked up — it can no longer be changed",
     "problemArchived": "The task is in the archive — restore it before handing it out",
     "taskChangedMeanwhile": "This has changed in the meantime — the screen has been refreshed",
+    "cleaningRestoreTaken": "This booking already has another cleaning of this place, so this one can't be restored",
     "problemNoProperty": "The task has no listing — it cannot be assigned",
     "problemAssigneeInvalid": "The assignee is not an active member of the team",
     "problemCompleterInvalid": "Choose a technician of this company, or «Nobody, the manager did it»",
@@ -3120,6 +3153,14 @@
       "title": "Free cleaning",
       "titleWork": "Free job"
     },
+    "cleaning_declined": {
+      "title": "Cleaning declined",
+      "titleWork": "Job declined"
+    },
+    "cleaning_interrupted": {
+      "title": "Cleaning interrupted",
+      "titleWork": "Job interrupted"
+    },
     "booking_cancelled_live": {
       "title": "Booking cancelled",
       "body": "{{place}}: the booking was cancelled while the cleaning is under way. Check with the office."
@@ -3148,6 +3189,7 @@
     "windowFrom": "from {{time}}",
     "windowUntil": "until {{time}}",
     "messageFrom": "{{place}} · {{author}}",
+    "releaseBody": "{{place}}, {{date}} · {{person}}",
     "unknownPlace": "Property {{id}}"
   },
   "iosPermissions": {

@@ -7,7 +7,6 @@ import {
   stepMediaListSchema,
   type StepMedia,
 } from '@/features/media/schema';
-import { cancelLiveTask } from '@/lib/cancel-live-task';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { todayIso } from '@/lib/format-date';
 import { withSignedUrls, type WithUrl } from '@/lib/media';
@@ -73,7 +72,10 @@ const TASK_COLUMNS =
   'assignee:profiles!tasks_assignee_id_fkey(full_name, role), ' +
   'author:profiles!tasks_created_by_fkey(full_name, role), ' +
   // Who did it and who closed it, with the names (20261106125500).
-  'closing:task_closing';
+  'closing:task_closing, ' +
+  // The office's cancel and a cleaner's hand-back, with the names and the words
+  // (20261118120000): null for anybody but the office, and on most rows.
+  'cancelled_at, release_kind, offs:task_offs';
 
 /** A calendar day `days` before today, as `YYYY-MM-DD`. */
 function daysAgo(days: number, now: Date = new Date()): string {
@@ -507,13 +509,39 @@ export async function clearCleaningTime(
   return taskSchema.parse(data);
 }
 
+/** What a manager says when calling a cleaning off: the reason may stay empty. */
+export interface CancelTaskVariables {
+  taskId: string;
+  reason: string;
+}
+
 /**
- * Call the job off. Nothing is deleted — a cancelled task stays as history,
- * and its day is free for something else. Only a live task is touched; see
- * cancelLiveTask.
+ * Call the cleaning off, whatever its status (owner, 2026-11-18): nothing is deleted, the
+ * cleaning leaves every list and the cleaner's phone, and who, when and why are kept
+ * (cancel_cleaning, 20261118120000). A repair of a task is called off with its task: the server
+ * refuses one here. A blank reason is no reason.
  */
-export async function cancelTask(client: Client, taskId: string): Promise<void> {
-  await cancelLiveTask(client, taskId);
+export async function cancelTask(client: Client, variables: CancelTaskVariables): Promise<void> {
+  const reason = variables.reason.trim();
+  const { error } = await client.rpc('cancel_cleaning', {
+    p_task_id: variables.taskId,
+    p_reason: reason === '' ? undefined : reason,
+  });
+  if (error) {
+    throw error;
+  }
+}
+
+/**
+ * «Вернуть»: a cleaning the office cancelled goes back to the status and the person it had
+ * (restore_cleaning, 20261118120000). Refused when its booking has another cleaning of the place
+ * meanwhile.
+ */
+export async function restoreTask(client: Client, taskId: string): Promise<void> {
+  const { error } = await client.rpc('restore_cleaning', { p_task_id: taskId });
+  if (error) {
+    throw error;
+  }
 }
 
 /** The cleaners a manager may name as the one who did a cleaning, those switched off too. */

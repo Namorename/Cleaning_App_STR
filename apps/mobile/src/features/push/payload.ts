@@ -23,6 +23,9 @@ export const TASK_PUSH_KINDS = [
   'cleaning_moved',
   'cleaning_window',
   'cleaning_free',
+  // A cleaner handed her cleaning back (20261118120000): to the office alone.
+  'cleaning_declined',
+  'cleaning_interrupted',
   'booking_cancelled_live',
 ] as const satisfies readonly TaskPushKind[];
 

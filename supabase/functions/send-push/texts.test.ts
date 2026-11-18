@@ -246,3 +246,29 @@ Deno.test("a new task without a place, or without a known reporter, says what th
   assertEquals(reported("900003", null), "Flat C");
   assertEquals(reported(null, null), "");
 });
+
+// ---------- a cleaning handed back, for the office (20261118120000) ----------
+
+Deno.test("a hand-back names the cleaning, the day and who, in every language", () => {
+  const declined = task({ event: "cleaning_declined", date: "2026-11-18", propertyId: "900001", person: "Vera" });
+  const interrupted = task({ event: "cleaning_interrupted", date: "2026-11-18", propertyId: "900001", person: "Vera" });
+
+  assertEquals(renderPush(declined, group("ru")), {
+    title: "Отказ от уборки",
+    body: `Vinohradska House, ${day("2026-11-18", "ru")} · Vera`,
+  });
+  assertEquals(renderPush(interrupted, group("en")).title, "Cleaning interrupted");
+  assertEquals(renderPush(interrupted, group("cs")).title, "Úklid přerušen");
+  assertEquals(
+    renderPush(task({ event: "cleaning_declined", jobType: "inspection" }), group("ru")).title,
+    "Отказ от работы",
+  );
+});
+
+Deno.test("a hand-back without a name says the place and the day", () => {
+  assertEquals(
+    renderPush(task({ event: "cleaning_interrupted", date: "2026-11-18", propertyId: "900001", person: null }), group("en"))
+      .body,
+    `Vinohradska House, ${day("2026-11-18", "en")}`,
+  );
+});

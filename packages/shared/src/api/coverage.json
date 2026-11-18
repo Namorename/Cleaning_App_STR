@@ -455,6 +455,11 @@
       "reason": "Storage policy helper of the task-media bucket (upload onto a waiting row)",
       "defined_in": "20260907160100_task_media.sql"
     },
+    "cancel_cleaning": {
+      "status": "internal",
+      "reason": "the office cancels a cleaning in the panel or on the phone (soft cancel, any status); not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118120000_cleaning_offs.sql"
+    },
     "cancel_problem": {
       "status": "planned",
       "scope": "tasks:cancel",
@@ -620,6 +625,11 @@
       "reason": "decision rules of the classify job (no task, dropped, duplicate, already fixed, auto); called inside apply_signal_findings, execute revoked from every role",
       "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
+    "decline_cleaning": {
+      "status": "internal",
+      "reason": "a cleaner declines her own cleaning on the phone, before starting it; a person's own move, never an integration's (owner, 2026-11-18)",
+      "defined_in": "20261118120000_cleaning_offs.sql"
+    },
     "default_host_id": {
       "status": "internal",
       "reason": "tenant default of host_id columns (single-company phase A); internal plumbing",
@@ -770,6 +780,11 @@
       "reason": "helper: the stay of a guest signal as a task shows it (days while exact, months after the cut); execute revoked from every role",
       "defined_in": "20261111120000_task_guest_origin.sql"
     },
+    "hand_back_cleaning": {
+      "status": "internal",
+      "reason": "body of decline_cleaning and interrupt_cleaning; executable by no client",
+      "defined_in": "20261118120000_cleaning_offs.sql"
+    },
     "handle_new_user": {
       "status": "internal",
       "reason": "trigger function: creates the profile of a new auth.users row",
@@ -789,6 +804,11 @@
       "status": "internal",
       "reason": "PMS sync (sync-guest-signals; the PMS stays the source of truth): upserts a portion of reviews by their HMAC key (provider:review:id) from the PMS's ids, service_role only",
       "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "interrupt_cleaning": {
+      "status": "internal",
+      "reason": "a cleaner interrupts her own cleaning under way on the phone, with a reason; a person's own move, never an integration's (owner, 2026-11-18)",
+      "defined_in": "20261118120000_cleaning_offs.sql"
     },
     "invoke_edge_function": {
       "status": "internal",
@@ -1450,6 +1470,11 @@
       "reason": "the process template a cleaning on this listing follows",
       "defined_in": "20260905110200_workflow_templates.sql"
     },
+    "restore_cleaning": {
+      "status": "internal",
+      "reason": "the office returns a cleaning it cancelled, in the panel; not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118120000_cleaning_offs.sql"
+    },
     "restore_kb_revision": {
       "status": "planned",
       "scope": "knowledge:write",
@@ -1837,6 +1862,11 @@
       "status": "internal",
       "reason": "phone-only flow of the cleaner at work (task steps): counts note lines to tick, service_role only",
       "defined_in": "20260905110300_task_steps.sql"
+    },
+    "task_offs": {
+      "status": "internal",
+      "reason": "computed field for the panel: the office cancel and the hand-back with names and reasons; the reasons are the office's alone",
+      "defined_in": "20261118120000_cleaning_offs.sql"
     },
     "task_start_not_before": {
       "status": "internal",

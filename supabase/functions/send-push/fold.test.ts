@@ -319,3 +319,42 @@ Deno.test("a new task of high priority stays urgent", () => {
 Deno.test("a new task that does not say which it is folds into nothing", () => {
   assertEquals(fold(group([reported({ problem_id: null })], `problem:${PROBLEM}`)), null);
 });
+
+// ---------- a cleaning handed back, for the office (20261118120000) ----------
+
+Deno.test("a decline tells the office who, the day and the cleaning", () => {
+  const folded = fold(
+    group([row("cleaning_declined", { date: "2026-11-18", by: "x", by_name: "Вера" }, true)]),
+  );
+
+  assertEquals(folded, {
+    type: "task",
+    event: "cleaning_declined",
+    taskId: TASK,
+    jobType: "cleaning",
+    date: "2026-11-18",
+    propertyId: "900001",
+    urgent: true,
+    person: "Вера",
+  });
+});
+
+Deno.test("an interrupt is said as an interrupt, her name or none", () => {
+  const folded = fold(group([row("cleaning_interrupted", { date: "2026-11-18" })]));
+
+  assertEquals(folded?.type === "task" ? [folded.event, folded.person] : null, [
+    "cleaning_interrupted",
+    null,
+  ]);
+});
+
+Deno.test("a manager offered the cleaning as free work hears of the hand-back, not the offer", () => {
+  const folded = fold(
+    group([
+      row("cleaning_declined", { date: "2026-11-18", by_name: "Вера" }),
+      row("cleaning_free", { date: "2026-11-18" }),
+    ]),
+  );
+
+  assertEquals(folded?.type === "task" ? folded.event : null, "cleaning_declined");
+});

@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Badge } from '@/components/badge';
 import { useScreenEdgePadding } from '@/components/bottom-inset';
-import { Button } from '@/components/button';
+import { Button, type ButtonVariant } from '@/components/button';
 import { Card } from '@/components/card';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { ErrorBanner } from '@/components/error-banner';
@@ -30,6 +30,7 @@ import {
   taskPlace,
   urgencyText,
 } from './format';
+import { cleaningOffs, type CleaningOffKind } from './offs';
 import { availableActions, canStartNow, isSameDayTurnover, type CleaningTask } from './schema';
 
 interface TaskDetailProps {
@@ -68,7 +69,23 @@ interface TaskDetailProps {
    * they draw nothing until there is something to read.
    */
   instructions?: ReactNode;
+  /** A manager's or an admin's phone: the office may cancel the cleaning. */
+  canCancel?: boolean;
+  /**
+   * Opens the question before a decline, an interrupt or a cancel (the route's
+   * `HandBackSheet`). Without it none is offered.
+   */
+  onTakeOff?: (kind: CleaningOffKind) => void;
 }
+
+/** The button of each way off; the sheet it opens asks before anything is sent. */
+const OFF_BUTTON: Readonly<Record<CleaningOffKind, { label: string; variant: ButtonVariant }>> = {
+  // Quiet: a cleaning not started is handed back without loss.
+  decline: { label: 'tasks.offs.decline', variant: 'outline' },
+  // The finish stays the main action; stopping halfway is the danger.
+  interrupt: { label: 'tasks.offs.interrupt', variant: 'destructive' },
+  cancel: { label: 'tasks.offs.cancel', variant: 'destructive' },
+};
 
 /**
  * One task, and what she can do with it right now.
@@ -85,6 +102,8 @@ interface TaskDetailProps {
  *
  * The owner kept this screen's layout (decisions §2, «Уборка и шаги»): the
  * main button stays at the end of the scroll, only the look is direction A's.
+ * Under it, the ways off the job (20261118120000): her decline before the
+ * start, her interrupt after it, and on the office's phone the cancel.
  */
 export function TaskDetail({
   task,
@@ -105,6 +124,8 @@ export function TaskDetail({
   onOpenProblem,
   onOpenChat,
   instructions,
+  canCancel = false,
+  onTakeOff,
 }: TaskDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -171,6 +192,7 @@ export function TaskDetail({
   // Hers and not finished: the moment a report or a request makes sense.
   const canRaise = task.assignee_id === userId && (action === 'start' || action === 'finish');
   const fix = task.type === 'maintenance' ? (task.problem ?? null) : null;
+  const offs = onTakeOff === undefined ? [] : cleaningOffs(task, userId, canCancel);
 
   // A cleaning is started as a cleaning; an inspection or a repair as work.
   const actionLabel =
@@ -366,6 +388,20 @@ export function TaskDetail({
       ) : (
         <Hint text={idleHint} />
       )}
+
+      {/* Below the job's own buttons, quieter than its main one: handing the
+          cleaning back, or the office calling it off. Each asks first. Held
+          while a move of hers is under way: a start still on its way and a
+          decline would contradict each other. */}
+      {offs.map((kind) => (
+        <Button
+          key={kind}
+          variant={OFF_BUTTON[kind].variant}
+          label={t(OFF_BUTTON[kind].label, { context })}
+          isDisabled={isBusy}
+          onPress={() => onTakeOff?.(kind)}
+        />
+      ))}
 
       <ConfirmDialog
         isVisible={isAskingToFinish}

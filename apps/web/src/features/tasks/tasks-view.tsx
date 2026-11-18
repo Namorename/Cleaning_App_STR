@@ -33,7 +33,7 @@ import { TaskForm } from './task-form';
 import { taskSummary } from './task-row';
 import { TasksFilters } from './tasks-filters';
 import { TasksTable } from './tasks-table';
-import { useCancelTask, useCompleteCleaning, useStaff, useTasks } from './use-tasks';
+import { useCompleteCleaning, useRestoreTask, useStaff, useTasks } from './use-tasks';
 
 /**
  * The section's page (5.4, variant A): the filters, three tabs, and the work
@@ -50,12 +50,13 @@ export function TasksView() {
   const { data, isPending, isError, error } = useTasks();
   const unread = useUnreadSubjects();
   const staff = useStaff();
-  // The cancel lives here, not in the row: its refusal arrives after the
-  // list has refreshed, and the row that asked may have left the tab.
-  const cancel = useCancelTask();
+  // The return lives here, not in the row: its refusal arrives after the list
+  // has refreshed, and the row that asked may have left the tab. The cancel's
+  // question owns its own write and says its own refusal (CancelTaskDialog).
+  const restore = useRestoreTask();
   const complete = useCompleteCleaning();
-  const cancelFailure = cancel.isError
-    ? serverErrorText(cancel.error)
+  const cancelFailure = restore.isError
+    ? serverErrorText(restore.error)
     : complete.isError
       ? serverErrorText(complete.error)
       : null;
@@ -83,10 +84,6 @@ export function TasksView() {
   const inTab = (key: TaskTab) => tasks.filter((task) => tabOf(task, today) === key);
   const groups = groupTasks(inTab(tab), tab, now);
 
-  const callOff = (task: Task) => {
-    cancel.mutate(task.id);
-    setConfirming(null);
-  };
   /** A row's «⋯»: where the focus goes back when the menu or drawer that led away is gone. */
   const rowMenuOf = (taskId: string) =>
     document.querySelector<HTMLElement>(`[data-task-menu="${taskId}"]`);
@@ -149,6 +146,7 @@ export function TasksView() {
                 onOpenWork={setReading}
                 onOpenChat={openChat}
                 onCancel={setConfirming}
+                onRestore={(task) => restore.mutate(task.id)}
                 onComplete={(task) => {
                   complete.reset();
                   setCompleting(task);
@@ -192,11 +190,7 @@ export function TasksView() {
         onClose={() => setCompleting(null)}
       />
       {confirming === null ? null : (
-        <CancelTaskDialog
-          task={confirming}
-          onConfirm={callOff}
-          onClose={() => setConfirming(null)}
-        />
+        <CancelTaskDialog task={confirming} onClose={() => setConfirming(null)} />
       )}
     </div>
   );

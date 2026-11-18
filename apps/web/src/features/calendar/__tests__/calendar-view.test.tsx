@@ -1559,7 +1559,7 @@ describe('the past', () => {
     expect(days()[0]).toBe('2026-09-25');
   });
 
-  test('shows the cancelled whatever their switch; the window keeps them behind it', async () => {
+  test('keeps the cancelled behind their switch, the past as the window (owner, 2026-11-18)', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const before = calendarTask(1, '2026-09-20', { status: 'cancelled' });
     const inWindow = calendarTask(1, '2026-09-28', { status: 'cancelled' });
@@ -1568,9 +1568,14 @@ describe('the past', () => {
 
     await user.click(screen.getByRole('button', { name: PAST_BUTTON }));
 
+    expect(screen.queryAllByRole('button', { name: /Отменена/ })).toHaveLength(0);
+
+    await user.click(screen.getByRole('checkbox', { name: 'Показывать отменённые' }));
+
     const shown = screen.getAllByRole('button', { name: /Отменена/ });
-    expect(shown).toHaveLength(1);
-    expect(shown[0]).toHaveAttribute('data-task-chip', before.id);
+    expect(shown.map((chip) => chip.getAttribute('data-task-chip')).sort()).toEqual(
+      [before.id, inWindow.id].sort(),
+    );
   });
 
   test('shows the done, the live and what never happened on its days, and the bars', async () => {
