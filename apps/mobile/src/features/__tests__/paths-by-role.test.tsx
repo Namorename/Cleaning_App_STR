@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import ProblemsScreen from '@/app/(tabs)/problems';
 import ProblemRoute from '@/app/problem/[id]';
@@ -12,6 +12,7 @@ import {
   useUnassignProblem,
 } from '@/features/board/use-board';
 import { useProblemEvents } from '@/features/history/use-history';
+import { useProblemAction } from '@/features/office/use-office';
 import type { Problem } from '@/features/problems/schema';
 import {
   HEAD_TECH,
@@ -33,11 +34,13 @@ import {
  *   its history.
  * - A technician: his own tasks only — no board, no hand-out, no history.
  * - A cleaner: nothing of this.
- * - Nobody: the manager's levers — cancel, close, archive.
+ * - The office — a manager, an admin (owner, 2026-11-18, replacing «nobody»):
+ *   the head technician's board, hand-out and history, and the manager's
+ *   levers — done, cancel, reopen, the archive.
  *
  * Only what is offered follows the role; what anybody reads is RLS's. So for
  * a technician and a cleaner the board, the directory and the journal are not
- * even asked for.
+ * even asked for, and the manager's levers are not even wired.
  */
 
 let mockRole = 'head_tech';
@@ -111,6 +114,18 @@ jest.mock('@/features/board/use-board', () => {
 });
 
 jest.mock('@/features/history/use-history', () => ({ useProblemEvents: jest.fn() }));
+
+// The manager's levers on a task: sent at once, never queued (features/office).
+const mockLever = { mutate: jest.fn() };
+jest.mock('@/features/office/use-office', () => ({
+  useProblemAction: jest.fn(() => ({
+    mutate: mockLever.mutate,
+    reset: jest.fn(),
+    isPending: false,
+    error: null,
+    variables: undefined,
+  })),
+}));
 
 jest.mock('@/features/host/use-host', () => ({ useGalleryAllowed: () => false }));
 
@@ -296,6 +311,84 @@ describe.each([
     expect(useProblemEvents).not.toHaveBeenCalled();
     expect(useAssignProblem).not.toHaveBeenCalled();
     expect(useUnassignProblem).not.toHaveBeenCalled();
+    expect(useProblemAction).not.toHaveBeenCalled();
+  });
+});
+
+/** The manager's levers by the state of the task, as the panel offers them. */
+const LIVE_LEVERS = ['Отметить выполненным', 'Отменить задание', 'Удалить в архив'];
+
+describe.each([
+  ['a manager', 'manager'],
+  ['an admin', 'admin'],
+])('%s', (_who, role) => {
+  const OFFICE_ID = 'c2d3e4f5-3333-4333-8333-c2d3e4f50001';
+
+  beforeEach(() => {
+    asRole(role, OFFICE_ID);
+  });
+
+  test('«Задания» is the board of every task, with both filters, and «Создать задание»', async () => {
+    await render(<ProblemsScreen />);
+
+    expect(screen.getByText(OTHERS_TASK)).toBeTruthy();
+    expect(screen.getByLabelText('Статус').props.accessibilityRole).toBe('tablist');
+    expect(screen.getByRole('button', { name: 'Исполнитель: Все исполнители' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Создать задание' })).toBeTruthy();
+  });
+
+  test('a waiting task offers the hand-out, its history and the manager’s levers', async () => {
+    await render(<ProblemRoute />);
+
+    expect(buttons()).toEqual([...FIELD, 'История', 'Назначить', ...LIVE_LEVERS].sort());
+  });
+
+  test('a held task offers «Снять с работы» beside the levers', async () => {
+    boardHolds(boardProblem({ status: 'assigned', fix_tasks: [repair()] }));
+
+    await render(<ProblemRoute />);
+
+    expect(buttons()).toEqual([...FIELD, 'История', 'Снять с работы', ...LIVE_LEVERS].sort());
+  });
+
+  test('a closed task opens again or goes to the archive', async () => {
+    boardHolds(boardProblem({ status: 'resolved' }));
+
+    await render(<ProblemRoute />);
+
+    expect(screen.getByRole('button', { name: 'Вернуть в работу' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Удалить в архив' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Отметить выполненным' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Отменить задание' })).toBeNull();
+  });
+
+  test('an archived task only comes back from the archive', async () => {
+    boardHolds(boardProblem({ status: 'cancelled', archived_at: '2026-10-06T08:00:00+00:00' }));
+
+    await render(<ProblemRoute />);
+
+    expect(screen.getByRole('button', { name: 'Восстановить из архива' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Удалить в архив' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Вернуть в работу' })).toBeNull();
+  });
+
+  test('the archive is asked first, and sent once the question is answered', async () => {
+    await render(<ProblemRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Удалить в архив' }));
+    expect(mockLever.mutate).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Да, в архив' }));
+
+    expect(mockLever.mutate).toHaveBeenCalledWith(
+      { kind: 'archive', problemId: PROBLEM_ID },
+      expect.anything(),
+    );
+  });
+
+  test('the history is the office’s to read', async () => {
+    await render(<ProblemHistoryRoute />);
+
+    expect(screen.getByText('Задание заведено')).toBeTruthy();
   });
 });
 

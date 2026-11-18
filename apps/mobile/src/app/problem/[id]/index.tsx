@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { ErrorState } from '@/components/error-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
+import { isOffice } from '@/features/auth/role';
 import { useSession } from '@/features/auth/session';
 import { useRole } from '@/features/auth/use-role';
 import { ProblemDispatch } from '@/features/board/problem-dispatch';
@@ -14,6 +15,7 @@ import { PlaceInstructions } from '@/features/knowledge/place-instructions';
 import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
 import { attachFailure } from '@/features/media/failure';
 import { useGalleryAllowed } from '@/features/host/use-host';
+import { OfficeProblemActions } from '@/features/office/problem-actions';
 import { toLocalRecord, type LocalMediaRecord } from '@/features/media/local-store';
 import { mediaOfProblem } from '@/features/media/schema';
 import {
@@ -46,9 +48,13 @@ export default function ProblemRoute() {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const { userId } = useSession();
-  // Hands the task out and takes the person off — the head technician's alone
-  // (docs/tech-plan.md §3.3); what he may do the server decides again.
-  const isDispatcher = useRole() === 'head_tech';
+  // Hands the task out and takes the person off — the head technician's
+  // (docs/tech-plan.md §3.3) and the office's, which also closes, cancels,
+  // reopens and archives it (owner, 2026-11-18); what either may do the server
+  // decides again.
+  const role = useRole();
+  const isOfficeRole = isOffice(role);
+  const isDispatcher = role === 'head_tech' || isOfficeRole;
   const parsed = Params.safeParse(useLocalSearchParams());
   const problemId = parsed.success ? parsed.data.id : '';
 
@@ -175,7 +181,14 @@ export default function ProblemRoute() {
       error={attach.error ?? removeMedia.error}
       notice={notice}
       refreshError={problem.error}
-      dispatch={isDispatcher ? <ProblemDispatch problemId={problemId} /> : undefined}
+      dispatch={
+        isDispatcher ? (
+          <>
+            <ProblemDispatch problemId={problemId} />
+            {isOfficeRole ? <OfficeProblemActions problemId={problemId} /> : null}
+          </>
+        ) : undefined
+      }
       instructions={<PlaceInstructions propertyId={problem.data.property_id} />}
       origin={<GuestOriginBlock problemId={problemId} source={signalSource(problem.data)} />}
     />

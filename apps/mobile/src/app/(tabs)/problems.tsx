@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { ActionBar } from '@/components/action-bar';
 import { Button } from '@/components/button';
-import { isTechnician } from '@/features/auth/role';
+import { isOffice, isTechnician } from '@/features/auth/role';
 import { useRole } from '@/features/auth/use-role';
 import { BoardScreen } from '@/features/board/board-screen';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
@@ -28,11 +28,33 @@ const NO_IDS: readonly string[] = [];
  * The head technician's tab is not a list of his own at all: it is the board
  * of every task of the company, with its filters (docs/tech-plan.md §3.4, §4),
  * and no «Создать задание» either.
+ *
+ * The office — a manager, an admin — gets the same board (owner, 2026-11-18),
+ * and keeps «Создать задание» under it, as it had on the phone before.
  */
 export default function ProblemsScreen() {
   const role = useRole();
 
-  return role === 'head_tech' ? <BoardScreen /> : <MyProblems canReport={!isTechnician(role)} />;
+  if (role === 'head_tech') {
+    return <BoardScreen />;
+  }
+  if (isOffice(role)) {
+    return <OfficeBoard />;
+  }
+  return <MyProblems canReport={!isTechnician(role)} />;
+}
+
+function OfficeBoard() {
+  const { t } = useTranslation();
+
+  return (
+    <View style={styles.screen}>
+      <BoardScreen />
+      <ActionBar>
+        <Button label={t('problems.report')} onPress={() => router.push('/problem/new')} />
+      </ActionBar>
+    </View>
+  );
 }
 
 interface MyProblemsProps {
