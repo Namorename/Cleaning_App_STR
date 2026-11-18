@@ -40,6 +40,7 @@ import { ManagerBoard } from './manager-board';
 import { boardKeys } from './keys';
 import { NewCardDialog } from './new-card-dialog';
 import {
+  assignablePeople,
   canEditBoard,
   canWorkOn,
   shelfOf,
@@ -288,7 +289,7 @@ function BoardPage({
         onChange={setFilters}
         order={order}
         onOrderChange={setOrder}
-        people={people.data ?? []}
+        people={assignablePeople(people.data ?? [])}
         viewerId={viewer.id}
       />
 

@@ -104,10 +104,12 @@ export function CardTile({ card, today, href, onOpen, actions, drag, boardTitle 
       )}
       {place === null ? null : <span className="text-xs text-muted-foreground">{place}</span>}
       <DueChip dueOn={card.due_on} column={card.column_key} today={today} />
-      <div className="flex items-center justify-between gap-2">
-        <StepProgress steps={card.steps} />
-        <AssigneeMark card={card} />
-      </div>
+      {card.steps.length === 0 && card.assignee_id === null ? null : (
+        <div className="flex items-center justify-between gap-2">
+          <StepProgress steps={card.steps} />
+          <AssigneeMark card={card} />
+        </div>
+      )}
       {hasColor ? <span className="sr-only">{t(`boards.colors.${card.color}`)}</span> : null}
     </article>
   );
@@ -124,7 +126,7 @@ function AssigneeMark({ card }: { card: BoardCard }) {
   return (
     <span
       title={label}
-      className="ml-auto inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground"
+      className="relative z-10 ml-auto inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground"
     >
       <span aria-hidden="true">{initialsOf(name) || '?'}</span>
       <span className="sr-only">{label}</span>

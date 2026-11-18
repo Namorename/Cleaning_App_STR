@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { serverErrorText } from '@/lib/server-error';
 
 import { CardFieldsForm, EMPTY_FIELDS, fieldsOf, type FieldsDraft } from './card-fields';
+import { assignablePeople } from './schema';
 import { useOfficePeople, useSaveCard, useSetCardAssignee } from './use-boards';
 
 /** The steps typed one a line: the empty lines dropped, the first hundred kept. */
@@ -48,7 +49,13 @@ export function NewCardDialog({ boardId, ownerId, onClose, onCreated }: NewCardD
   const save = useSaveCard();
   const assign = useSetCardAssignee();
   const people = useOfficePeople();
-  const [assigneeId, setAssigneeId] = useState<string>(ownerId);
+  // Null until picked: the default, which is the owner when they can hold a card, else nobody —
+  // what the server does by itself, so the default needs no second write.
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  const assignable = assignablePeople(people.data ?? []);
+  const serverDefault = assignable.some((person) => person.id === ownerId) ? ownerId : NOBODY;
+  const assigneeId = pickedId ?? serverDefault;
+  const assignFailure = assign.isError ? serverErrorText(assign.error) : null;
   const [cardId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState<FieldsDraft>(EMPTY_FIELDS);
   const [column, setColumn] = useState<BoardColumn>('open');
@@ -69,15 +76,18 @@ export function NewCardDialog({ boardId, ownerId, onClose, onCreated }: NewCardD
       return;
     }
     const picked = assigneeId === NOBODY ? null : assigneeId;
+    // A repeat after a refusal is safe: the same id makes no second card, and the same assignee
+    // again changes nothing.
     save.mutate(
       { cardId, boardId, column, fields: fieldsOf(draft), steps: stepsFromLines(stepsText) },
       {
         onSuccess: () => {
-          if (picked === ownerId) {
+          if (assigneeId === serverDefault) {
             onCreated(cardId);
             return;
           }
-          assign.mutate({ cardId, assigneeId: picked }, { onSettled: () => onCreated(cardId) });
+          // Refused, the form stays with the reason: the card is made, its assignee not yet.
+          assign.mutate({ cardId, assigneeId: picked }, { onSuccess: () => onCreated(cardId) });
         },
       },
     );
@@ -112,12 +122,9 @@ export function NewCardDialog({ boardId, ownerId, onClose, onCreated }: NewCardD
               id="new-card-assignee"
               value={assigneeId}
               className="h-11 sm:max-w-xs"
-              onChange={(event) => setAssigneeId(event.target.value)}
+              onChange={(event) => setPickedId(event.target.value)}
             >
-              {(people.data ?? []).some((person) => person.id === ownerId) ? null : (
-                <option value={ownerId}>{t('boards.unknownPerson')}</option>
-              )}
-              {(people.data ?? []).map((person) => (
+              {assignable.map((person) => (
                 <option key={person.id} value={person.id}>
                   {person.full_name ?? t('boards.unknownPerson')}
                 </option>
@@ -138,6 +145,11 @@ export function NewCardDialog({ boardId, ownerId, onClose, onCreated }: NewCardD
               {t('boards.stepsHint')}
             </p>
           </div>
+          {assignFailure === null ? null : (
+            <p role="alert" className="text-sm text-destructive">
+              {assignFailure.text}
+            </p>
+          )}
           {failure === null ? null : (
             <p role="alert" className="text-sm text-destructive">
               {failure.text}

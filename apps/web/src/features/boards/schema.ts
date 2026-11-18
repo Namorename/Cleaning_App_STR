@@ -71,13 +71,22 @@ export const myCardSchema = boardCardSchema.extend({
 export type MyCard = z.infer<typeof myCardSchema>;
 export const myCardListSchema = z.array(myCardSchema);
 
-/** A person a card can be given to: an active manager or admin of the company. */
+/** A person of the company: the journal names anybody; a card goes to `assignablePeople` only. */
 export const officePersonSchema = z.object({
   id: z.string(),
   full_name: z.string().nullable(),
+  role: z.string(),
+  is_active: z.boolean(),
 });
 export type OfficePerson = z.infer<typeof officePersonSchema>;
 export const officePeopleSchema = z.array(officePersonSchema);
+
+/** Who a card can be given to: the company's active managers and admins (the server's rule). */
+export function assignablePeople(people: readonly OfficePerson[]): OfficePerson[] {
+  return people.filter(
+    (person) => person.is_active && (person.role === 'manager' || person.role === 'admin'),
+  );
+}
 
 export const cardStepSchema = stepMarkSchema.extend({ sort_order: z.number() });
 export type CardStep = z.infer<typeof cardStepSchema>;
@@ -171,7 +180,7 @@ export function initialsOf(name: string | null | undefined): string {
     .filter((word) => word !== '');
   return words
     .slice(0, 2)
-    .map((word) => word[0]?.toLocaleUpperCase() ?? '')
+    .map((word) => Array.from(word)[0]?.toLocaleUpperCase() ?? '')
     .join('');
 }
 

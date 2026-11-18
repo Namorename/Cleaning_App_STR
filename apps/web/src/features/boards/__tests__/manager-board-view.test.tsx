@@ -130,10 +130,18 @@ const state = {
   mine: [] as MyCard[],
 };
 
+const GONE = 'aaaaaaaa-0000-4000-8000-000000000009';
 const PEOPLE: OfficePerson[] = [
-  { id: ADMIN, full_name: 'Анна Админ' },
-  { id: READER, full_name: 'Ира Читатель' },
-  { id: OWNER, full_name: 'Ольга Владелец' },
+  { id: ADMIN, full_name: 'Анна Админ', role: 'admin', is_active: true },
+  { id: GONE, full_name: 'Вера Ушла', role: 'manager', is_active: false },
+  {
+    id: 'aaaaaaaa-0000-4000-8000-000000000008',
+    full_name: 'Галя Горничная',
+    role: 'cleaner',
+    is_active: true,
+  },
+  { id: READER, full_name: 'Ира Читатель', role: 'manager', is_active: true },
+  { id: OWNER, full_name: 'Ольга Владелец', role: 'manager', is_active: true },
 ];
 
 /** Every write the view asks for; `onSuccess` runs at once, as a server that agrees. */
@@ -769,5 +777,77 @@ describe('a journal line of a kind this panel does not know', () => {
     expect(
       within(screen.getByRole('dialog')).getByText('Сантехник придёт во вторник'),
     ).toBeInTheDocument();
+  });
+});
+
+describe('after the review of the panel, stage 2', () => {
+  test('only active managers and admins are offered, in the menu and in the filter', async () => {
+    const user = userEvent.setup();
+    show({ id: OWNER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: 'Исполнитель: Без исполнителя',
+      }),
+    );
+    expect(await screen.findByRole('menuitem', { name: 'Ира Читатель' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Вера Ушла' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Галя Горничная' })).not.toBeInTheDocument();
+  });
+
+  test('the journal names a person switched off since', () => {
+    state.detail = {
+      ...DETAIL,
+      entries: [
+        ...DETAIL.entries,
+        {
+          id: 'e9',
+          kind: 'assignee_changed',
+          body: null,
+          facts: { from: GONE, to: null },
+          author_id: OWNER,
+          created_at: '2026-11-14T09:00:00Z',
+          edited_at: null,
+          author: { full_name: 'Ольга Владелец' },
+        },
+      ],
+    };
+    show({ id: OWNER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
+    expect(
+      within(screen.getByRole('dialog')).getByText('Исполнитель снят (был Вера Ушла)'),
+    ).toBeInTheDocument();
+  });
+
+  test('a new card whose assignment is refused keeps the form open', async () => {
+    const user = userEvent.setup();
+    state.failing.add(spies.assign);
+    show({ id: OWNER, isAdmin: false });
+    await user.click(screen.getByRole('button', { name: 'Добавить карточку' }));
+    const dialog = screen.getByRole('dialog');
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Исполнитель' }), READER);
+    await user.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Свет в коридоре');
+    await user.click(within(dialog).getByRole('button', { name: 'Создать' }));
+    expect(spies.assign).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('dialog')).toHaveTextContent('Новая карточка');
+  });
+
+  test('a new card on a board whose owner cannot hold one defaults to nobody, with no second write', async () => {
+    const user = userEvent.setup();
+    state.people = PEOPLE.map((person) =>
+      person.id === OWNER ? { ...person, is_active: false } : person,
+    );
+    show({ id: ADMIN, isAdmin: true });
+    await user.click(screen.getByRole('button', { name: 'Добавить карточку' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('combobox', { name: 'Исполнитель' })).toHaveValue('none');
+    await user.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Свет');
+    await user.click(within(dialog).getByRole('button', { name: 'Создать' }));
+    expect(spies.saveCard).toHaveBeenCalledTimes(1);
+    expect(spies.assign).not.toHaveBeenCalled();
+  });
+
+  test('«Назначено мне» opens a card by its address even when it is not in the list', () => {
+    window.history.replaceState(null, '', `/problems?board=mine&card=${cardId(1)}`);
+    render(<MyCardsView viewer={{ id: OWNER, isAdmin: false }} />);
+    expect(screen.getByRole('dialog')).toHaveTextContent('Сантехник придёт во вторник');
   });
 });

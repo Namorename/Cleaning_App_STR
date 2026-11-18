@@ -126,13 +126,14 @@ export async function fetchMyCards(client: Client, viewerId: string): Promise<My
   return myCardListSchema.parse(rows);
 }
 
-/** The people a card can be given to: the company's active managers and admins, by name. */
+/**
+ * The company's people by name, role and whether active: the journal names anybody it holds an id
+ * of (switched off since, too); a card is given to `assignablePeople` of them.
+ */
 export async function fetchOfficePeople(client: Client): Promise<OfficePerson[]> {
   const { data, error } = await client
     .from('profiles')
-    .select('id, full_name')
-    .in('role', ['manager', 'admin'])
-    .eq('is_active', true)
+    .select('id, full_name, role, is_active')
     .order('full_name', { ascending: true })
     .order('id', { ascending: true });
   if (error) {

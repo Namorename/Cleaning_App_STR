@@ -99,7 +99,7 @@ export function entrySentence(
 interface CardJournalProps {
   card: CardDetail;
   viewer: BoardViewer;
-  /** The owner or an admin, on a card that is not shelved: may write. */
+  /** Whoever works on the card (its board's owner, an admin, its assignee), not shelved: may write. */
   canEdit: boolean;
 }
 
@@ -111,6 +111,8 @@ interface CardJournalProps {
  * admin deletes any. Ctrl+Enter sends.
  */
 export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
+  const people = useOfficePeople();
+  const nameOf = (id: string) => people.data?.find((person) => person.id === id)?.full_name ?? null;
   const { t } = useTranslation();
   const headingId = useId();
   const save = useSaveComment();
@@ -178,6 +180,7 @@ export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
         <ol className="flex flex-col gap-3">
           {entries.map((entry) => (
             <JournalLine
+              nameOf={nameOf}
               key={entry.id}
               entry={entry}
               canEdit={canEdit && canEditComment(entry, viewer)}
@@ -241,6 +244,8 @@ export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
 }
 
 interface JournalLineProps {
+  /** Names a person by id, from the company's people. */
+  nameOf: (id: string) => string | null;
   entry: CardEntry;
   canEdit: boolean;
   canDelete: boolean;
@@ -255,6 +260,7 @@ interface JournalLineProps {
 
 function JournalLine({
   entry,
+  nameOf,
   canEdit,
   canDelete,
   editing,
@@ -267,11 +273,9 @@ function JournalLine({
 }: JournalLineProps) {
   const { t } = useTranslation();
   const language = useLanguage();
-  const people = useOfficePeople();
   const author = entry.author?.full_name ?? t('boards.unknownPerson');
   const when = formatDateTime(entry.created_at, language);
   const isComment = entry.kind === 'comment';
-  const nameOf = (id: string) => people.data?.find((person) => person.id === id)?.full_name ?? null;
 
   return (
     <li className="flex flex-col gap-1 border-l-2 border-border pl-3">

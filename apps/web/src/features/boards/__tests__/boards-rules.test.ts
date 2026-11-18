@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from 'vitest';
 
 import { i18n } from '@/lib/i18n';
 
-import { boardHref, readBoardAddress, writeBoardAddress } from '../address';
+import { boardHref, MY_CARDS, readBoardAddress, writeBoardAddress } from '../address';
 import {
   deleteComment,
   fetchBoardCards,
@@ -232,5 +232,27 @@ describe('the calls', () => {
     expect(selects[1]).toContain('steps:manager_board_steps(id, body, done_at)');
     expect(selects[2]).toContain('entries:manager_board_entries(');
     expect(selects[2]).toContain('author:profiles!manager_board_entries_author_id_fkey(full_name)');
+  });
+});
+
+describe('the address of «Назначено мне»', () => {
+  test('reads ?board=mine with a card, and never an archive view', () => {
+    expect(
+      readBoardAddress(
+        new URLSearchParams('board=mine&shelf=archive&card=b0a2d200-0000-4000-8000-000000000001'),
+      ),
+    ).toEqual({
+      boardId: MY_CARDS,
+      view: 'board',
+      cardId: 'b0a2d200-0000-4000-8000-000000000001',
+    });
+    expect(writeBoardAddress({ boardId: MY_CARDS, view: 'board', cardId: null })).toBe(
+      'board=mine',
+    );
+    expect(boardHref(MY_CARDS)).toBe('/problems?board=mine');
+  });
+
+  test('a board named otherwise than by an id is no board', () => {
+    expect(readBoardAddress(new URLSearchParams('board=mine2')).boardId).toBeNull();
   });
 });

@@ -24,7 +24,7 @@ import { CardDialog } from './card-dialog';
 import { boardKeys } from './keys';
 import { ManagerBoard } from './manager-board';
 import type { BoardCard, BoardViewer, MyCard } from './schema';
-import { useBoards, useMoveCard, useMyCards } from './use-boards';
+import { useBoards, useCard, useMoveCard, useMyCards } from './use-boards';
 
 interface MyCardsViewProps {
   viewer: BoardViewer;
@@ -73,8 +73,9 @@ function MyCardsPage({
   const [filters, setFilters] = useState<CardFilters>(EMPTY_CARD_FILTERS);
   const [order, setOrder] = useState<CardOrder>('due');
   const [failure, setFailure] = useState<ServerErrorText | null>(null);
-  // The board of the card opened here: it stays open when the card leaves the list (given away).
-  const [openBoardId, setOpenBoardId] = useState<string | null>(null);
+  // The card open names its board itself: it stays open when it leaves the list (given away), and
+  // a card opened by its address — a link, a reload — finds its board the same way.
+  const opened = useCard(address.cardId);
   const openedHere = useRef(false);
   useEffect(() => {
     if (address.cardId === null) {
@@ -89,7 +90,6 @@ function MyCardsPage({
   const cardHref = (cardId: string) => `/problems?${writeBoardAddress({ ...here, cardId })}`;
   const openCard = (cardId: string) => {
     openedHere.current = true;
-    setOpenBoardId(cards.find((card) => card.id === cardId)?.board_id ?? null);
     setAddress({ ...here, cardId }, 'push');
   };
   const closeCard = () => {
@@ -115,7 +115,7 @@ function MyCardsPage({
       : boards.find(
           (board) =>
             board.id ===
-            (cards.find((card) => card.id === address.cardId)?.board_id ?? openBoardId),
+            (cards.find((card) => card.id === address.cardId)?.board_id ?? opened.data?.board_id),
         );
 
   return (

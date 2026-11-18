@@ -39,6 +39,7 @@ import { DueChip } from './due-chip';
 import { boardKeys } from './keys';
 import { LinkedText } from './linked-text';
 import {
+  assignablePeople,
   canEditBoard,
   canWorkOn,
   cardPlace,
@@ -364,7 +365,7 @@ function AssigneeLine({ card, canAssign }: { card: CardDetail; canAssign: boolea
           {name}
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          {(people.data ?? []).map((person) => (
+          {assignablePeople(people.data ?? []).map((person) => (
             <DropdownMenuItem key={person.id} onClick={() => choose(person.id)}>
               {person.full_name ?? t('boards.unknownPerson')}
             </DropdownMenuItem>
