@@ -154,12 +154,16 @@ export function OfficeCleaningsScreen() {
   );
 
   const isFiltered = filter.status !== NO_FILTER.status || filter.place !== null;
+  // What the filters had to hide: the calendar's picked day, or the list's days.
+  const readOnScreen = isCalendar
+    ? (rows ?? []).filter((task) => task.scheduled_date === selectedDay).length
+    : (rows?.length ?? 0);
   const empty = emptyOf({
     isPending: query.isPending,
     error: rows === undefined ? query.error : null,
     onRetry: onRefresh,
     isCalendar,
-    isFiltered: isFiltered && (rows?.length ?? 0) > 0,
+    isFiltered: isFiltered && readOnScreen > 0,
     onReset: () => setFilter(NO_FILTER),
     t,
   });

@@ -268,6 +268,16 @@ describe('the calendar', () => {
     );
   });
 
+  test('a day with nothing on it says so, whatever the filters hide on other days', async () => {
+    await openCalendar();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Выполнены' }));
+
+    await fireEvent.press(screen.getByTestId('month-grid-day-2026-11-21'));
+
+    expect(screen.getByText('В этот день уборок нет')).toBeTruthy();
+    expect(screen.queryByText('Под эти фильтры ничего не подходит')).toBeNull();
+  });
+
   test('the next month is read when it is shown, and opens on its first day', async () => {
     await openCalendar();
 
