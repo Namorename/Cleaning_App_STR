@@ -40,7 +40,6 @@ import { CardJournalList, CardStepsList, ColorChoice, LinkedText } from './card-
 import { formatDue, formatStamp, useCardColor } from './format';
 import {
   assignablePeople,
-  canEditBoard,
   canWorkOn,
   cardPlace,
   shelfOf,
@@ -60,16 +59,14 @@ import {
 
 /**
  * A manager board's card on the phone: the column as buttons, the assignee, the fields (links
- * open), the steps, the actions and the journal. The board's owner and an admin change all of it;
- * the card's assignee works on it but does not assign, copy or shelve it; another manager reads
- * it — and nothing on screen explains who may do what: what one may not do is simply not there.
- * A shelved card is read until «Вернуть».
+ * open), the steps, the actions and the journal. Every manager and admin changes all of it on a
+ * live board (20261119090000); a comment is changed by its author. Nothing on screen explains who
+ * may do what. A shelved card is read until «Вернуть».
  */
 export function CardScreen({ cardId }: { cardId: string }) {
   const { t } = useTranslation();
   const card = useCard(cardId);
   const boards = useBoards();
-  const viewer = useViewer();
 
   const retry = () => {
     void card.refetch();
@@ -96,24 +93,12 @@ export function CardScreen({ cardId }: { cardId: string }) {
       {card.isError || boards.isError ? (
         <ErrorBanner title={t('boards.staleNote')} error={card.error ?? boards.error} />
       ) : null}
-      <CardBody
-        card={card.data}
-        boardEditable={board !== null && canEditBoard(board, viewer)}
-        canWork={board !== null && canWorkOn(board, card.data, viewer)}
-      />
+      <CardBody card={card.data} canWork={board !== null && canWorkOn(board)} />
     </>
   );
 }
 
-function CardBody({
-  card,
-  boardEditable,
-  canWork,
-}: {
-  card: CardDetail;
-  boardEditable: boolean;
-  canWork: boolean;
-}) {
+function CardBody({ card, canWork }: { card: CardDetail; canWork: boolean }) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const viewer = useViewer();
@@ -184,7 +169,7 @@ function CardBody({
       {shelf === 'active' ? null : (
         <View style={styles.note}>
           <Text>{shelf === 'deleted' ? t('boards.cardDeleted') : t('boards.cardArchived')}</Text>
-          {boardEditable ? (
+          {canWork ? (
             <Button
               label={t('boards.restoreCard')}
               isBusy={shelve.isPending}
@@ -230,7 +215,7 @@ function CardBody({
         )}
       </View>
 
-      <AssigneeSection card={card} canAssign={boardEditable && shelf === 'active'} />
+      <AssigneeSection card={card} canAssign={canEdit} />
 
       {isEditing && canEdit ? (
         <EditFields card={card} onDone={() => setIsEditing(false)} />
@@ -240,7 +225,7 @@ function CardBody({
 
       <CardStepsList card={card} canEdit={canEdit} />
 
-      {boardEditable && shelf === 'active' ? (
+      {canEdit ? (
         <View style={styles.section}>
           <Button
             label={t('boards.duplicate')}

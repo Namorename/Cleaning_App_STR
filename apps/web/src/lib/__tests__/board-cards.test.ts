@@ -1,7 +1,7 @@
 import {
   boardSummary,
   BOARD_ENTRY_KINDS,
-  canWorkOnCard,
+  canWorkOnCards,
   CARD_COLORS,
   CARD_COLOR_NAMES,
   dueState,
@@ -298,24 +298,9 @@ describe('the assignee (20261118230000)', () => {
     expect(hasCardFilters(EMPTY_CARD_FILTERS)).toBe(false);
   });
 
-  test("the owner, an admin and the card's assignee work on a card; another manager does not", () => {
-    const board = { owner_id: MINE, archived_at: null };
-    const theirs = { assignee_id: HERS };
-    const third = 'a0000000-0000-4000-8000-000000000003';
-
-    expect(canWorkOnCard(board, theirs, { id: MINE, isAdmin: false })).toBe(true);
-    expect(canWorkOnCard(board, theirs, { id: HERS, isAdmin: false })).toBe(true);
-    expect(canWorkOnCard(board, theirs, { id: third, isAdmin: true })).toBe(true);
-    expect(canWorkOnCard(board, theirs, { id: third, isAdmin: false })).toBe(false);
-    expect(canWorkOnCard(board, {}, { id: HERS, isAdmin: false })).toBe(false);
-  });
-
-  test('nobody works on a card of an archived board', () => {
-    const archived = { owner_id: MINE, archived_at: '2026-11-18T10:00:00Z' };
-    expect(canWorkOnCard(archived, { assignee_id: HERS }, { id: HERS, isAdmin: false })).toBe(
-      false,
-    );
-    expect(canWorkOnCard(archived, {}, { id: MINE, isAdmin: true })).toBe(false);
+  test('every manager and admin works on the cards of a live board, none of an archived one (20261119090000)', () => {
+    expect(canWorkOnCards({ archived_at: null })).toBe(true);
+    expect(canWorkOnCards({ archived_at: '2026-11-18T10:00:00Z' })).toBe(false);
   });
 
   test('the journal knows the change of assignee', () => {

@@ -383,25 +383,13 @@ export const BOARD_ENTRY_KINDS = [
 ] as const;
 export type BoardEntryKind = (typeof BOARD_ENTRY_KINDS)[number];
 
-/** Who looks at a board: the rights of the boards are read off these two facts. */
-export interface BoardRightsViewer {
-  readonly id: string;
-  readonly isAdmin: boolean;
-}
-
 /**
- * May the viewer work on this card — its fields and due date, its steps, its journal, its column?
- * The board's owner and an admin, and the card's assignee (20261118230000); never on an archived
- * board. The board itself (its name, its archive, a new card, a card's shelf or copy, the
- * assignment) stays the owner's and an admin's. The server checks the same.
+ * May the office work on this board's cards — make, edit, move, archive, return, copy and assign
+ * them, tick their steps, write comments? Every active manager and admin of the company, on any
+ * board that is not archived (20261119090000); the boards' screens are the office's alone. The
+ * board itself — its name, its archive — stays its owner's and an admin's. The server checks the
+ * same.
  */
-export function canWorkOnCard(
-  board: { readonly owner_id: string; readonly archived_at: string | null },
-  card: { readonly assignee_id?: string | null },
-  viewer: BoardRightsViewer,
-): boolean {
-  if (board.archived_at !== null) {
-    return false;
-  }
-  return viewer.isAdmin || board.owner_id === viewer.id || (card.assignee_id ?? null) === viewer.id;
+export function canWorkOnCards(board: { readonly archived_at: string | null }): boolean {
+  return board.archived_at === null;
 }

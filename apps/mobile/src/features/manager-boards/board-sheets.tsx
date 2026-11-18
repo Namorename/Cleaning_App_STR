@@ -246,6 +246,9 @@ export function BoardNameSheet({ isVisible, board, onClose, onSaved }: BoardName
           onSubmitEditing={submit}
           error={failure?.text ?? null}
         />
+        <Text variant="caption" tone="secondary">
+          {t('boards.boardRightsNote')}
+        </Text>
         <Button
           label={board === undefined ? t('boards.create') : t('boards.save')}
           onPress={submit}

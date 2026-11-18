@@ -442,17 +442,14 @@ describe('the owner', () => {
 });
 
 describe('another manager', () => {
-  test('reads the board and is told who may change it; nothing to change it with', () => {
+  test('works on every card of the board, not on the board itself, and is told nothing about why', () => {
     show({ id: READER, isAdmin: false });
+    expect(screen.queryByText(/владелец или админ/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole('textbox', { name: /Новая карточка в колонке/ })).toHaveLength(4);
+    expect(screen.getByRole('button', { name: 'Добавить карточку' })).toBeInTheDocument();
     expect(
-      screen.getByText('Доску меняет её владелец или админ, карточку — ещё и её исполнитель.'),
+      screen.getByRole('button', { name: 'Действия с карточкой «Ремонт ванной»' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Ремонт ванной')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('textbox', { name: /Новая карточка в колонке/ }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Действия с карточкой/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Добавить карточку' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Действия с доской' })).not.toBeInTheDocument();
   });
 });
@@ -565,15 +562,16 @@ describe('a card opened over the board', () => {
     );
   });
 
-  test('another manager reads the card: no ticks, no journal box, no actions', () => {
+  test('another manager changes the card too: ticks, the journal box, the actions, the assignee', () => {
     show({ id: READER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
     const dialog = screen.getByRole('dialog');
     for (const box of within(dialog).getAllByRole('checkbox')) {
-      expect(box).toBeDisabled();
+      expect(box).toBeEnabled();
     }
-    expect(within(dialog).queryByRole('textbox', { name: 'Комментарий' })).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: 'Дублировать' })).not.toBeInTheDocument();
-    expect(within(dialog).queryByText(/Все шаги отмечены/)).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox', { name: 'Комментарий' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Дублировать' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'В архив' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: /^Исполнитель:/ })).toBeInTheDocument();
   });
 });
 
@@ -621,24 +619,22 @@ describe('the assignee of a card (20261118230000)', () => {
     expect(spies.assign).toHaveBeenLastCalledWith({ cardId: cardId(1), assigneeId: null });
   });
 
-  test('the assignee moves her card on a board not hers, and nothing else of it', async () => {
+  test("on a board not hers the assignee has every card's whole menu, as every manager, and no board menu", async () => {
     const user = userEvent.setup();
     state.cards = withAssignees();
     show({ id: READER, isAdmin: false });
     expect(
-      screen.queryByRole('button', { name: 'Действия с карточкой «Звонок юристу»' }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Добавить карточку' })).not.toBeInTheDocument();
+      screen.getByRole('button', { name: 'Действия с карточкой «Звонок юристу»' }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Действия с доской' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Действия с карточкой «Ремонт ванной»' }));
-    expect(await screen.findByRole('menuitem', { name: 'В «В работе»' })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: 'Дублировать' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: 'В архив' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: 'Дублировать' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'В архив' })).toBeInTheDocument();
     await user.click(screen.getByRole('menuitem', { name: 'В «В работе»' }));
     expect(spies.move).toHaveBeenCalledWith({ cardId: cardId(1), column: 'in_progress' });
   });
 
-  test('the assignee works on the card open — column, steps, journal — but does not assign it', () => {
+  test('the assignee works on the card open and assigns, copies and shelves it, as every manager', () => {
     state.cards = withAssignees();
     state.detail = { ...DETAIL, assignee_id: READER, assignee: { full_name: 'Ира Читатель' } };
     show({ id: READER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
@@ -646,20 +642,24 @@ describe('the assignee of a card (20261118230000)', () => {
     expect(within(dialog).getByRole('group', { name: 'Переместить в…' })).toBeInTheDocument();
     expect(within(dialog).getByRole('textbox', { name: 'Комментарий' })).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Изменить' })).toBeInTheDocument();
-    expect(within(dialog).getByText(paragraph('Исполнитель: Ира Читатель'))).toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: /^Исполнитель:/ })).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: 'Дублировать' })).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: 'В архив' })).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('button', { name: 'Исполнитель: Ира Читатель' }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Дублировать' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'В архив' })).toBeInTheDocument();
   });
 
-  test('another manager neither works on the card nor assigns it', () => {
+  test('another manager works on the card and assigns it, whoever holds it', async () => {
+    const user = userEvent.setup();
     state.cards = withAssignees();
     state.detail = { ...DETAIL, assignee_id: OWNER, assignee: { full_name: 'Ольга Владелец' } };
     show({ id: READER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).queryByRole('group', { name: 'Переместить в…' })).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole('textbox', { name: 'Комментарий' })).not.toBeInTheDocument();
-    expect(within(dialog).getByText(paragraph('Исполнитель: Ольга Владелец'))).toBeInTheDocument();
+    expect(within(dialog).getByRole('group', { name: 'Переместить в…' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox', { name: 'Комментарий' })).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Исполнитель: Ольга Владелец' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Ира Читатель' }));
+    expect(spies.assign).toHaveBeenCalledWith({ cardId: cardId(1), assigneeId: READER });
   });
 
   test('the filter narrows the board to one person; «Назначено мне» comes first', async () => {
@@ -849,5 +849,28 @@ describe('after the review of the panel, stage 2', () => {
     window.history.replaceState(null, '', `/problems?board=mine&card=${cardId(1)}`);
     render(<MyCardsView viewer={{ id: OWNER, isAdmin: false }} />);
     expect(screen.getByRole('dialog')).toHaveTextContent('Сантехник придёт во вторник');
+  });
+});
+
+describe('the board itself (20261119090000)', () => {
+  test('its own form says who renames and archives it; nowhere else does', async () => {
+    const user = userEvent.setup();
+    show({ id: OWNER, isAdmin: false });
+    expect(screen.queryByText(/может только её владелец или админ/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Действия с доской' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Переименовать' }));
+    expect(
+      within(screen.getByRole('dialog')).getByText(
+        'Переименовать доску и убрать её в архив может только её владелец или админ.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('an archived board is brought back by its owner, not by another manager, and its cards are read', () => {
+    state.boards = [makeBoard({ archived_at: '2026-11-15T10:00:00Z' })];
+    show({ id: READER, isAdmin: false });
+    expect(screen.queryByRole('button', { name: 'Вернуть доску' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Добавить карточку' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Действия с карточкой/ })).not.toBeInTheDocument();
   });
 });

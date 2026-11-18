@@ -67,8 +67,9 @@ interface ManagerBoardViewProps {
 /**
  * A manager board in «Задания» (docs/manager-boards.md): its name and owner,
  * what is late and what is due today, the search and the filters, the four
- * columns, and the archive. The owner and an admin change it; a card's assignee
- * works on that card; another manager reads the rest, and the page says so.
+ * columns, and the archive. Every manager and admin works on its cards; the
+ * board itself — its name, its archive — is its owner's and an admin's, and its
+ * menu is shown to them alone, without a word to anybody else.
  */
 export function ManagerBoardView({ boardId, viewer }: ManagerBoardViewProps) {
   const { t } = useTranslation();
@@ -148,7 +149,9 @@ function BoardPage({
   const people = useOfficePeople();
 
   const today = todayIso();
+  // The board itself: its owner and an admin. Its cards: everybody in the office, on a live board.
   const canEdit = canEditBoard(board, viewer);
+  const canWork = canWorkOn(board);
   const mayRestoreBoard =
     board.archived_at !== null && (viewer.isAdmin || board.owner_id === viewer.id);
   const isFiltered = hasCardFilters(filters);
@@ -211,14 +214,8 @@ function BoardPage({
     setShelved(null);
     move.mutate({ cardId: card.id, column }, outcome());
   };
-  // The owner and an admin: everything; a card's assignee: its moves; anybody else: nothing.
-  const actionsFor = (card: BoardCard): CardActions | undefined => {
-    if (canEdit) {
-      return { onMove: moveIt, onDuplicate: copy, onShelve: putOn };
-    }
-    return canWorkOn(board, card, viewer) ? { onMove: moveIt } : undefined;
-  };
-  const worksOnAny = canEdit || onBoard.some((card) => canWorkOn(board, card, viewer));
+  const actionsFor = (): CardActions | undefined =>
+    canWork ? { onMove: moveIt, onDuplicate: copy, onShelve: putOn } : undefined;
 
   return (
     <div className="flex flex-col gap-4">
@@ -237,7 +234,7 @@ function BoardPage({
               aria-label={t('boards.search')}
               className="h-11 w-full sm:w-64"
             />
-            {canEdit ? (
+            {canWork ? (
               <Button type="button" className="h-11 px-4" onClick={() => setIsCreating(true)}>
                 <Plus aria-hidden="true" />
                 {t('boards.addCard')}
@@ -279,9 +276,7 @@ function BoardPage({
             </Button>
           ) : null}
         </div>
-      ) : canEdit ? null : (
-        <p className="rounded-lg bg-muted p-3 text-sm">{t('boards.readOnly')}</p>
-      )}
+      ) : null}
 
       <SummaryLine summary={summary} onPick={(due) => setFilters({ ...filters, due })} />
       <BoardFilters
@@ -314,7 +309,7 @@ function BoardPage({
             today={today}
             isFiltered={isFiltered}
             actionsFor={actionsFor}
-            canAdd={canEdit}
+            canAdd={canWork}
             cardHref={cardHref}
             onOpen={openCard}
           />
@@ -324,7 +319,7 @@ function BoardPage({
             cards={offBoard}
             cardHref={cardHref}
             onOpen={openCard}
-            onRestore={canEdit ? (card) => putOn(card, 'active') : undefined}
+            onRestore={canWork ? (card) => putOn(card, 'active') : undefined}
             isBusy={shelve.isPending}
           />
         </TabsContent>
@@ -353,7 +348,7 @@ function BoardPage({
           </span>
         ) : isStale ? (
           t('boards.staleNote')
-        ) : worksOnAny ? (
+        ) : canWork ? (
           t('boards.dragHint')
         ) : null}
       </p>

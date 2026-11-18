@@ -37,6 +37,7 @@ import { ActionsSheet, ArchivedBoardsSheet, BoardNameSheet, FiltersSheet } from 
 import {
   assignablePeople,
   canEditBoard,
+  canWorkOn,
   shelfOf,
   type Board,
   type BoardCard,
@@ -185,7 +186,9 @@ function BoardBody({ board, viewer }: BoardBodyProps) {
   const [order, setOrder] = useState<CardOrder>('due');
   const [sheet, setSheet] = useState<'filters' | 'menu' | 'rename' | null>(null);
   const today = localDay();
+  // The board itself: its owner and an admin. Its cards: everybody in the office, on a live board.
   const canEdit = canEditBoard(board, viewer);
+  const canWork = canWorkOn(board);
   const mayRestore = board.archived_at !== null && (viewer.isAdmin || board.owner_id === viewer.id);
 
   const all = cards.data ?? [];
@@ -279,7 +282,7 @@ function BoardBody({ board, viewer }: BoardBodyProps) {
         accessibilityLabel={t('boards.column')}
         semantics="tabs"
       />
-      {canEdit && pane !== 'archive' ? <QuickAdd boardId={board.id} column={pane} /> : null}
+      {canWork && pane !== 'archive' ? <QuickAdd boardId={board.id} column={pane} /> : null}
       {failure === undefined ? null : <FailureText error={failure.error} />}
     </View>
   );
@@ -299,7 +302,7 @@ function BoardBody({ board, viewer }: BoardBodyProps) {
           pane === 'archive' ? (
             <ShelvedRow
               card={item}
-              canRestore={canEdit}
+              canRestore={canWork}
               isBusy={shelve.isPending}
               onOpen={open}
               onRestore={() => shelve.mutate({ cardId: item.id, shelf: 'active' })}

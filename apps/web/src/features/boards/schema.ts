@@ -1,4 +1,4 @@
-import { BOARD_COLUMNS, BOARD_ENTRY_KINDS, canWorkOnCard, propertyPathOf } from '@str-ops/shared';
+import { BOARD_COLUMNS, BOARD_ENTRY_KINDS, canWorkOnCards, propertyPathOf } from '@str-ops/shared';
 import { z } from 'zod';
 
 /**
@@ -160,16 +160,12 @@ export function canEditBoard(
 }
 
 /**
- * May the viewer work on this card — its fields, due date, steps, journal and column? The board's
- * owner, an admin, and the card's assignee (20261118230000), never on an archived board. The board
- * itself, a card's shelf and copy and the assignment stay `canEditBoard`'s.
+ * May the viewer work on the board's cards — make, edit, move, archive, return, copy, assign, steps,
+ * comments? Every manager and admin of the company on a board that is not archived (20261119090000).
+ * The board itself — its name, its archive — stays `canEditBoard`'s.
  */
-export function canWorkOn(
-  board: Pick<Board, 'owner_id' | 'archived_at'>,
-  card: Pick<BoardCard, 'assignee_id'>,
-  viewer: BoardViewer,
-): boolean {
-  return canWorkOnCard(board, card, viewer);
+export function canWorkOn(board: Pick<Board, 'archived_at'>): boolean {
+  return canWorkOnCards(board);
 }
 
 /** Two letters of a person's name for a card's corner: «Анна Новак» → «АН». */

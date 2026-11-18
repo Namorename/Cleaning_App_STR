@@ -67,6 +67,7 @@ export function BoardNameDialog({ board, onClose, onSaved }: BoardNameDialogProp
               onChange={(event) => setTitle(event.target.value)}
             />
           </div>
+          <p className="text-xs text-muted-foreground">{t('boards.boardRightsNote')}</p>
           {failure === null ? null : (
             <p role="alert" className="text-sm text-destructive">
               {failure.text}

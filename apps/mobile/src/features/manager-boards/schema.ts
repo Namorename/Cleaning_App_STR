@@ -1,4 +1,4 @@
-import { BOARD_ENTRY_KINDS, canWorkOnCard, propertyPathOf } from '@str-ops/shared';
+import { BOARD_ENTRY_KINDS, canWorkOnCards, propertyPathOf } from '@str-ops/shared';
 import { z } from 'zod';
 
 /**
@@ -138,16 +138,12 @@ export function canEditBoard(
 }
 
 /**
- * Who works on a card — its fields and due date, steps, journal, column: the board's owner, an
- * admin, and the card's assignee (20261118230000). The board, a card's shelf and copy and the
- * assignment stay `canEditBoard`'s. The server checks the same.
+ * Who works on a board's cards — make, edit, move, archive, return, copy, assign, steps, comments:
+ * every manager and admin of the company on a board that is not archived (20261119090000). The
+ * board itself — its name, its archive — stays `canEditBoard`'s. The server checks the same.
  */
-export function canWorkOn(
-  board: Pick<Board, 'owner_id' | 'archived_at'>,
-  card: Pick<BoardCard, 'assignee_id'>,
-  viewer: BoardViewer,
-): boolean {
-  return canWorkOnCard(board, card, viewer);
+export function canWorkOn(board: Pick<Board, 'archived_at'>): boolean {
+  return canWorkOnCards(board);
 }
 
 /** A person of the company's directory, as a card's assignee is picked and named. */

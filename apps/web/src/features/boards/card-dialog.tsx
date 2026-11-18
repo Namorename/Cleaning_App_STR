@@ -40,7 +40,6 @@ import { boardKeys } from './keys';
 import { LinkedText } from './linked-text';
 import {
   assignablePeople,
-  canEditBoard,
   canWorkOn,
   cardPlace,
   shelfOf,
@@ -75,9 +74,9 @@ interface CardDialogProps {
 
 /**
  * A card over its board: the fields (its links open), the assignee, the steps, the column, and
- * the journal beside them. The board's owner and an admin change all of it; the card's assignee
- * works on it — fields, steps, column, journal — but does not assign it, copy it or shelve it; any
- * other manager reads it. A card in the archive or among the deleted is read until «Вернуть».
+ * the journal beside them. Every manager and admin changes all of it on a live board
+ * (20261119090000); a comment is changed by its author. A card in the archive or among the
+ * deleted is read until «Вернуть».
  */
 export function CardDialog(props: CardDialogProps) {
   const { t } = useTranslation();
@@ -130,9 +129,10 @@ function CardBody({
   const copyId = useRef<string | null>(null);
   // A card of another board in the address is read, never changed from this one's rights.
   const isOwnBoard = card.board_id === board.id;
-  const boardEditable = canEditBoard(board, viewer) && isOwnBoard;
+  // Every manager and admin on a live board (20261119090000): the shelf, the copy, the assignee too.
+  const canWork = canWorkOn(board) && isOwnBoard;
   const shelf = shelfOf(card);
-  const canEdit = canWorkOn(board, card, viewer) && isOwnBoard && shelf === 'active';
+  const canEdit = canWork && shelf === 'active';
   const offersDone =
     canEdit &&
     !dismissedDone &&
@@ -189,7 +189,7 @@ function CardBody({
       {shelf === 'active' ? null : (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted p-3 text-sm">
           <span>{t('boards.shelvedNote')}</span>
-          {boardEditable ? (
+          {canWork ? (
             <Button
               type="button"
               className="h-11"
@@ -232,10 +232,10 @@ function CardBody({
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <div className="flex min-w-0 flex-col gap-6">
           <ColumnLine card={card} canEdit={canEdit} onMove={moveTo} />
-          <AssigneeLine card={card} canAssign={boardEditable && shelf === 'active'} />
+          <AssigneeLine card={card} canAssign={canEdit} />
           <CardFields card={card} today={today} canEdit={canEdit} />
           <CardSteps card={card} canEdit={canEdit} />
-          {boardEditable && shelf === 'active' ? (
+          {canEdit ? (
             <div className="flex flex-wrap gap-2 border-t pt-4">
               <Button
                 type="button"

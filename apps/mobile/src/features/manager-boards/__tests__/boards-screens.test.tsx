@@ -360,11 +360,11 @@ describe('the boards tab', () => {
     expect(mockSpies.shelve).toHaveBeenCalledWith({ cardId: CARDS[3].id, shelf: 'active' });
   });
 
-  test("another manager's board: no quick add, no board menu, and not a word about why", async () => {
+  test("another manager's board: the quick add and the cards are hers too, the board menu is not, and not a word about why", async () => {
     await render(<BoardsTab />);
     await fireEvent.press(screen.getByRole('tab', { name: 'Закупки' }));
     expect(screen.queryByText(/владел|админ|просмотр|менять/i)).toBeNull();
-    expect(screen.queryByLabelText(/Новая карточка в колонке/)).toBeNull();
+    expect(screen.getByLabelText('Новая карточка в колонке «Открыто»')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Действия с доской' })).toBeNull();
   });
 
@@ -443,15 +443,17 @@ describe('the card screen', () => {
     );
   });
 
-  test('another manager reads the card without a lever', async () => {
+  test('another manager changes the card as its owner does', async () => {
     mockState.viewer = { id: READER, isAdmin: false };
     await render(<CardScreen cardId={DETAIL.id} />);
-    expect(screen.queryByRole('radio', { name: 'В работе' })).toBeNull();
-    expect(screen.queryByLabelText('Комментарий')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Дублировать' })).toBeNull();
-    expect(screen.queryByText(/Все шаги отмечены/)).toBeNull();
+    await fireEvent.press(screen.getByRole('radio', { name: 'В работе' }));
+    expect(mockSpies.move).toHaveBeenCalledWith({ cardId: DETAIL.id, column: 'in_progress' });
+    expect(screen.getByLabelText('Комментарий')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Дублировать' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'В архив' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: /^Исполнитель:/ })).toBeOnTheScreen();
     for (const box of screen.getAllByRole('checkbox')) {
-      expect(box).toBeDisabled();
+      expect(box).toBeEnabled();
     }
   });
 
@@ -528,7 +530,7 @@ describe('the assignee and the colour (20261118230000)', () => {
     expect(mockSpies.assign).toHaveBeenCalledWith({ cardId: DETAIL.id, assigneeId: READER });
   });
 
-  test('the assignee works on her card on a board not hers, but does not assign, copy or shelve it', async () => {
+  test('the assignee works on her card on a board not hers and assigns, copies and shelves it, as every manager', async () => {
     mockState.viewer = { id: READER, isAdmin: false };
     mockState.detail = cardDetailSchema.parse({
       ...DETAIL,
@@ -536,14 +538,11 @@ describe('the assignee and the colour (20261118230000)', () => {
       assignee: { full_name: 'Ира' },
     });
     await render(<CardScreen cardId={DETAIL.id} />);
-    await fireEvent.press(screen.getByRole('radio', { name: 'В работе' }));
-    expect(mockSpies.move).toHaveBeenCalledWith({ cardId: DETAIL.id, column: 'in_progress' });
     expect(screen.getByLabelText('Комментарий')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Изменить' })).toBeOnTheScreen();
-    expect(screen.getByText('Ира')).toBeOnTheScreen();
-    expect(screen.queryByRole('button', { name: /^Исполнитель:/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Дублировать' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'В архив' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Исполнитель: Ира' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Дублировать' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'В архив' })).toBeOnTheScreen();
   });
 
   test('the journal says who the card went to, by the names of the directory', async () => {
@@ -629,5 +628,18 @@ describe('after the review of the phone, stage 2', () => {
     mockState.staff = undefined as unknown as OfficePerson[];
     await render(<CardScreen cardId={DETAIL.id} />);
     expect(screen.getByRole('button', { name: 'Исполнитель: Без исполнителя' })).toBeDisabled();
+  });
+});
+
+describe('the board itself (20261119090000)', () => {
+  test('its own form says who renames and archives it', async () => {
+    await render(<BoardsTab />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Действия с доской' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Переименовать' }));
+    expect(
+      screen.getByText(
+        'Переименовать доску и убрать её в архив может только её владелец или админ.',
+      ),
+    ).toBeOnTheScreen();
   });
 });
