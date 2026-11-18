@@ -1,7 +1,7 @@
 -- The rollout's write probe of 20261118120000, in the cloud, rolled back by its own end: one
 -- statement, a DO block that always raises — «PROBE OK …» or «PROBE FAIL …» — so nothing it wrote
 -- stays (the cleaning, the journal, the push queue, the generator's trace).
---   npx supabase db query --linked -f docs/rollout/probe_cleaning_offs_write.sql
+--   npx supabase db query --linked -f docs/one-off-writes/probe_cleaning_offs_write.sql
 -- Not in 03:00–04:40 UTC. On a real cleaning nobody has started, within the next week, with an
 -- active cleaner: she declines it; the office hears it and reads why; a manager cancels it; the
 -- generator, run over its departure, writes the booking no new cleaning; «Вернуть» gives it back.

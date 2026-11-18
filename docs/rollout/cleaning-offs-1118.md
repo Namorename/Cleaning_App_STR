@@ -13,7 +13,7 @@
 | 17:42 | `main` 1cb759e → 188a0a1 | Vercel прод `woom-r9f1e8uo4` Ready, `/login` 200 |
 | 17:48 | OTA №22 **preview** | группа `74ec8993-4841-4fde-83a1-bdee503120c4` (Android `01a1efc6-866a-70b3…`, iOS `01a1efc6-866a-7dba…`); bundle-check против №21 OK; `dist` — `~/dev-tools/str-ops/day-1118/dist-ota22` |
 | 17:49 | OTA №22 **field** (republish) | группа `d8af26cb-9b6a-4eb6-87f5-be38de83dcf0` (Android `01a1efc7-2823-72db…`, iOS `01a1efc7-2823-79ea…`), runtime 1.2.0 |
-| 17:51 | пробы | статусы только из прежних девяти; меток и причин 0; откатываемая проба записи (`probe_cleaning_offs_write.sql`) — PROBE OK: отказ → свободная, офису 1 пуш, причина читается офисом, генератор новой уборки не пишет, «Вернуть» отдаёт; счётчики до и после равны |
+| 17:51 | пробы | статусы только из прежних девяти; меток и причин 0; откатываемая проба записи (`docs/one-off-writes/probe_cleaning_offs_write.sql`) — PROBE OK: отказ → свободная, офису 1 пуш, причина читается офисом, генератор новой уборки не пишет, «Вернуть» отдаёт; счётчики до и после равны |
 
 Проверено до выката: репетиция GREEN (52 шага, наборы `cleaning_offs` 178, `task_events` 36,
 `task_generation` 68, `task_accept` 29, `task_lifecycle` 26, `push_events` 59, `push_recipients` 36,
