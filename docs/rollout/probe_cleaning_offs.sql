@@ -10,10 +10,23 @@ select
                      order by p.proname, p.pronargs)
    from pg_proc p
    where p.pronamespace = 'public'::regnamespace
-     and p.proname in ('api_v1_list_cleanings', 'generate_cleaning_tasks', 'guard_task_fields',
+     and p.proname in ('generate_cleaning_tasks', 'guard_task_fields',
                        'guard_task_transitions', 'journal_task_change', 'push_on_task_change',
                        'cancel_cleaning', 'restore_cleaning', 'hand_back_cleaning',
-                       'decline_cleaning', 'interrupt_cleaning', 'task_offs')) as functions,
+                       'decline_cleaning', 'interrupt_cleaning', 'task_offs',
+                       'guard_task_marks_insert')) as functions,
+  -- The comments of the five it replaces come back with them (a rollback that left the new
+  -- comment would pass the md5 of the bodies).
+  (select string_agg(p.proname || ':' || coalesce(md5(obj_description(p.oid, 'pg_proc')), 'none'), '; '
+                     order by p.proname)
+   from pg_proc p
+   where p.pronamespace = 'public'::regnamespace
+     and p.proname in ('generate_cleaning_tasks', 'guard_task_fields', 'guard_task_transitions',
+                       'journal_task_change', 'push_on_task_change')) as comments,
+  -- The words of a cancel or a hand-back live with the cleaning, read by the office alone.
+  (select to_regclass('public.task_off_notes')::text) as notes_table,
+  (select count(*) from pg_trigger g
+   where g.tgrelid = 'public.tasks'::regclass and g.tgname = 'tasks_guard_marks_insert') as insert_guard,
   -- Who may call them: the roles of the clients and PUBLIC (grantee 0).
   (select string_agg(distinct p.proname || ':' || coalesce(r.rolname, 'PUBLIC'), ', ')
    from pg_proc p
@@ -21,7 +34,8 @@ select
    left join pg_roles r on r.oid = a.grantee
    where p.pronamespace = 'public'::regnamespace
      and p.proname in ('cancel_cleaning', 'restore_cleaning', 'hand_back_cleaning',
-                       'decline_cleaning', 'interrupt_cleaning', 'task_offs')
+                       'decline_cleaning', 'interrupt_cleaning', 'task_offs',
+                       'guard_task_marks_insert')
      and (a.grantee = 0 or r.rolname in ('anon', 'authenticated'))) as client_execute,
   (select string_agg(a.attrelid::regclass::text || '.' || a.attname, ', '
                      order by a.attrelid::regclass::text, a.attname)

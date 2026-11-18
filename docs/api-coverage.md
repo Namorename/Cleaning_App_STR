@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 299 | 365 |
-| Таблицы и представления | 9 | 21 | 25 | 55 |
-| Всего | 29 | 67 | 324 | 420 |
+| Функции | 20 | 46 | 300 | 366 |
+| Таблицы и представления | 9 | 21 | 26 | 56 |
+| Всего | 29 | 67 | 326 | 422 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 299
+### Внутреннее — 300
 
 | Имя | Причина |
 | --- | --- |
@@ -189,6 +189,7 @@
 | `guard_property_hierarchy` | trigger function: keeps the listing parent/room hierarchy valid |
 | `guard_property_link_cycles` | orphan trigger function: re-created by 20260907120200 after its table property_links was dropped; no trigger uses it |
 | `guard_task_fields` | trigger function: which task fields each role may change |
+| `guard_task_marks_insert` | trigger: no client inserts a task carrying the marks of a cancel or a hand-back |
 | `guard_task_transitions` | trigger function: allowed task status transitions |
 | `guard_tech_role_change` | trigger function: no role change to technician while holding links or open cleanings |
 | `guest_conversation_stay` | Guest chats (docs/guest-chats.md), behind a switch: the stay a conversation belongs to, for the job to read only inside it. |
@@ -382,7 +383,7 @@
 | `task_media_video_tolerance_sec` | media limit constant used by the upload checks |
 | `task_media_written_meanwhile` | replay-race helper of the media RPCs; execute revoked from clients |
 | `task_note_line_count` | phone-only flow of the cleaner at work (task steps): counts note lines to tick, service_role only |
-| `task_offs` | computed field for the panel: the office cancel and the hand-back with names and reasons; the reasons are the office's alone |
+| `task_offs` | computed field for the panel: the office cancel and the hand-back with names and the words of task_off_notes; the office's alone |
 | `task_start_not_before` | start-gate helper of the cleaner flow (earliest start instant) |
 | `task_step_for_update` | phone-only flow of the cleaner at work (task steps): lock-and-check helper, service_role only |
 | `task_title_max_length` | validation limit constant of save_task |
@@ -438,7 +439,7 @@
 | `workflow_steps` | `checklists:read` | steps of a process template |
 | `workflow_templates` | `checklists:read` | process templates a cleaning follows |
 
-### Внутреннее — 25
+### Внутреннее — 26
 
 | Имя | Причина |
 | --- | --- |
@@ -467,3 +468,4 @@
 | `resolution_plans` | plans of resolution; the panel reads through functions; the public resource comes with stage 6 of the plan |
 | `signal_feedback` | the managers' verdicts on the readers' findings, without text: the readers' calibration; no client grants |
 | `signal_settings` | admin gates of tasks-from-guest-signals by kind (texts and their first day, the deferred guest notice date, model ceiling, auto kinds and ceiling); read only by the panel card that writes it through update_signal_settings, forbidden: data:destroy |
+| `task_off_notes` | the words of a cancel or a hand-back of a cleaning, the office's alone; given through task_offs in the panel, not in API v1 by the owner's word of 2026-11-18 |

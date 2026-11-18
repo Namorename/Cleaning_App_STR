@@ -3044,7 +3044,6 @@ export type Database = {
           id: number
           kind: Database["public"]["Enums"]["task_event_kind"]
           params: Json
-          reason: string | null
           task_id: string
         }
         Insert: {
@@ -3055,7 +3054,6 @@ export type Database = {
           id?: never
           kind: Database["public"]["Enums"]["task_event_kind"]
           params?: Json
-          reason?: string | null
           task_id: string
         }
         Update: {
@@ -3066,7 +3064,6 @@ export type Database = {
           id?: never
           kind?: Database["public"]["Enums"]["task_event_kind"]
           params?: Json
-          reason?: string | null
           task_id?: string
         }
         Relationships: [
@@ -3212,6 +3209,65 @@ export type Database = {
           },
           {
             foreignKeyName: "task_media_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_off_notes: {
+        Row: {
+          at: string
+          author_id: string | null
+          host_id: string
+          id: number
+          kind: string
+          reason: string
+          task_id: string
+        }
+        Insert: {
+          at?: string
+          author_id?: string | null
+          host_id: string
+          id?: never
+          kind: string
+          reason: string
+          task_id: string
+        }
+        Update: {
+          at?: string
+          author_id?: string | null
+          host_id?: string
+          id?: never
+          kind?: string
+          reason?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_off_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_off_notes_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_off_notes_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_off_notes_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"

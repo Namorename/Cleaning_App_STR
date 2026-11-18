@@ -26,14 +26,19 @@ const FLAT = 900118901;
 const STAY = 900118911;
 const PROBE = 'docs/rollout/probe_cleaning_offs.sql';
 
-// The cloud's answer, 2026-11-18 16:40 UTC.
+// The cloud's answer, 2026-11-18 19:40 UTC.
 const BEFORE = {
   head: '20261115150000',
   applied: 136,
   functions:
-    'api_v1_list_cleanings(11) a641f03df8b440ba5b833f78114d051b; generate_cleaning_tasks(2) 31e0dad83f3e80859d8ffa783d43127d; ' +
+    'generate_cleaning_tasks(2) 31e0dad83f3e80859d8ffa783d43127d; ' +
     'guard_task_fields(0) 0cba3e932d34f99054513b97046b85ec; guard_task_transitions(0) bba9946e02cb9d2ab12536e9539d4c99; ' +
     'journal_task_change(0) c4f65f2dcfaa24537a1ab0aa04f7d69d; push_on_task_change(0) c420d5478143e08cb7d198a01b510938',
+  comments:
+    'generate_cleaning_tasks:none; guard_task_fields:none; guard_task_transitions:none; ' +
+    'journal_task_change:7bd9833db58456ad43b7a53320becf9f; push_on_task_change:654e26af87ee0ede0b7e6d080189a56d',
+  notes_table: null,
+  insert_guard: 0,
   client_execute: null,
   columns: null,
   causes:
@@ -46,17 +51,22 @@ const AFTER = {
   head: OFFS.version,
   applied: 137,
   functions:
-    'api_v1_list_cleanings(11) a55d99056e6d7ac432f6e6af49023cb3; cancel_cleaning(2) f3395fb5d3120ae9c12f4cb374a05ccd; ' +
-    'decline_cleaning(2) 2e2caa77441824d77e260cb0543c7142; generate_cleaning_tasks(2) 5e1c1f310eb1222cab856f9b8c0ffca8; ' +
-    'guard_task_fields(0) 897793bc53c1fcb119f994aad9fe45cf; guard_task_transitions(0) a13cd456b0ff3c5e2a425de8bbe21e34; ' +
-    'hand_back_cleaning(3) 1fc863aa988d3969b30df19e5ebcb238; interrupt_cleaning(2) 0442cc17f668a7f0cffcb568d57fdb85; ' +
-    'journal_task_change(0) 95d5cf53fd79c37dedba1d84454ec532; push_on_task_change(0) 07b1522ce83dba073739dc9db496d456; ' +
-    'restore_cleaning(1) 052ec50671142fd9622569599c34f480; task_offs(1) 0fa5e841694b031278d185346a54ba17',
+    'cancel_cleaning(2) fd6d6ad50c21616d19a67d49f6c302f3; decline_cleaning(2) 2e2caa77441824d77e260cb0543c7142; ' +
+    'generate_cleaning_tasks(2) 5e1c1f310eb1222cab856f9b8c0ffca8; guard_task_fields(0) 897793bc53c1fcb119f994aad9fe45cf; ' +
+    'guard_task_marks_insert(0) 09a64ed6f5e755fafbdfef193a77ba98; guard_task_transitions(0) a13cd456b0ff3c5e2a425de8bbe21e34; ' +
+    'hand_back_cleaning(3) 001a5643660454b3fff3be8d3d33740f; interrupt_cleaning(2) 0442cc17f668a7f0cffcb568d57fdb85; ' +
+    'journal_task_change(0) 8f50ad75f63df50c1a6818049080f012; push_on_task_change(0) 07b1522ce83dba073739dc9db496d456; ' +
+    'restore_cleaning(1) 052ec50671142fd9622569599c34f480; task_offs(1) 5c51a17663da15dba36e12ffd45663c0',
+  comments:
+    'generate_cleaning_tasks:none; guard_task_fields:8737c5c3120409543d15894c8dc47bd7; guard_task_transitions:none; ' +
+    'journal_task_change:5731c0b79f0fd78e9f31b94439414917; push_on_task_change:654e26af87ee0ede0b7e6d080189a56d',
+  notes_table: 'task_off_notes',
+  insert_guard: 1,
   client_execute:
     'cancel_cleaning:authenticated, decline_cleaning:authenticated, interrupt_cleaning:authenticated, ' +
     'restore_cleaning:authenticated, task_offs:authenticated',
   columns:
-    'task_events.reason, tasks.cancel_departure, tasks.cancelled_at, tasks.cancelled_by, tasks.cancelled_closing, ' +
+    'tasks.cancel_departure, tasks.cancelled_at, tasks.cancelled_by, tasks.cancelled_closing, ' +
     'tasks.cancelled_from, tasks.release_kind, tasks.released_at, tasks.released_by',
   causes:
     "CHECK ((cause = ANY (ARRAY['manager'::text, 'head_tech'::text, 'staff'::text, 'staff_inactive'::text, " +

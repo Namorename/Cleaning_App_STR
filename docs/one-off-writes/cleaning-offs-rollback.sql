@@ -6,21 +6,23 @@
 --   0. the code that calls the new functions goes back first: republish the OTA groups before
 --      it (preview №21 1daa696e-a613-4892-99a8-5743d8e5cdef, field №21
 --      d9df1b77-0004-4f6b-a54a-1e8ddd197fae), `git revert` the branch's commits in main and wait
---      for Vercel READY, redeploy send-push and mcp from the reverted main. The older code runs
+--      for Vercel READY, redeploy send-push from the reverted main. The older code runs
 --      on the newer schema unchanged, so this order has no gap.
 --   1. this file, one statement:
 --        npx supabase db query --linked -f docs/one-off-writes/cleaning-offs-rollback.sql
 --      Pushes of the two new kinds still waiting are set aside; the six functions of before come
 --      back word for word (md5 in docs/rollout/rehearsal-cleaning-offs-1118.mjs, BEFORE); the
---      new functions go; the journal's two new causes read 'staff' (her own move, as before)
---      and its reasons go; the columns of the marks go.
+--      new functions and the insert guard go; the journal's two new causes read 'staff' (her own
+--      move, as before); the words (task_off_notes) and the columns of the marks go.
 --   2. npx supabase migration repair --status reverted 20261118120000 --linked
 --
 -- What stays: the cancelled stay cancelled and the handed-back stay free work (statuses are the
 -- old ones); the two values of push_kind stay (an enum value is not dropped; nothing writes them
 -- any more). What is lost: who cancelled and why, who handed back and why (the journal keeps
--- who and when) — and an office cancel of a booking's cleaning stops holding: the generator
--- writes the booking a new cleaning on its next run, as before 20261118120000.
+-- who and when); the closing a done or expired cleaning had before its cancel (a return by hand
+-- gives it the closing of the hand that returns it); and an office cancel of a booking's cleaning
+-- stops holding: the generator writes the booking a new cleaning on its next run, as before
+-- 20261118120000.
 do $$
 begin
   perform set_config('lock_timeout', '3s', true);
@@ -102,6 +104,7 @@ end;
 $function$
 ;
 
+comment on function public.guard_task_fields() is null;
 
 CREATE OR REPLACE FUNCTION public.guard_task_transitions()
  RETURNS trigger
@@ -233,6 +236,7 @@ end;
 $function$
 ;
 
+comment on function public.guard_task_transitions() is null;
 
 CREATE OR REPLACE FUNCTION public.journal_task_change()
  RETURNS trigger
@@ -884,6 +888,7 @@ end;
 $function$
 ;
 
+comment on function public.generate_cleaning_tasks(from_date date, to_date date) is null;
 
 CREATE OR REPLACE FUNCTION public.push_on_task_change()
  RETURNS trigger
@@ -1148,35 +1153,6 @@ $function$
 
 comment on function public.push_on_task_change() is 'Statement trigger on tasks: writes raw.push_outbox rows for the people a change of a cleaning or repair is about (docs/f11-plan.md, M3).';
 
-CREATE OR REPLACE FUNCTION public.api_v1_list_cleanings(p_digest text, p_date_from date DEFAULT NULL::date, p_date_to date DEFAULT NULL::date, p_property_id bigint DEFAULT NULL::bigint, p_assignee_id uuid DEFAULT NULL::uuid, p_status text[] DEFAULT NULL::text[], p_type text[] DEFAULT NULL::text[], p_updated_since timestamp with time zone DEFAULT NULL::timestamp with time zone, p_after_date date DEFAULT NULL::date, p_after_id uuid DEFAULT NULL::uuid, p_limit integer DEFAULT 50)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare
-  v_ctx public.api_context := public.api_authorize(p_digest, 'cleanings:read');
-begin
-  return (
-    select coalesce(jsonb_agg(public.api_cleaning_json(t, v_ctx.scopes) order by t.scheduled_date, t.id), '[]'::jsonb)
-    from (select tk.* from public.tasks tk
-          where tk.host_id = v_ctx.host_id
-            and public.api_allows_property(v_ctx, tk.property_id)
-            and (p_date_from is null or tk.scheduled_date >= p_date_from)
-            and (p_date_to is null or tk.scheduled_date <= p_date_to)
-            and (p_property_id is null or tk.property_id = p_property_id)
-            and (p_assignee_id is null or tk.assignee_id = p_assignee_id)
-            and (p_status is null or tk.status::text = any(p_status))
-            and (p_type is null or tk.type::text = any(p_type))
-            and (p_updated_since is null or tk.updated_at >= p_updated_since)
-            and (p_after_id is null or (tk.scheduled_date, tk.id) > (p_after_date, p_after_id))
-          order by tk.scheduled_date, tk.id
-          limit least(greatest(p_limit, 1), 200) + 1) t);
-end;
-$function$
-;
-
-
   drop function public.task_offs(public.tasks);
   drop function public.interrupt_cleaning(uuid, text);
   drop function public.decline_cleaning(uuid, text);
@@ -1184,12 +1160,15 @@ $function$
   drop function public.restore_cleaning(uuid);
   drop function public.cancel_cleaning(uuid, text);
 
+  drop table public.task_off_notes;
+  drop trigger tasks_guard_marks_insert on public.tasks;
+  drop function public.guard_task_marks_insert();
+
   update public.task_events set cause = 'staff' where cause in ('declined', 'interrupted');
   alter table public.task_events drop constraint task_events_cause_known;
   alter table public.task_events add constraint task_events_cause_known check (cause in (
     'manager', 'head_tech', 'staff', 'staff_inactive',
     'booking_cancelled', 'property_unavailable', 'booking_changed', 'system'));
-  alter table public.task_events drop column reason;
 
   alter table public.tasks
     drop column cancelled_at,

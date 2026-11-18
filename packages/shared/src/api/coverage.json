@@ -730,6 +730,11 @@
       "reason": "trigger function: which task fields each role may change",
       "defined_in": "20261027120000_manual_cleaning_time.sql"
     },
+    "guard_task_marks_insert": {
+      "status": "internal",
+      "reason": "trigger: no client inserts a task carrying the marks of a cancel or a hand-back",
+      "defined_in": "20261118120000_cleaning_offs.sql"
+    },
     "guard_task_transitions": {
       "status": "internal",
       "reason": "trigger function: allowed task status transitions",
@@ -1865,7 +1870,7 @@
     },
     "task_offs": {
       "status": "internal",
-      "reason": "computed field for the panel: the office cancel and the hand-back with names and reasons; the reasons are the office's alone",
+      "reason": "computed field for the panel: the office cancel and the hand-back with names and the words of task_off_notes; the office's alone",
       "defined_in": "20261118120000_cleaning_offs.sql"
     },
     "task_start_not_before": {
@@ -2268,6 +2273,11 @@
         "listCleaningMedia",
         "listTaskMedia"
       ]
+    },
+    "task_off_notes": {
+      "status": "internal",
+      "reason": "the words of a cancel or a hand-back of a cleaning, the office's alone; given through task_offs in the panel, not in API v1 by the owner's word of 2026-11-18",
+      "defined_in": "20261118120000_cleaning_offs.sql"
     },
     "task_steps": {
       "status": "planned",

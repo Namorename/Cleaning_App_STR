@@ -95,6 +95,9 @@ insert into wanted values
   -- (20261106125500): triggers and RPCs write them, the manager reads them.
   ('task_closings',        'SELECT'),
   ('closing_marks',        'SELECT'),
+  -- The words of a cancel or a hand-back of a cleaning (20261118120000):
+  -- cancel_cleaning and hand_back_cleaning write them, the manager reads them.
+  ('task_off_notes',       'SELECT'),
   -- The knowledge base (20261030100000): the managers and the head
   -- technician write through save_kb_article, set_kb_article_status and
   -- restore_kb_revision; the versions are kept by triggers.

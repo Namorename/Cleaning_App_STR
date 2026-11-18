@@ -175,7 +175,7 @@ export const CATALOG: McpCatalog = {
           },
           "status": {
             "type": "string",
-            "description": "One or more of `unassigned`, `assigned`, `accepted`, `in_progress`, `paused`, `blocked`, `done`, `cancelled`, `expired`. Without it, cancelled cleanings are left out, as on every screen; ask for `cancelled` to list them."
+            "description": "One or more of `unassigned`, `assigned`, `accepted`, `in_progress`, `paused`, `blocked`, `done`, `cancelled`, `expired`."
           },
           "type": {
             "type": "string",

@@ -6,7 +6,8 @@
 -- What is being protected:
 -- - cancel_cleaning takes a cleaning off in every status and keeps who, the status before and
 --   the closing of a done or lapsed one; the steps and photos stay; a second cancel changes
---   nothing; the reason is optional, trimmed, at most 500 characters, and lives in the journal;
+--   nothing; the reason is optional, trimmed, at most 500 characters, and lives with the
+--   cleaning (task_off_notes, the office's alone), never in the journal, which keeps codes only;
 -- - restore_cleaning gives back the status, the person (unless she is switched off since) and
 --   the closing; it refuses a cancel the office did not make through it, and a booking that has
 --   another cleaning of the place meanwhile;
@@ -22,8 +23,10 @@
 --   back to the listing's regular cleaner;
 -- - a hand-back tells every active manager and admin of the company with a phone, and the
 --   cleaners of the listing that it is free, never the one who handed it back;
--- - a cancelled cleaning leaves the counters, the free queue and the API's default list;
--- - task_offs is the office's alone; an old phone reads a hand-back as free work.
+-- - a cancelled cleaning leaves the counters and the free queue; API v1 keeps it in its
+--   unfiltered list, with its status, as v1 always did;
+-- - task_offs is the office's alone, a made-up row reads nobody's words; a direct insert carries
+--   no mark; an old phone reads a hand-back as free work.
 --
 -- Fixture ids live in the 900118xxx range and under f118…. The listings are in UTC, so today
 -- in the listing is today in the test.
@@ -149,16 +152,22 @@ create or replace function pg_temp.kept(p_ids uuid[]) returns text language sql 
 
 create or replace function pg_temp.events(p_task uuid, p_kind text) returns integer language sql as $$
   select count(*)::integer from public.task_events e where e.task_id = p_task and e.kind::text = p_kind $$;
--- "cause actor reason" of the latest event of a kind.
+-- The words written with a cancel ('cancelled' event) or a hand-back ('unassigned' event): they
+-- live with the cleaning (task_off_notes), never in the journal, which holds codes only.
+create or replace function pg_temp.event_reason(p_task uuid, p_kind text) returns text language sql as $$
+  select n.reason from public.task_off_notes n
+  where n.task_id = p_task
+    and n.kind = any (case p_kind when 'cancelled' then array['cancelled']
+                                  else array['declined', 'interrupted'] end)
+  order by n.id desc limit 1 $$;
+-- "cause actor reason" of the latest event of a kind, the reason from its note.
 create or replace function pg_temp.event(p_task uuid, p_kind text) returns text language sql as $$
-  select coalesce(e.cause, '-') || ' ' || pg_temp.who(e.actor_id) || ' ' || coalesce(e.reason, '-')
+  select coalesce(e.cause, '-') || ' ' || pg_temp.who(e.actor_id) || ' '
+         || coalesce(pg_temp.event_reason(p_task, p_kind), '-')
   from public.task_events e where e.task_id = p_task and e.kind::text = p_kind
   order by e.id desc limit 1 $$;
 create or replace function pg_temp.event_params(p_task uuid, p_kind text) returns jsonb language sql as $$
   select e.params from public.task_events e where e.task_id = p_task and e.kind::text = p_kind
-  order by e.id desc limit 1 $$;
-create or replace function pg_temp.event_reason(p_task uuid, p_kind text) returns text language sql as $$
-  select e.reason from public.task_events e where e.task_id = p_task and e.kind::text = p_kind
   order by e.id desc limit 1 $$;
 
 -- What the push queue holds for a cleaning, as "Name kind", by name. Read as postgres: the
@@ -871,7 +880,53 @@ select pg_temp.check('nor does the one who declined it',
 select pg_temp.claims_only(pg_temp.olga());
 select pg_temp.check('a manager of another company, handed the row, reads nothing',
   (select public.task_offs(t) from public.tasks t where t.id = pg_temp.tid(20)), null::jsonb);
+-- The row is an argument anybody may make up (/rpc/task_offs): the function reads it again by id.
+select pg_temp.check('nor with the row made up to carry her own company',
+  (select public.task_offs(jsonb_populate_record(null::public.tasks,
+            to_jsonb(t) || jsonb_build_object('host_id', pg_temp.other_host())))
+   from public.tasks t where t.id = pg_temp.tid(20)),
+  null::jsonb);
 select pg_temp.as_server();
+
+-- The words live with the cleaning, never in the journal: the privacy notice promises the
+-- journal holds no text anybody writes (work-log.test.tsx; 20261118120000).
+select pg_temp.check('the journal has no column for words',
+  (select count(*)::int from information_schema.columns
+   where table_schema = 'public' and table_name = 'task_events' and data_type = 'text'
+     and column_name <> 'cause'),
+  0);
+select pg_temp.check('the journal says only the code of the hand-back',
+  (select e.cause from public.task_events e
+   where e.task_id = pg_temp.tid(20) and e.kind = 'unassigned' order by e.id desc limit 1),
+  'declined');
+select pg_temp.as_user(pg_temp.boss());
+select pg_temp.check('the office reads the words',
+  (select count(*)::int from public.task_off_notes n where n.task_id = pg_temp.tid(20)), 2);
+select pg_temp.as_user(pg_temp.bella());
+select pg_temp.check('a cleaner of the listing reads none of them',
+  (select count(*)::int from public.task_off_notes n where n.task_id = pg_temp.tid(20)), 0);
+select pg_temp.as_user(pg_temp.anna());
+select pg_temp.check('nor the one who wrote them',
+  (select count(*)::int from public.task_off_notes n where n.task_id = pg_temp.tid(20)), 0);
+select pg_temp.as_user(pg_temp.boss());
+select pg_temp.check('nobody writes them by hand',
+  pg_temp.refusal($q$insert into public.task_off_notes (host_id, task_id, kind, reason)
+                     values (pg_temp.host(), pg_temp.tid(20), 'cancelled', 'x')$q$),
+  '42501');
+
+-- A manager's direct insert carries no mark: the insert guard.
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date,
+                          cancelled_by, released_at, released_by, release_kind)
+values (pg_temp.tid(41), pg_temp.host(), 900118008, 'cleaning', 'unassigned', current_date,
+        pg_temp.boss(), now(), pg_temp.anna(), 'declined');
+select pg_temp.as_server();
+select pg_temp.check('a direct insert loses the marks it carried',
+  (select concat_ws(' ', coalesce(cancelled_by::text, '-'), coalesce(released_at::text, '-'),
+                    coalesce(released_by::text, '-'), coalesce(release_kind, '-'))
+   from public.tasks where id = pg_temp.tid(41)),
+  '- - - -');
+-- Out of the way of the counts below, which count this listing.
+delete from public.tasks where id = pg_temp.tid(41);
 
 -- ---------- 9. a cancelled cleaning leaves the counts ----------
 
@@ -911,10 +966,14 @@ select pg_temp.check('after the office cancel: out of the planned count, the ope
 select pg_temp.as_user(pg_temp.bella());
 select pg_temp.check('out of her free queue', pg_temp.queue40(), 0);
 select pg_temp.as_server();
-select pg_temp.check('out of the API''s list when no status is asked',
-  pg_temp.api40(null), 0);
+-- API v1 changes nothing of meaning inside v1 (docs/api-v1.md §8): its unfiltered list keeps the
+-- cancelled, with their status, as before; a client that wants them out asks for the statuses.
+select pg_temp.check('the API''s unfiltered list keeps it, as v1 always did',
+  pg_temp.api40(null), 1);
 select pg_temp.check('listed when the cancelled are asked for',
   pg_temp.api40(array['cancelled']), 1);
+select pg_temp.check('and out when the live statuses are asked for',
+  pg_temp.api40(array['unassigned', 'assigned', 'accepted', 'in_progress', 'done']), 0);
 
 -- ---------- 7. the generator ----------
 

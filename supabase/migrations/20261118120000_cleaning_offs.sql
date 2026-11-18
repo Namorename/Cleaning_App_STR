@@ -14,10 +14,12 @@
 --   when somebody is put on the job.
 --
 -- The words of the person — the manager's optional reason, the cleaner's reason (optional for a
--- decline, required for an interrupt) — live in the journal alone (task_events.reason), which only
--- the office reads: a cleaner reads the rows of her listings, and a colleague's reason is not
--- hers to read. task_offs(tasks), a computed field, gives the office the marks with the names and
--- the words.
+-- decline, required for an interrupt) — are her comment on the work (the privacy notice's «Рабочие
+-- данные … ваши комментарии»), kept with the cleaning in task_off_notes, which only the office
+-- reads: a cleaner reads the rows of her listings, and a colleague's reason is not hers to read.
+-- Never in the journal: the notice promises the journal holds no text anybody writes; it gets
+-- codes only (causes declined, interrupted). task_offs(tasks), a computed field, gives the office
+-- the marks with the names and the words.
 --
 -- Pushes: the cleaner hears «Уборка отменена» as before (a live cleaning of hers); a cleaning
 -- returned to her is «Вам назначена уборка»; a hand-back tells every manager and admin of the
@@ -66,14 +68,69 @@ comment on column public.tasks.released_at is
 comment on column public.tasks.release_kind is
   'declined: before starting it; interrupted: after starting it, the steps and photos kept.';
 
--- ---------- the journal ----------
+-- A manager's direct insert carries no mark either: guard_task_fields guards updates alone.
+create or replace function public.guard_task_marks_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is not null then
+    new.cancelled_at      := null;
+    new.cancelled_by      := null;
+    new.cancelled_from    := null;
+    new.cancel_departure  := null;
+    new.cancelled_closing := null;
+    new.released_at       := null;
+    new.released_by       := null;
+    new.release_kind      := null;
+  end if;
+  return new;
+end;
+$$;
 
-alter table public.task_events
-  add column reason text
-    constraint task_events_reason_length check (char_length(reason) <= 500);
+comment on function public.guard_task_marks_insert() is
+  'Trigger on tasks: no client inserts a task with the marks of a cancel or a hand-back (20261118120000).';
 
-comment on column public.task_events.reason is
-  'The person''s own words for a cancel or a hand-back, as typed (20261118120000); never a text of the server.';
+revoke all on function public.guard_task_marks_insert() from public, anon, authenticated, service_role;
+
+create trigger tasks_guard_marks_insert
+  before insert on public.tasks
+  for each row execute function public.guard_task_marks_insert();
+
+-- ---------- the words ----------
+
+create table public.task_off_notes (
+  id        bigint generated always as identity primary key,
+  host_id   uuid not null references public.hosts (id) on delete cascade,
+  task_id   uuid not null references public.tasks (id) on delete cascade,
+  kind      text not null
+            constraint task_off_notes_kind_known check (kind in ('cancelled', 'declined', 'interrupted')),
+  author_id uuid references public.profiles (id) on delete set null,
+  at        timestamptz not null default clock_timestamp(),
+  reason    text not null
+            constraint task_off_notes_reason_length check (char_length(reason) between 1 and 500)
+);
+
+comment on table public.task_off_notes is
+  'The words of a cancel or a hand-back of a cleaning, as the person typed them (20261118120000): '
+  'her comment on the work, read by the office alone; written by cancel_cleaning and '
+  'hand_back_cleaning, by no client. Never the journal''s.';
+
+create index task_off_notes_task_idx on public.task_off_notes (task_id, kind, id);
+
+alter table public.task_off_notes enable row level security;
+revoke all on public.task_off_notes from public, anon, authenticated, service_role;
+grant select on public.task_off_notes to authenticated, service_role;
+
+create policy "managers read the words of a cleaning taken off"
+  on public.task_off_notes for select
+  to authenticated
+  using ((select public.is_manager())
+         and host_id = (select public.current_host_id()));
+
+-- ---------- the journal: two causes, codes only ----------
 
 alter table public.task_events
   drop constraint task_events_cause_known,
@@ -345,8 +402,6 @@ declare
   v_kind     public.task_event_kind;
   v_params   jsonb;
   v_cause    text;
-  -- Her or the manager's own words for a cancel or a hand-back (20261118120000).
-  v_reason   text := nullif(btrim(coalesce(current_setting('str_ops.task_reason', true), '')), '');
 begin
   -- A name the journal does not know is ignored: the write it describes must
   -- not fail on the check of task_events.cause.
@@ -408,9 +463,8 @@ begin
       v_params := jsonb_build_object('from', old.assignee_id, 'to', new.assignee_id);
       v_cause := null;
     end if;
-    insert into public.task_events (host_id, task_id, kind, actor_id, cause, params, reason)
-    values (new.host_id, new.id, v_kind, v_actor, v_cause, v_params,
-            case when v_kind = 'unassigned' then v_reason end);
+    insert into public.task_events (host_id, task_id, kind, actor_id, cause, params)
+    values (new.host_id, new.id, v_kind, v_actor, v_cause, v_params);
   end if;
 
   -- The day or the place.
@@ -491,15 +545,14 @@ begin
       end);
   end if;
 
-  insert into public.task_events (host_id, task_id, kind, actor_id, cause, params, reason)
-  values (new.host_id, new.id, v_kind, v_actor, v_cause, v_params,
-          case when v_kind = 'cancelled' then v_reason end);
+  insert into public.task_events (host_id, task_id, kind, actor_id, cause, params)
+  values (new.host_id, new.id, v_kind, v_actor, v_cause, v_params);
   return null;
 end;
 $function$
 ;
 
-comment on function public.journal_task_change() is 'Trigger on tasks that are not the repair of a problem: writes each change of person, day, place and status into task_events (20261015100000); a cancel or a hand-back with its reason (20261118120000).';
+comment on function public.journal_task_change() is 'Trigger on tasks that are not the repair of a problem: writes each change of person, day, place and status into task_events (20261015100000); a hand-back says declined or interrupted (20261118120000).';
 
 CREATE OR REPLACE FUNCTION public.generate_cleaning_tasks(from_date date, to_date date)
  RETURNS jsonb
@@ -1285,38 +1338,6 @@ $function$
 
 comment on function public.push_on_task_change() is 'Statement trigger on tasks: writes raw.push_outbox rows for the people a change of a cleaning or repair is about (docs/f11-plan.md, M3).';
 
-CREATE OR REPLACE FUNCTION public.api_v1_list_cleanings(p_digest text, p_date_from date DEFAULT NULL::date, p_date_to date DEFAULT NULL::date, p_property_id bigint DEFAULT NULL::bigint, p_assignee_id uuid DEFAULT NULL::uuid, p_status text[] DEFAULT NULL::text[], p_type text[] DEFAULT NULL::text[], p_updated_since timestamp with time zone DEFAULT NULL::timestamp with time zone, p_after_date date DEFAULT NULL::date, p_after_id uuid DEFAULT NULL::uuid, p_limit integer DEFAULT 50)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare
-  v_ctx public.api_context := public.api_authorize(p_digest, 'cleanings:read');
-begin
-  return (
-    select coalesce(jsonb_agg(public.api_cleaning_json(t, v_ctx.scopes) order by t.scheduled_date, t.id), '[]'::jsonb)
-    from (select tk.* from public.tasks tk
-          where tk.host_id = v_ctx.host_id
-            and public.api_allows_property(v_ctx, tk.property_id)
-            and (p_date_from is null or tk.scheduled_date >= p_date_from)
-            and (p_date_to is null or tk.scheduled_date <= p_date_to)
-            and (p_property_id is null or tk.property_id = p_property_id)
-            and (p_assignee_id is null or tk.assignee_id = p_assignee_id)
-            -- Unfiltered, the cancelled are left out, as on every screen; status=cancelled
-            -- lists them (20261118120000).
-            and (case when p_status is null then tk.status <> 'cancelled'
-                      else tk.status::text = any(p_status) end)
-            and (p_type is null or tk.type::text = any(p_type))
-            and (p_updated_since is null or tk.updated_at >= p_updated_since)
-            and (p_after_id is null or (tk.scheduled_date, tk.id) > (p_after_date, p_after_id))
-          order by tk.scheduled_date, tk.id
-          limit least(greatest(p_limit, 1), 200) + 1) t);
-end;
-$function$
-;
-
-
 -- ---------- the office: cancel and return ----------
 
 /**
@@ -1377,7 +1398,6 @@ begin
   end if;
 
   perform set_config('str_ops.cleaning_off', v_task.id::text, true);
-  perform set_config('str_ops.task_reason', coalesce(v_reason, ''), true);
 
   update public.tasks t
   set status            = 'cancelled',
@@ -1390,7 +1410,12 @@ begin
   returning t.* into v_task;
 
   perform set_config('str_ops.cleaning_off', '', true);
-  perform set_config('str_ops.task_reason', '', true);
+
+  -- The manager's words, with the cleaning (never the journal's).
+  if v_reason is not null then
+    insert into public.task_off_notes (host_id, task_id, kind, author_id, reason)
+    values (v_task.host_id, v_task.id, 'cancelled', (select auth.uid()), v_reason);
+  end if;
   return v_task;
 end;
 $$;
@@ -1564,7 +1589,6 @@ begin
 
   perform set_config('str_ops.cleaning_off', v_task.id::text, true);
   perform set_config('str_ops.task_cause', p_kind, true);
-  perform set_config('str_ops.task_reason', coalesce(v_reason, ''), true);
 
   update public.tasks t
   set assignee_id  = null,
@@ -1577,7 +1601,12 @@ begin
 
   perform set_config('str_ops.cleaning_off', '', true);
   perform set_config('str_ops.task_cause', '', true);
-  perform set_config('str_ops.task_reason', '', true);
+
+  -- Her words, with the cleaning (never the journal's).
+  if v_reason is not null then
+    insert into public.task_off_notes (host_id, task_id, kind, author_id, reason)
+    values (v_task.host_id, v_task.id, p_kind, v_me, v_reason);
+  end if;
   return v_task;
 end;
 $$;
@@ -1625,6 +1654,10 @@ grant execute on function public.interrupt_cleaning(uuid, text) to authenticated
  * The office cancel and the hand-back of a cleaning, with the names and the words (a computed
  * field: `offs:task_offs`). The office's alone: a cleaner reads the rows of her listings, not a
  * colleague's reason. Null when there is neither, and for anybody else.
+ *
+ * The argument says which cleaning, nothing more: the row is read again by its id within the
+ * caller's company, so a row made up by hand (`/rpc/task_offs`) reads nobody else's words. The
+ * words are those written with this very cancel or hand-back, not an earlier one's.
  */
 create or replace function public.task_offs(t public.tasks)
 returns jsonb
@@ -1634,45 +1667,57 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_task      public.tasks;
   v_cancelled jsonb;
   v_released  jsonb;
 begin
+  -- Most rows have neither: no read at all for them.
   if t.cancelled_at is null and t.released_at is null then
     return null;
   end if;
-  if t.host_id is distinct from public.current_host_id() or not coalesce(public.is_manager(), false) then
+  if not coalesce(public.is_manager(), false) then
+    return null;
+  end if;
+  select x.* into v_task
+  from public.tasks x
+  where x.id = t.id and x.host_id = public.current_host_id();
+  if not found then
     return null;
   end if;
 
-  if t.cancelled_at is not null then
+  if v_task.cancelled_at is not null then
     select jsonb_build_object(
-             'at', t.cancelled_at,
-             'from', t.cancelled_from,
+             'at', v_task.cancelled_at,
+             'from', v_task.cancelled_from,
              'by', case when p.id is null then null
                         else jsonb_build_object('id', p.id, 'name', p.full_name, 'role', p.role) end,
-             'reason', (select e.reason from public.task_events e
-                        where e.task_id = t.id and e.kind = 'cancelled'
-                        order by e.id desc limit 1))
+             'reason', (select n.reason from public.task_off_notes n
+                        where n.task_id = v_task.id and n.host_id = v_task.host_id
+                          and n.kind = 'cancelled' and n.at >= v_task.cancelled_at
+                        order by n.id desc limit 1))
       into v_cancelled
-    from (select t.cancelled_by as id) b
-    left join public.profiles p on p.id = b.id and p.host_id = t.host_id;
+    from (select v_task.cancelled_by as id) b
+    left join public.profiles p on p.id = b.id and p.host_id = v_task.host_id;
   end if;
 
-  if t.released_at is not null then
+  if v_task.released_at is not null then
     select jsonb_build_object(
-             'kind', t.release_kind,
-             'at', t.released_at,
+             'kind', v_task.release_kind,
+             'at', v_task.released_at,
              'by', case when p.id is null then null
                         else jsonb_build_object('id', p.id, 'name', p.full_name, 'role', p.role) end,
-             'reason', (select e.reason from public.task_events e
-                        where e.task_id = t.id and e.kind = 'unassigned'
-                          and e.cause in ('declined', 'interrupted')
-                        order by e.id desc limit 1))
+             'reason', (select n.reason from public.task_off_notes n
+                        where n.task_id = v_task.id and n.host_id = v_task.host_id
+                          and n.kind = v_task.release_kind and n.at >= v_task.released_at
+                        order by n.id desc limit 1))
       into v_released
-    from (select t.released_by as id) b
-    left join public.profiles p on p.id = b.id and p.host_id = t.host_id;
+    from (select v_task.released_by as id) b
+    left join public.profiles p on p.id = b.id and p.host_id = v_task.host_id;
   end if;
 
+  if v_cancelled is null and v_released is null then
+    return null;
+  end if;
   return jsonb_build_object('cancelled', v_cancelled, 'released', v_released);
 end;
 $$;
