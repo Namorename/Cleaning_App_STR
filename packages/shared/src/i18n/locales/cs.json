@@ -3091,6 +3091,7 @@
     "archivedBoards": "Archiv nástěnek",
     "archivedBoardsEmpty": "Archiv nástěnek je prázdný",
     "boardArchivedNote": "Nástěnka je v archivu: karty jsou jen ke čtení.",
+    "boardArchived": "Nástěnka je v archivu",
     "boardMenu": "Akce nástěnky",
     "owner": "Vede: {{name}}",
     "readOnly": "Nástěnku mění její vlastník nebo admin, kartu také její řešitel.",

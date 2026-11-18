@@ -7,7 +7,12 @@ import { fetchMessages } from '@/features/chat/api';
 import { fetchProblemEvents } from '@/features/history/api';
 import { fetchHostSettings } from '@/features/host/api';
 import { fetchKbArticles, fetchKbPlace } from '@/features/knowledge/api';
-import { fetchBoardCards, fetchBoards, fetchCard } from '@/features/manager-boards/api';
+import {
+  fetchBoardCards,
+  fetchBoards,
+  fetchCard,
+  fetchMyCards,
+} from '@/features/manager-boards/api';
 import { fetchOfficeTask, fetchOfficeTasks } from '@/features/office/api';
 import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
 import { fetchReportProperties } from '@/features/properties/api';
@@ -111,6 +116,7 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchBoards(),
   () => fetchBoardCards(ANY_ID),
   () => fetchCard(ANY_ID),
+  () => fetchMyCards(ANY_ID),
   // The catalogue a cleaner picks a task's category from (20261115100000).
   () => fetchProblemCategories(),
   () => fetchMySupplyRequests(),
@@ -153,7 +159,7 @@ describe('the schema this test reasons about', () => {
   // pass, which is why the shape of the result is asserted first.
   test('is parsed, not silently empty', () => {
     expect(schema.relationships.length).toBeGreaterThan(20);
-    expect(schema.relationships.every(item => item.table !== '')).toBe(true);
+    expect(schema.relationships.every((item) => item.table !== '')).toBe(true);
     expect(schema.columns.get('tasks')?.has('scheduled_date')).toBe(true);
     expect(schema.columns.get('expired_tasks_review')?.has('parent_name')).toBe(true);
   });
@@ -182,7 +188,7 @@ describe('every read the cleaner makes', () => {
   });
 
   test('names one relationship per embed and only columns the schema has', () => {
-    const complaints = mockRecorded.flatMap(entry =>
+    const complaints = mockRecorded.flatMap((entry) =>
       complaintsIn(schema, entry.table, entry.select),
     );
 
@@ -190,7 +196,9 @@ describe('every read the cleaner makes', () => {
   });
 
   test('asks for the problem a maintenance task fixes by its foreign key column', () => {
-    const tasks = mockRecorded.filter(entry => entry.table === 'tasks').map(entry => entry.select);
+    const tasks = mockRecorded
+      .filter((entry) => entry.table === 'tasks')
+      .map((entry) => entry.select);
 
     expect(tasks.length).toBeGreaterThan(0);
     for (const select of tasks) {
@@ -204,7 +212,7 @@ describe('every read the cleaner makes', () => {
   // the house along, or the screen names something she cannot place. The rule
   // above only says an embed is unambiguous; this one says it is there at all.
   test('brings the house along wherever it shows a place', () => {
-    const withPlace = mockRecorded.filter(entry =>
+    const withPlace = mockRecorded.filter((entry) =>
       ['tasks', 'problems', 'supply_requests'].includes(entry.table),
     );
 
@@ -282,7 +290,9 @@ describe('with the guest-signal switch on', () => {
   });
 
   test('and still names only columns the schema has', () => {
-    const complaints = switchedOn.flatMap(entry => complaintsIn(schema, entry.table, entry.select));
+    const complaints = switchedOn.flatMap((entry) =>
+      complaintsIn(schema, entry.table, entry.select),
+    );
 
     expect(complaints).toEqual([]);
   });

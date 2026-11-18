@@ -17,14 +17,16 @@ interface BoardCardRowProps {
   /** The phone's day, `YYYY-MM-DD`. */
   today: string;
   onPress: (cardId: string) => void;
+  /** The card's board, named on a card shown away from it («Назначено мне»). */
+  boardTitle?: string;
 }
 
 /**
  * One card of a manager board on the phone: its colour as a stripe and a faint
  * fill, the title, the place, the due date — red past it, honey on it — and
- * «3/7» with a thin bar. The whole card opens it.
+ * «3/7» with a thin bar, and who works on it. The whole card opens it.
  */
-function BoardCardRowComponent({ card, today, onPress }: BoardCardRowProps) {
+function BoardCardRowComponent({ card, today, onPress, boardTitle }: BoardCardRowProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const color = useCardColor(card.color);
@@ -39,12 +41,18 @@ function BoardCardRowComponent({ card, today, onPress }: BoardCardRowProps) {
         : state === 'today'
           ? t('boards.dueChip.today')
           : t('boards.dueChip.day', { day: formatDue(card.due_on) });
+  const assignee =
+    card.assignee_id === null
+      ? null
+      : t('boards.assigneeOn', { name: card.assignee?.full_name ?? t('boards.unknownPerson') });
+  // The colour is the stripe alone: never named, on screen or to a reader (owner, 2026-11-18).
   const label = [
     card.title,
-    color === null ? null : t(`boards.colors.${card.color}`),
+    boardTitle === undefined ? null : t('boards.onBoard', { title: boardTitle }),
     place,
     dueText,
     total === 0 ? null : t('boards.progress', { done, total }),
+    assignee,
   ]
     .filter((part) => part !== null)
     .join('. ');
@@ -62,6 +70,11 @@ function BoardCardRowComponent({ card, today, onPress }: BoardCardRowProps) {
       <Text variant="title" numberOfLines={3}>
         {card.title}
       </Text>
+      {boardTitle === undefined ? null : (
+        <Text variant="caption" tone="secondary">
+          {t('boards.onBoard', { title: boardTitle })}
+        </Text>
+      )}
       {place === null ? null : <Text tone="secondary">{place}</Text>}
       {dueText === null ? null : state === 'overdue' || state === 'today' ? (
         <View style={styles.row}>
@@ -81,6 +94,11 @@ function BoardCardRowComponent({ card, today, onPress }: BoardCardRowProps) {
             <View style={[styles.fill, { width: `${Math.round((done / total) * 100)}%` }]} />
           </View>
         </View>
+      )}
+      {assignee === null ? null : (
+        <Text variant="caption" tone="secondary">
+          {assignee}
+        </Text>
       )}
     </Card>
   );

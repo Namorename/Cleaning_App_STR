@@ -23,7 +23,8 @@ type BoardFunction =
   | 'delete_manager_step'
   | 'order_manager_steps'
   | 'save_manager_comment'
-  | 'delete_manager_comment';
+  | 'delete_manager_comment'
+  | 'set_manager_card_assignee';
 
 type BoardRpc = (
   fn: BoardFunction,
@@ -43,7 +44,8 @@ const BOARD_SELECT =
 
 const CARD_FIELDS =
   'id, board_id, title, description, column_key, color, due_on, property_id, created_at, moved_at, ' +
-  'archived_at, deleted_at, property:properties(name, hostaway_unit_id, parent:parent_id(name))';
+  'archived_at, deleted_at, property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
+  'assignee_id, assignee:profiles!manager_board_cards_assignee_id_fkey(full_name)';
 
 const CARD_SELECT = `${CARD_FIELDS}, steps:manager_board_steps(id, body, done_at)`;
 
@@ -75,6 +77,29 @@ export async function fetchBoardCards(boardId: string): Promise<unknown> {
     .from('manager_board_cards')
     .select(CARD_SELECT)
     .eq('board_id', boardId)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: true })
+    .limit(BOARD_CARDS_LIMIT);
+  if (error) {
+    throw error;
+  }
+  return data ?? [];
+}
+
+const MY_CARD_SELECT = `${CARD_SELECT}, board:manager_boards!inner(id, title, owner_id, archived_at)`;
+
+/**
+ * «Назначено мне»: the cards the person is the assignee of, on every board of the company that is
+ * not archived, neither archived nor deleted themselves.
+ */
+export async function fetchMyCards(personId: string): Promise<unknown> {
+  const { data, error } = await supabase
+    .from('manager_board_cards')
+    .select(MY_CARD_SELECT)
+    .eq('assignee_id', personId)
+    .is('archived_at', null)
+    .is('deleted_at', null)
+    .is('board.archived_at', null)
     .order('created_at', { ascending: false })
     .order('id', { ascending: true })
     .limit(BOARD_CARDS_LIMIT);
@@ -138,6 +163,17 @@ export function saveCard(variables: SaveCardVariables): Promise<void> {
     p_color: fields.color,
     ...(variables.column === undefined ? {} : { p_column: variables.column }),
     ...(variables.steps === undefined ? {} : { p_steps: variables.steps }),
+  });
+}
+
+/** Gives the card to an active manager or admin of the company, or to nobody (null). */
+export function setCardAssignee(variables: {
+  cardId: string;
+  assigneeId: string | null;
+}): Promise<void> {
+  return call('set_manager_card_assignee', {
+    p_id: variables.cardId,
+    p_assignee_id: variables.assigneeId,
   });
 }
 

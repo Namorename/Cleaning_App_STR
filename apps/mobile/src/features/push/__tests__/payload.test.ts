@@ -12,9 +12,13 @@ const TASK_ID = '0b3f5c1e-8d2a-4f6b-9c7d-1e2f3a4b5c6d';
 const PROBLEM_ID = '5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d';
 const THREAD_ID = '9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a';
 
-test('the cleaning kinds are every push kind but the chat message, the digest and a new task', () => {
+test('the cleaning kinds are every push kind but the chat message, the digest, a new task and a board card', () => {
   const expected = Constants.public.Enums.push_kind.filter(
-    (kind) => kind !== 'chat_message' && kind !== 'daily_digest' && kind !== 'problem_new',
+    (kind) =>
+      kind !== 'chat_message' &&
+      kind !== 'daily_digest' &&
+      kind !== 'problem_new' &&
+      kind !== 'board_card_assigned',
   );
 
   expect([...TASK_PUSH_KINDS].sort()).toEqual([...expected].sort());
@@ -78,4 +82,14 @@ test.each([
   ['a string', 'cleaning_new'],
 ])('%s reads as nothing', (_name, data) => {
   expect(readPushData(data)).toBeNull();
+});
+
+test('a board card given to her names the card, and nothing else is read from it', () => {
+  const cardId = '8c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f';
+  expect(readPushData({ kind: 'board_card_assigned', cardId })).toEqual({
+    kind: 'board_card_assigned',
+    cardId,
+  });
+  expect(readPushData({ kind: 'board_card_assigned', cardId: 'not-an-id' })).toBeNull();
+  expect(readPushData({ kind: 'board_card_assigned' })).toBeNull();
 });

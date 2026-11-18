@@ -15,6 +15,7 @@ export type PushNotice = (typeof PUSH_NOTICES)[number];
 export type PushDestination =
   | { pathname: '/task/[id]'; params: { id: string } }
   | { pathname: '/problem/[id]'; params: { id: string } }
+  | { pathname: '/board-card/[id]'; params: { id: string } }
   | { pathname: '/chat/[subject]/[id]'; params: { subject: ChatSubjectKind; id: string } }
   | { pathname: '/(tabs)'; params?: { notice: PushNotice } };
 
@@ -45,6 +46,8 @@ const TASK_LANDING: Record<TaskPushKind, 'task' | 'moved' | PushNotice> = {
 };
 
 const TASKS: QueryKey = ['tasks'];
+/** Every manager board read (manager-boards boardKeys.all), without pulling the boards in here. */
+const BOARDS: QueryKey = ['boards'];
 
 /**
  * Where a tap on a push leads. `findTask` is asked only about a moved
@@ -63,6 +66,9 @@ export async function destinationOf(
     case 'problem_new':
       // The task's own screen, where the head technician hands it out.
       return { pathname: '/problem/[id]', params: { id: data.problemId } };
+    case 'board_card_assigned':
+      // The card given to her, on its own screen.
+      return { pathname: '/board-card/[id]', params: { id: data.cardId } };
     default:
       return taskDestination(data, findTask);
   }
@@ -102,6 +108,9 @@ export function staleAfter(data: PushData | null): QueryKey[] {
   }
   if (data.kind === 'problem_new') {
     return [TASKS, problemKeys.all];
+  }
+  if (data.kind === 'board_card_assigned') {
+    return [BOARDS];
   }
   return [TASKS, stepKeys.all];
 }

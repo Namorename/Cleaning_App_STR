@@ -21,6 +21,8 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { reportError } from '@/lib/sentry';
 
 import { ActionsSheet } from './board-sheets';
+import { useStaffDirectory } from '@/features/board/use-board';
+
 import { entrySentence, formatStamp, useCardColor } from './format';
 import {
   canDeleteComment,
@@ -277,6 +279,8 @@ export function CardJournalList({
   viewer: BoardViewer;
   canEdit: boolean;
 }) {
+  const staff = useStaffDirectory();
+  const nameOf = (id: string) => staff.data?.find((person) => person.id === id)?.full_name ?? null;
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const save = useSaveComment();
@@ -333,7 +337,7 @@ export function CardJournalList({
               ) : null}
             </View>
             {entry.kind !== 'comment' ? (
-              <Text tone="secondary">{entrySentence(entry, t)}</Text>
+              <Text tone="secondary">{entrySentence(entry, t, nameOf)}</Text>
             ) : editing?.id === entry.id ? (
               <View style={styles.editRow}>
                 <TextField

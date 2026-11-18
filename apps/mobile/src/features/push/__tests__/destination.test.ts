@@ -147,3 +147,17 @@ describe('staleAfter', () => {
     expect(staleAfter(null)).toEqual([['tasks']]);
   });
 });
+
+describe('a manager board card given to her (20261118230000)', () => {
+  const cardId = '8c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f';
+
+  test('opens the card on its own screen', async () => {
+    await expect(
+      destinationOf({ kind: 'board_card_assigned', cardId }, jest.fn()),
+    ).resolves.toEqual({ pathname: '/board-card/[id]', params: { id: cardId } });
+  });
+
+  test('leaves the boards stale, nothing else', () => {
+    expect(staleAfter({ kind: 'board_card_assigned', cardId })).toEqual([['boards']]);
+  });
+});

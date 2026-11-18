@@ -1,4 +1,4 @@
-import { BOARD_ENTRY_KINDS, propertyPathOf } from '@str-ops/shared';
+import { BOARD_ENTRY_KINDS, canWorkOnCard, propertyPathOf } from '@str-ops/shared';
 import { z } from 'zod';
 
 /**
@@ -52,9 +52,24 @@ export const boardCardSchema = z.object({
   deleted_at: z.string().nullable(),
   property: placeSchema,
   steps: z.array(stepMarkSchema),
+  // Who works on it (20261118230000). Defaults: a card saved to disk by the build before it.
+  assignee_id: z.string().nullable().default(null),
+  assignee: personSchema.default(null),
 });
 export type BoardCard = z.infer<typeof boardCardSchema>;
 export const boardCardListSchema = z.array(boardCardSchema);
+
+/** A card of «Назначено мне», from any board that is not archived, with its board's name. */
+export const myCardSchema = boardCardSchema.extend({
+  board: z.object({
+    id: z.string(),
+    title: z.string(),
+    owner_id: z.string(),
+    archived_at: z.string().nullable(),
+  }),
+});
+export type MyCard = z.infer<typeof myCardSchema>;
+export const myCardListSchema = z.array(myCardSchema);
 
 export const cardStepSchema = stepMarkSchema.extend({ sort_order: z.number() });
 export type CardStep = z.infer<typeof cardStepSchema>;
@@ -120,6 +135,34 @@ export function canEditBoard(
   viewer: BoardViewer,
 ): boolean {
   return board.archived_at === null && (viewer.isAdmin || board.owner_id === viewer.id);
+}
+
+/**
+ * Who works on a card — its fields and due date, steps, journal, column: the board's owner, an
+ * admin, and the card's assignee (20261118230000). The board, a card's shelf and copy and the
+ * assignment stay `canEditBoard`'s. The server checks the same.
+ */
+export function canWorkOn(
+  board: Pick<Board, 'owner_id' | 'archived_at'>,
+  card: Pick<BoardCard, 'assignee_id'>,
+  viewer: BoardViewer,
+): boolean {
+  return canWorkOnCard(board, card, viewer);
+}
+
+/** A person of the company's directory, as a card's assignee is picked and named. */
+export interface OfficePerson {
+  id: string;
+  full_name: string | null;
+  role: string;
+  is_active: boolean;
+}
+
+/** Who a card can be given to: the company's active managers and admins, by name. */
+export function assignablePeople(staff: readonly OfficePerson[]): OfficePerson[] {
+  return staff
+    .filter((person) => person.is_active && (person.role === 'manager' || person.role === 'admin'))
+    .sort((left, right) => (left.full_name ?? '').localeCompare(right.full_name ?? ''));
 }
 
 /** Its author changes a comment. */

@@ -30,6 +30,7 @@ test('lists the push kinds in the order the owner approved them', () => {
     'cleaning_declined',
     'cleaning_interrupted',
     'booking_cancelled_live',
+    'board_card_assigned',
     'problem_new',
     'chat_message',
     'daily_digest',
@@ -71,10 +72,15 @@ test('the head technician is offered the same, and a new task — eight kinds', 
 
 /**
  * A cleaning declined or interrupted (20261118120000) is told to every
- * manager and admin of the company and to nobody else: only the office is
- * shown those two switches.
+ * manager and admin of the company and to nobody else, and a manager board's
+ * card given to somebody (20261118230000) only to the office, which has the
+ * boards: only the office is shown those three switches.
  */
-const OFFICE_KINDS: readonly string[] = ['cleaning_declined', 'cleaning_interrupted'];
+const OFFICE_KINDS: readonly string[] = [
+  'cleaning_declined',
+  'cleaning_interrupted',
+  'board_card_assigned',
+];
 
 /** Every kind but a new task and the office's two: the cleaner's list. */
 const CLEANER_KINDS = PUSH_KINDS.filter(

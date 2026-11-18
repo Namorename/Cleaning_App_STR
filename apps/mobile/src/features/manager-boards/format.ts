@@ -39,13 +39,35 @@ function countFact(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+function personFact(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' ? value : null;
+}
+
 /**
- * A system line of the journal in words: the server keeps codes, dates and
- * counts, never a person's words (the panel says them the same way).
+ * A system line of the journal in words: the server keeps codes, dates, counts
+ * and people's ids, never a person's words or name (the panel says them the same
+ * way); `nameOf` names the people from the company's directory.
  */
-export function entrySentence(entry: CardEntry, t: TFunction): string {
+export function entrySentence(
+  entry: CardEntry,
+  t: TFunction,
+  nameOf: (id: string) => string | null = () => null,
+): string {
   const { facts } = entry;
+  const person = (id: string | null) =>
+    id === null ? '—' : (nameOf(id) ?? t('boards.unknownPerson'));
   switch (entry.kind) {
+    case 'assignee_changed': {
+      const from = personFact(facts.from);
+      const to = personFact(facts.to);
+      if (from === null && to !== null) {
+        return t('boards.entries.assigneeSet', { to: person(to) });
+      }
+      if (to === null && from !== null) {
+        return t('boards.entries.assigneeRemoved', { from: person(from) });
+      }
+      return t('boards.entries.assigneeChanged', { from: person(from), to: person(to) });
+    }
     case 'moved': {
       const to = typeof facts.to === 'string' && isBoardColumn(facts.to) ? facts.to : null;
       return t('boards.entries.moved', {

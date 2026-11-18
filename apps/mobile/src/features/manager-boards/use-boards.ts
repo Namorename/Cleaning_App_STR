@@ -12,6 +12,7 @@ import {
   fetchBoardCards,
   fetchBoards,
   fetchCard,
+  fetchMyCards,
   moveCard,
   orderSteps,
   saveBoard,
@@ -19,17 +20,20 @@ import {
   saveComment,
   saveStep,
   setBoardArchived,
+  setCardAssignee,
   setCardShelf,
   setStepDone,
 } from './api';
 import {
   boardCardListSchema,
   boardListSchema,
+  myCardListSchema,
   oneCardSchema,
   type Board,
   type BoardCard,
   type BoardViewer,
   type CardDetail,
+  type MyCard,
 } from './schema';
 
 /**
@@ -41,6 +45,8 @@ export const boardKeys = {
   list: (person: string) => ['boards', person, 'list'] as const,
   cards: (person: string, boardId: string) => ['boards', person, 'cards', boardId] as const,
   card: (person: string, cardId: string) => ['boards', person, 'card', cardId] as const,
+  /** «Назначено мне» (20261118230000). */
+  mine: (person: string) => ['boards', person, 'mine'] as const,
 };
 
 /** Restored from disk in whatever shape the build that saved it read (`readCached`). */
@@ -50,6 +56,10 @@ function readBoards(data: unknown): Board[] {
 
 function readCards(data: unknown): BoardCard[] {
   return readCached(boardCardListSchema, data, 'board cards');
+}
+
+function readMine(data: unknown): MyCard[] {
+  return readCached(myCardListSchema, data, 'my board cards');
 }
 
 function readCard(data: unknown): CardDetail | null {
@@ -80,6 +90,17 @@ export function useBoardCards(boardId: string | null) {
     queryFn: () => fetchBoardCards(boardId ?? ''),
     select: readCards,
     enabled: userId !== null && boardId !== null,
+  });
+}
+
+/** «Назначено мне»: the signed-in person's cards on every live board. */
+export function useMyCards() {
+  const { userId } = useSession();
+  return useQuery({
+    queryKey: boardKeys.mine(userId ?? ''),
+    queryFn: () => fetchMyCards(userId ?? ''),
+    select: readMine,
+    enabled: userId !== null,
   });
 }
 
@@ -119,12 +140,17 @@ export const useDeleteStep = () => useWrite(deleteStep);
 export const useOrderSteps = () => useWrite(orderSteps);
 export const useSaveComment = () => useWrite(saveComment);
 export const useDeleteComment = () => useWrite(deleteComment);
+export const useSetCardAssignee = () => useWrite(setCardAssignee);
 
-/** A move shows at once on the board's list, and goes back if the server refuses. */
-export function useMoveCard(boardId: string) {
+/**
+ * A move shows at once in the list on screen — a board's cards, or «Назначено мне» for a null
+ * board — and goes back if the server refuses.
+ */
+export function useMoveCard(boardId: string | null) {
   const { userId } = useSession();
   const queryClient = useQueryClient();
-  const key = boardKeys.cards(userId ?? '', boardId);
+  const key =
+    boardId === null ? boardKeys.mine(userId ?? '') : boardKeys.cards(userId ?? '', boardId);
   return useMutation({
     ...WRITE,
     mutationFn: (variables: { cardId: string; column: BoardColumn }) => moveCard(variables),

@@ -6,9 +6,13 @@ import type { PushKind } from '@/features/settings/schema';
 /**
  * Every push about a cleaning: each names the cleaning and nothing else.
  * problem_new (the head technician's new task, 20261003150000) names a task,
- * not a cleaning: a schema of its own below.
+ * not a cleaning, and board_card_assigned (20261118230000) a manager board's
+ * card: schemas of their own below.
  */
-export type TaskPushKind = Exclude<PushKind, 'chat_message' | 'daily_digest' | 'problem_new'>;
+export type TaskPushKind = Exclude<
+  PushKind,
+  'chat_message' | 'daily_digest' | 'problem_new' | 'board_card_assigned'
+>;
 
 /**
  * Listed by hand rather than filtered off the enum: z.enum needs the literal
@@ -54,11 +58,18 @@ const problemPushSchema = z.object({
   problemId: z.string().uuid(),
 });
 
+/** «Вам назначена карточка»: the manager board's card given to her (send-push run.ts, pushData). */
+const cardPushSchema = z.object({
+  kind: z.literal('board_card_assigned'),
+  cardId: z.string().uuid(),
+});
+
 const pushDataSchema = z.union([
   taskPushSchema,
   chatPushSchema,
   digestPushSchema,
   problemPushSchema,
+  cardPushSchema,
 ]);
 
 export type TaskPushData = z.infer<typeof taskPushSchema>;

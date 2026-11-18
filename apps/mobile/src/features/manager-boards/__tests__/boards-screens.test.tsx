@@ -8,10 +8,13 @@ import {
   boardCardSchema,
   boardSchema,
   cardDetailSchema,
+  myCardSchema,
   type Board,
   type BoardCard,
   type BoardViewer,
   type CardDetail,
+  type MyCard,
+  type OfficePerson,
 } from '../schema';
 
 /**
@@ -36,6 +39,9 @@ jest.mock('expo-crypto', () => {
 });
 jest.mock('@/features/properties/use-properties', () => ({
   useReportProperties: () => ({ data: [], isPending: false }),
+}));
+jest.mock('@/features/board/use-board', () => ({
+  useStaffDirectory: () => ({ data: mockState.staff, isPending: false }),
 }));
 
 const OWNER = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -141,6 +147,10 @@ const mockState: {
   isStale: boolean;
   /** The writes the server refuses. */
   failing: Set<jest.Mock>;
+  /** The company's directory: who a card can be given to, and who the journal names. */
+  staff: OfficePerson[];
+  /** «Назначено мне». */
+  mine: MyCard[];
 } = {
   viewer: { id: OWNER, isAdmin: false },
   boards: [board(BOARD, 'Проекты'), board(SECOND, 'Закупки', READER)],
@@ -148,7 +158,27 @@ const mockState: {
   detail: DETAIL,
   isStale: false,
   failing: new Set(),
+  staff: [],
+  mine: [],
 };
+
+const STAFF: OfficePerson[] = [
+  { id: OWNER, full_name: 'Ольга', role: 'manager', is_active: true },
+  { id: READER, full_name: 'Ира', role: 'manager', is_active: true },
+  { id: ADMIN, full_name: 'Анна', role: 'admin', is_active: true },
+  {
+    id: 'aaaaaaaa-0000-4000-8000-000000000009',
+    full_name: 'Вера',
+    role: 'cleaner',
+    is_active: true,
+  },
+  {
+    id: 'aaaaaaaa-0000-4000-8000-000000000008',
+    full_name: 'Пётр',
+    role: 'manager',
+    is_active: false,
+  },
+];
 
 const mockSpies = {
   saveCard: jest.fn(),
@@ -157,6 +187,7 @@ const mockSpies = {
   tick: jest.fn(),
   saveComment: jest.fn(),
   archiveBoard: jest.fn(),
+  assign: jest.fn(),
 };
 
 function mockMutation(spy: jest.Mock) {
@@ -213,6 +244,14 @@ jest.mock('../use-boards', () => ({
   useOrderSteps: () => mockMutation(jest.fn()),
   useSaveComment: () => mockMutation(mockSpies.saveComment),
   useDeleteComment: () => mockMutation(jest.fn()),
+  useSetCardAssignee: () => mockMutation(mockSpies.assign),
+  useMyCards: () => ({
+    isPending: false,
+    isError: false,
+    isRefetching: false,
+    data: mockState.mine,
+    refetch: jest.fn(),
+  }),
 }));
 
 beforeEach(() => {
@@ -222,6 +261,8 @@ beforeEach(() => {
   mockState.detail = DETAIL;
   mockState.isStale = false;
   mockState.failing = new Set();
+  mockState.staff = STAFF;
+  mockState.mine = [];
   jest.clearAllMocks();
 });
 
@@ -272,11 +313,13 @@ describe('the boards tab', () => {
     expect(screen.queryByText('Старое')).toBeNull();
   });
 
-  test('what is late and due today, and the colour said by name', async () => {
+  test('what is late and due today; the colour is the stripe, never named', async () => {
     await render(<BoardsTab />);
     expect(screen.getByRole('button', { name: 'Просрочено: 1' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Срок сегодня: 1' })).toBeOnTheScreen();
-    expect(screen.getByLabelText(/^Ремонт ванной\. Синий\./)).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^Ремонт ванной\. Просрочено/)).toBeOnTheScreen();
+    expect(screen.queryByText(/Синий/, { includeHiddenElements: true })).toBeNull();
+    expect(screen.queryByLabelText(/Синий/)).toBeNull();
   });
 
   test('another column, and a card opens on its own screen', async () => {
@@ -317,12 +360,10 @@ describe('the boards tab', () => {
     expect(mockSpies.shelve).toHaveBeenCalledWith({ cardId: CARDS[3].id, shelf: 'active' });
   });
 
-  test("another manager's board is read only: no quick add, no board menu", async () => {
+  test("another manager's board: no quick add, no board menu, and not a word about why", async () => {
     await render(<BoardsTab />);
     await fireEvent.press(screen.getByRole('tab', { name: 'Закупки' }));
-    expect(
-      screen.getByText('Только просмотр: менять доску может её владелец или админ.'),
-    ).toBeOnTheScreen();
+    expect(screen.queryByText(/владел|админ|просмотр|менять/i)).toBeNull();
     expect(screen.queryByLabelText(/Новая карточка в колонке/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Действия с доской' })).toBeNull();
   });
@@ -431,5 +472,136 @@ describe('the card screen', () => {
     await render(<CardScreen cardId={DETAIL.id} />);
     expect(screen.getByRole('link', { name: 'https://example.com/plan' })).toBeOnTheScreen();
     expect(screen.queryByRole('link', { name: /План/ })).toBeNull();
+  });
+});
+
+describe('the assignee and the colour (20261118230000)', () => {
+  const NOT_ON_SCREEN = /владел|админ|только для просмотра|чтобы менять/i;
+
+  test('the card screen shows the colour as a stripe, never by name; the picker names its circles to a reader only', async () => {
+    await render(<CardScreen cardId={DETAIL.id} />);
+    expect(screen.queryByText(/Синий|Цвет:/)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Изменить' }));
+    expect(screen.getByRole('radio', { name: 'Синий' })).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: 'Без цвета' })).toBeOnTheScreen();
+    expect(screen.queryByText('Синий')).toBeNull();
+    expect(screen.queryByText('Без цвета')).toBeNull();
+  });
+
+  test('the colour filter is circles too, named to a reader only', async () => {
+    await render(<BoardsTab />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Фильтры' }));
+    expect(screen.getByRole('checkbox', { name: 'Синий' })).toBeOnTheScreen();
+    expect(screen.queryByText('Синий')).toBeNull();
+  });
+
+  test('another manager reads a card with no word about who may change it', async () => {
+    mockState.viewer = { id: READER, isAdmin: false };
+    await render(<CardScreen cardId={DETAIL.id} />);
+    expect(screen.queryByText(NOT_ON_SCREEN)).toBeNull();
+  });
+
+  test('a shelved card and an archived board say only what they are', async () => {
+    mockState.viewer = { id: READER, isAdmin: false };
+    mockState.detail = cardDetailSchema.parse({ ...DETAIL, archived_at: '2026-11-15T10:00:00Z' });
+    await render(<CardScreen cardId={DETAIL.id} />);
+    expect(screen.getByText('Карточка в архиве')).toBeOnTheScreen();
+    expect(screen.queryByText(NOT_ON_SCREEN)).toBeNull();
+  });
+
+  test('a card on the board says who works on it', async () => {
+    mockState.cards = [
+      card(1, { title: 'Ремонт ванной', assignee_id: READER, assignee: { full_name: 'Ира' } }),
+    ];
+    await render(<BoardsTab />);
+    expect(screen.getByText('Исполнитель: Ира')).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^Ремонт ванной\..*Исполнитель: Ира$/)).toBeOnTheScreen();
+  });
+
+  test('the owner gives the card to an active manager or admin from a sheet, or to nobody', async () => {
+    await render(<CardScreen cardId={DETAIL.id} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Исполнитель: Без исполнителя' }));
+    expect(screen.getByRole('button', { name: 'Анна' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Вера' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Пётр' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Ира' }));
+    expect(mockSpies.assign).toHaveBeenCalledWith({ cardId: DETAIL.id, assigneeId: READER });
+  });
+
+  test('the assignee works on her card on a board not hers, but does not assign, copy or shelve it', async () => {
+    mockState.viewer = { id: READER, isAdmin: false };
+    mockState.detail = cardDetailSchema.parse({
+      ...DETAIL,
+      assignee_id: READER,
+      assignee: { full_name: 'Ира' },
+    });
+    await render(<CardScreen cardId={DETAIL.id} />);
+    await fireEvent.press(screen.getByRole('radio', { name: 'В работе' }));
+    expect(mockSpies.move).toHaveBeenCalledWith({ cardId: DETAIL.id, column: 'in_progress' });
+    expect(screen.getByLabelText('Комментарий')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Изменить' })).toBeOnTheScreen();
+    expect(screen.getByText('Ира')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: /^Исполнитель:/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Дублировать' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'В архив' })).toBeNull();
+  });
+
+  test('the journal says who the card went to, by the names of the directory', async () => {
+    mockState.detail = cardDetailSchema.parse({
+      ...DETAIL,
+      entries: [
+        ...DETAIL.entries,
+        {
+          ...DETAIL.entries[0],
+          id: 'e7',
+          kind: 'assignee_changed',
+          facts: { from: OWNER, to: READER },
+          created_at: '2026-11-13T09:00:00Z',
+        },
+      ],
+    });
+    await render(<CardScreen cardId={DETAIL.id} />);
+    expect(screen.getByText('Исполнитель изменён: Ольга → Ира')).toBeOnTheScreen();
+  });
+
+  test('the filter by assignee puts «Назначено мне» first and narrows the board', async () => {
+    mockState.cards = [
+      card(1, { title: 'Ремонт ванной', assignee_id: READER, assignee: { full_name: 'Ира' } }),
+      card(2, { title: 'Звонок юристу', assignee_id: OWNER, assignee: { full_name: 'Ольга' } }),
+    ];
+    await render(<BoardsTab />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Фильтры' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Назначено мне' }));
+    expect(screen.getByText('Звонок юристу')).toBeOnTheScreen();
+    expect(screen.queryByText('Ремонт ванной')).toBeNull();
+  });
+
+  test('«Назначено мне» lists her cards of every board, each naming its board', async () => {
+    mockState.mine = [
+      myCardSchema.parse({
+        ...card(1, { title: 'Ремонт ванной', assignee_id: OWNER }),
+        board: { id: BOARD, title: 'Проекты', owner_id: OWNER, archived_at: null },
+      }),
+      myCardSchema.parse({
+        ...card(2, { title: 'Купить лампы', board_id: SECOND, assignee_id: OWNER }),
+        board: { id: SECOND, title: 'Закупки', owner_id: READER, archived_at: null },
+      }),
+    ];
+    await render(<BoardsTab />);
+    await fireEvent.press(screen.getByRole('tab', { name: 'Назначено мне' }));
+    expect(screen.getByText('Доска «Проекты»')).toBeOnTheScreen();
+    expect(screen.getByText('Доска «Закупки»')).toBeOnTheScreen();
+    expect(screen.queryByLabelText(/Новая карточка в колонке/)).toBeNull();
+    await fireEvent.press(screen.getByLabelText(/^Купить лампы/));
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/board-card/[id]',
+      params: { id: mockState.mine[1].id },
+    });
+  });
+
+  test('«Назначено мне» with nothing given to her says so', async () => {
+    await render(<BoardsTab />);
+    await fireEvent.press(screen.getByRole('tab', { name: 'Назначено мне' }));
+    expect(screen.getByText('Вам пока не назначено ни одной карточки')).toBeOnTheScreen();
   });
 });

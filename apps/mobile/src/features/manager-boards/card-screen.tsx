@@ -28,30 +28,42 @@ import { Text } from '@/components/text';
 import { TextField } from '@/components/text-field';
 import { Radius, Spacing, type Theme } from '@/constants/theme';
 import { PropertyPicker } from '@/features/properties/property-picker';
+import { useStaffDirectory } from '@/features/board/use-board';
 import { useReportProperties } from '@/features/properties/use-properties';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { monthOf } from '@/lib/calendar-month';
 import { serverErrorText } from '@/lib/server-error';
 
 import type { CardFields } from './api';
+import { ActionsSheet } from './board-sheets';
 import { CardJournalList, CardStepsList, ColorChoice, LinkedText } from './card-parts';
 import { formatDue, formatStamp, useCardColor } from './format';
-import { canEditBoard, cardPlace, shelfOf, type CardDetail, type CardShelf } from './schema';
+import {
+  assignablePeople,
+  canEditBoard,
+  canWorkOn,
+  cardPlace,
+  shelfOf,
+  type CardDetail,
+  type CardShelf,
+} from './schema';
 import {
   useBoards,
   useCard,
   useDuplicateCard,
   useMoveCard,
   useSaveCard,
+  useSetCardAssignee,
   useSetCardShelf,
   useViewer,
 } from './use-boards';
 
 /**
- * A manager board's card on the phone: the column as buttons, the fields
- * (links open), the steps, the actions and the journal. Its owner and an
- * admin change it; another manager reads it. A shelved card is read until
- * «Вернуть».
+ * A manager board's card on the phone: the column as buttons, the assignee, the fields (links
+ * open), the steps, the actions and the journal. The board's owner and an admin change all of it;
+ * the card's assignee works on it but does not assign, copy or shelve it; another manager reads
+ * it — and nothing on screen explains who may do what: what one may not do is simply not there.
+ * A shelved card is read until «Вернуть».
  */
 export function CardScreen({ cardId }: { cardId: string }) {
   const { t } = useTranslation();
@@ -84,12 +96,24 @@ export function CardScreen({ cardId }: { cardId: string }) {
       {card.isError || boards.isError ? (
         <ErrorBanner title={t('boards.staleNote')} error={card.error ?? boards.error} />
       ) : null}
-      <CardBody card={card.data} boardEditable={board !== null && canEditBoard(board, viewer)} />
+      <CardBody
+        card={card.data}
+        boardEditable={board !== null && canEditBoard(board, viewer)}
+        canWork={board !== null && canWorkOn(board, card.data, viewer)}
+      />
     </>
   );
 }
 
-function CardBody({ card, boardEditable }: { card: CardDetail; boardEditable: boolean }) {
+function CardBody({
+  card,
+  boardEditable,
+  canWork,
+}: {
+  card: CardDetail;
+  boardEditable: boolean;
+  canWork: boolean;
+}) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const viewer = useViewer();
@@ -99,8 +123,9 @@ function CardBody({ card, boardEditable }: { card: CardDetail; boardEditable: bo
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [dismissedDone, setDismissedDone] = useState(false);
+  const color = useCardColor(card.color);
   const shelf = shelfOf(card);
-  const canEdit = boardEditable && shelf === 'active';
+  const canEdit = canWork && shelf === 'active';
   const lastColumn = t(`problems.statuses.${LAST_BOARD_COLUMN}`);
   const offersDone =
     canEdit &&
@@ -141,6 +166,13 @@ function CardBody({ card, boardEditable }: { card: CardDetail; boardEditable: bo
       // The comment and the new step sit at the bottom: the keyboard must not cover them (iOS).
       automaticallyAdjustKeyboardInsets
     >
+      {color === null ? null : (
+        <View
+          style={[styles.stripe, { backgroundColor: color.stripe }]}
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+        />
+      )}
       <Text variant="heading">{card.title}</Text>
       <Text variant="caption" tone="secondary">
         {t('boards.created', {
@@ -151,7 +183,7 @@ function CardBody({ card, boardEditable }: { card: CardDetail; boardEditable: bo
 
       {shelf === 'active' ? null : (
         <View style={styles.note}>
-          <Text>{t('boards.shelvedNote')}</Text>
+          <Text>{shelf === 'deleted' ? t('boards.cardDeleted') : t('boards.cardArchived')}</Text>
           {boardEditable ? (
             <Button
               label={t('boards.restoreCard')}
@@ -197,6 +229,8 @@ function CardBody({ card, boardEditable }: { card: CardDetail; boardEditable: bo
           <Text>{t(`problems.statuses.${card.column_key}`)}</Text>
         )}
       </View>
+
+      <AssigneeSection card={card} canAssign={boardEditable && shelf === 'active'} />
 
       {isEditing && canEdit ? (
         <EditFields card={card} onDone={() => setIsEditing(false)} />
@@ -248,10 +282,63 @@ function CardBody({ card, boardEditable }: { card: CardDetail; boardEditable: bo
   );
 }
 
+/**
+ * Who works on the card. The board's owner and an admin pick from the company's active managers
+ * and admins, or «Без исполнителя» (one push goes to the new assignee); anybody else reads it.
+ */
+function AssigneeSection({ card, canAssign }: { card: CardDetail; canAssign: boolean }) {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+  const staff = useStaffDirectory();
+  const assign = useSetCardAssignee();
+  const [isPicking, setIsPicking] = useState(false);
+  const name =
+    card.assignee_id === null
+      ? t('boards.noAssignee')
+      : (card.assignee?.full_name ?? t('boards.unknownPerson'));
+  const choose = (assigneeId: string | null) => {
+    setIsPicking(false);
+    if (assigneeId !== card.assignee_id && !assign.isPending) {
+      assign.mutate({ cardId: card.id, assigneeId });
+    }
+  };
+
+  return (
+    <View style={styles.section}>
+      <Text variant="chip" tone="secondary">
+        {t('boards.assignee')}
+      </Text>
+      {canAssign ? (
+        <Button
+          label={name}
+          accessibilityLabel={`${t('boards.assignee')}: ${name}`}
+          variant="outline"
+          isBusy={assign.isPending}
+          onPress={() => setIsPicking(true)}
+        />
+      ) : (
+        <Text>{name}</Text>
+      )}
+      {assign.isError ? <FailureText error={assign.error} /> : null}
+      <ActionsSheet
+        isVisible={isPicking}
+        title={t('boards.assignee')}
+        onClose={() => setIsPicking(false)}
+        actions={[
+          ...assignablePeople(staff.data ?? []).map((person) => ({
+            label: person.full_name ?? t('boards.unknownPerson'),
+            onPress: () => choose(person.id),
+          })),
+          { label: t('boards.noAssignee'), onPress: () => choose(null) },
+        ]}
+      />
+    </View>
+  );
+}
+
 function ReadFields({ card, onEdit }: { card: CardDetail; onEdit?: () => void }) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const color = useCardColor(card.color);
   const place = cardPlace(card);
   const state = dueState(card.due_on, localDay(), card.column_key);
   return (
@@ -281,13 +368,6 @@ function ReadFields({ card, onEdit }: { card: CardDetail; onEdit?: () => void })
       <View style={styles.fact}>
         <Text tone="secondary">{t('boards.property')}</Text>
         <Text style={styles.factValue}>{place ?? t('boards.noProperty')}</Text>
-      </View>
-      <View style={styles.fact}>
-        <Text tone="secondary">{t('boards.color')}</Text>
-        {color === null ? null : <View style={[styles.dot, { backgroundColor: color.stripe }]} />}
-        <Text>
-          {isCardColor(card.color) ? t(`boards.colors.${card.color}`) : t('boards.noColor')}
-        </Text>
       </View>
       {onEdit === undefined ? null : (
         <Button label={t('boards.edit')} variant="outline" onPress={onEdit} />
@@ -396,5 +476,5 @@ const createStyles = (theme: Theme) =>
     },
     fact: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
     factValue: { flex: 1 },
-    dot: { width: 14, height: 14, borderRadius: Radius.pill },
+    stripe: { height: 6, borderRadius: Radius.pill },
   });

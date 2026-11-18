@@ -24,12 +24,14 @@ const OFFICE_ROLES: readonly AppRole[] = ['manager', 'admin'];
  * is shown its switch — not a switch greyed out, no row at all (owner's word
  * 2026-10-03, docs/tech-plan.md, decision 19). A cleaning declined or
  * interrupted goes to every manager and admin of the company and to nobody
- * else, so only they are shown those two.
+ * else, so only they are shown those two; so is a manager board's card given
+ * to somebody (board_card_assigned, 20261118230000) — only the office has boards.
  */
 const KIND_ROLES: Partial<Record<PushKind, readonly AppRole[]>> = {
   problem_new: ['head_tech'],
   cleaning_declined: OFFICE_ROLES,
   cleaning_interrupted: OFFICE_ROLES,
+  board_card_assigned: OFFICE_ROLES,
 };
 
 /**

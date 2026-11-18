@@ -25,7 +25,7 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
 import { useCardColor } from './format';
-import type { Board } from './schema';
+import type { Board, OfficePerson } from './schema';
 import { useSaveBoard } from './use-boards';
 
 const DUE_LABEL: Record<DueFilter, string> = {
@@ -43,9 +43,13 @@ interface FiltersSheetProps {
   onChange: (next: CardFilters) => void;
   order: CardOrder;
   onOrderChange: (next: CardOrder) => void;
+  /** Who a card can be given to: the assignee filter. Absent, no such filter. */
+  people?: readonly OfficePerson[];
+  /** The viewer: «Назначено мне», first among the people. */
+  viewerId?: string;
 }
 
-/** The board's filters and order: due date, colours, unticked steps; «Сбросить». */
+/** The board's filters and order: due date, colours, unticked steps, the assignee; «Сбросить». */
 export function FiltersSheet({
   isVisible,
   onClose,
@@ -53,6 +57,8 @@ export function FiltersSheet({
   onChange,
   order,
   onOrderChange,
+  people,
+  viewerId,
 }: FiltersSheetProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -100,6 +106,32 @@ export function FiltersSheet({
           accessibilityLabel={t('boards.filters.openSteps')}
           semantics="radio"
         />
+        {people === undefined ? null : (
+          <>
+            <Text variant="chip" tone="secondary">
+              {t('boards.filters.assignee')}
+            </Text>
+            <ChoiceChips
+              options={[
+                { value: 'all', label: t('boards.filters.assigneeAll') },
+                ...(viewerId === undefined
+                  ? []
+                  : [{ value: viewerId, label: t('boards.assignedToMe') }]),
+                { value: 'none', label: t('boards.noAssignee') },
+                ...people
+                  .filter((person) => person.id !== viewerId)
+                  .map((person) => ({
+                    value: person.id,
+                    label: person.full_name ?? t('boards.unknownPerson'),
+                  })),
+              ]}
+              value={filters.assignee}
+              onChange={(assignee: string) => onChange({ ...filters, assignee })}
+              accessibilityLabel={t('boards.filters.assignee')}
+              semantics="radio"
+            />
+          </>
+        )}
         <Text variant="chip" tone="secondary">
           {t('boards.order.label')}
         </Text>

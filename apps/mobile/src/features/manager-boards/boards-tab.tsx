@@ -29,14 +29,23 @@ import { Text } from '@/components/text';
 import { TextField } from '@/components/text-field';
 import { Radius, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { useStaffDirectory } from '@/features/board/use-board';
 import { serverErrorText } from '@/lib/server-error';
 
 import { BoardCardRow } from './board-card-row';
 import { ActionsSheet, ArchivedBoardsSheet, BoardNameSheet, FiltersSheet } from './board-sheets';
-import { canEditBoard, shelfOf, type Board, type BoardCard, type BoardViewer } from './schema';
+import {
+  assignablePeople,
+  canEditBoard,
+  shelfOf,
+  type Board,
+  type BoardCard,
+  type BoardViewer,
+} from './schema';
 import {
   useBoardCards,
   useBoards,
+  useMyCards,
   useSaveCard,
   useSetBoardArchived,
   useSetCardShelf,
@@ -45,11 +54,14 @@ import {
 
 type Pane = BoardColumn | 'archive';
 
+/** The switcher's value of «Назначено мне», in place of a board's id. */
+const MY_CARDS = 'mine';
+
 /**
- * The office's «Доски» on the phone (docs/manager-boards.md): the boards one
- * tap each, then the chosen board — what is late, the search, a column at a
- * time (four on a phone's width would be unreadable), a quick add on top of
- * it, and the archive. A card opens on its own screen.
+ * The office's «Доски» on the phone (docs/manager-boards.md): «Назначено мне»
+ * and the boards one tap each, then the chosen board — what is late, the
+ * search, a column at a time (four on a phone's width would be unreadable), a
+ * quick add on top of it, and the archive. A card opens on its own screen.
  */
 export function BoardsTab() {
   const { t } = useTranslation();
@@ -118,7 +130,9 @@ export function BoardsTab() {
     );
   }
 
+  const isMine = chosenId === MY_CARDS;
   const switcher = [
+    { value: MY_CARDS, label: t('boards.assignedToMe') },
     ...live.map((one) => ({ value: one.id, label: one.title })),
     ...(board.archived_at === null ? [] : [{ value: board.id, label: board.title }]),
   ];
@@ -129,7 +143,7 @@ export function BoardsTab() {
         <View style={styles.chips}>
           <ChoiceChips
             options={switcher}
-            value={board.id}
+            value={isMine ? MY_CARDS : board.id}
             onChange={setChosenId}
             accessibilityLabel={t('boards.switcherLabel')}
             semantics="tabs"
@@ -148,7 +162,7 @@ export function BoardsTab() {
           />
         )}
       </View>
-      <BoardBody key={board.id} board={board} viewer={viewer} />
+      {isMine ? <MyCardsBody /> : <BoardBody key={board.id} board={board} viewer={viewer} />}
       {sheets}
     </View>
   );
@@ -163,6 +177,7 @@ function BoardBody({ board, viewer }: BoardBodyProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const cards = useBoardCards(board.id);
+  const staff = useStaffDirectory();
   const shelve = useSetCardShelf();
   const archiveBoard = useSetBoardArchived();
   const [pane, setPane] = useState<Pane>('open');
@@ -218,7 +233,7 @@ function BoardBody({ board, viewer }: BoardBodyProps) {
       </View>
       {board.archived_at !== null ? (
         <View style={styles.note}>
-          <Text>{t('boards.boardArchivedNote')}</Text>
+          <Text>{t('boards.boardArchived')}</Text>
           {mayRestore ? (
             <Button
               label={t('boards.restoreBoard')}
@@ -227,11 +242,7 @@ function BoardBody({ board, viewer }: BoardBodyProps) {
             />
           ) : null}
         </View>
-      ) : canEdit ? null : (
-        <View style={styles.note}>
-          <Text>{t('boards.readOnly')}</Text>
-        </View>
-      )}
+      ) : null}
       <View style={styles.summary}>
         <Button
           label={t('boards.summary.overdue', { count: summary.overdue })}
@@ -320,6 +331,8 @@ function BoardBody({ board, viewer }: BoardBodyProps) {
         onChange={setFilters}
         order={order}
         onOrderChange={setOrder}
+        people={assignablePeople(staff.data ?? [])}
+        viewerId={viewer.id}
       />
       <ActionsSheet
         isVisible={sheet === 'menu'}
@@ -339,6 +352,100 @@ function BoardBody({ board, viewer }: BoardBodyProps) {
         board={board}
         onClose={() => setSheet(null)}
         onSaved={() => setSheet(null)}
+      />
+    </>
+  );
+}
+
+/**
+ * «Назначено мне»: the person's cards from every board that is not archived, a column at a time,
+ * each naming its board. A new card is made on a board.
+ */
+function MyCardsBody() {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+  const cards = useMyCards();
+  const [pane, setPane] = useState<BoardColumn>('open');
+  const [filters, setFilters] = useState<CardFilters>(EMPTY_CARD_FILTERS);
+  const [order, setOrder] = useState<CardOrder>('due');
+  const [isFiltering, setIsFiltering] = useState(false);
+  const today = localDay();
+  const all = cards.data ?? [];
+  const matching = all.filter((card) => matchesCardFilters(card, filters, today));
+  const panes = BOARD_COLUMNS.map((column) => ({
+    value: column,
+    label: `${t(`problems.statuses.${column}`)} ${matching.filter((card) => card.column_key === column).length}`,
+  }));
+  const shown = orderCards(
+    matching.filter((card) => card.column_key === pane),
+    order,
+  );
+  const open = (cardId: string) =>
+    router.push({ pathname: '/board-card/[id]', params: { id: cardId } });
+
+  const header = (
+    <View style={styles.header}>
+      <Text variant="heading">{t('boards.assignedToMe')}</Text>
+      <View style={styles.searchRow}>
+        <View style={styles.search}>
+          <TextField
+            label={t('boards.search')}
+            value={filters.query}
+            onChangeText={(query) => setFilters({ ...filters, query })}
+          />
+        </View>
+        <IconButton
+          icon="action.search"
+          accessibilityLabel={t('boards.filters.label')}
+          onPress={() => setIsFiltering(true)}
+        />
+      </View>
+      <ChoiceChips
+        options={panes}
+        value={pane}
+        onChange={setPane}
+        accessibilityLabel={t('boards.column')}
+        semantics="tabs"
+      />
+    </View>
+  );
+
+  return (
+    <>
+      <FlatList
+        data={shown}
+        keyExtractor={(card) => card.id}
+        ListHeaderComponent={header}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={cards.isRefetching} onRefresh={() => void cards.refetch()} />
+        }
+        renderItem={({ item }) => (
+          <BoardCardRow card={item} today={today} onPress={open} boardTitle={item.board.title} />
+        )}
+        ListEmptyComponent={
+          cards.isPending ? (
+            <LoadingState label={t('boards.loading')} />
+          ) : cards.isError && cards.data === undefined ? (
+            <ErrorState error={cards.error} title={t('boards.loadError')} />
+          ) : (
+            <Text tone="secondary" align="center">
+              {all.length === 0
+                ? t('boards.assignedToMeEmpty')
+                : hasCardFilters(filters)
+                  ? t('boards.columnEmptyFiltered')
+                  : t('boards.columnEmpty')}
+            </Text>
+          )
+        }
+      />
+      <FiltersSheet
+        isVisible={isFiltering}
+        onClose={() => setIsFiltering(false)}
+        filters={filters}
+        onChange={setFilters}
+        order={order}
+        onOrderChange={setOrder}
       />
     </>
   );
