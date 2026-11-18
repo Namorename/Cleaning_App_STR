@@ -61,6 +61,11 @@ interface CardFieldsFormProps {
   onChange: (next: FieldsDraft) => void;
   /** Ties the labels to their fields; one per form on the page. */
   idPrefix: string;
+  /**
+   * The place the card has now, by its name: kept in the list even when the place is no
+   * longer offered (archived), so it shows and can be taken away.
+   */
+  currentPlace?: { id: number; name: string } | null;
 }
 
 /**
@@ -68,11 +73,21 @@ interface CardFieldsFormProps {
  * card), the due date, the place and the colour. Shared by the new card's form
  * and the card's own «Изменить».
  */
-export function CardFieldsForm({ draft, onChange, idPrefix }: CardFieldsFormProps) {
+export function CardFieldsForm({
+  draft,
+  onChange,
+  idPrefix,
+  currentPlace = null,
+}: CardFieldsFormProps) {
   const { t } = useTranslation();
   const properties = useProperties();
   // Sorted and composed once per list, not once per keystroke.
-  const places = useMemo(() => propertyOptions(properties.data ?? []), [properties.data]);
+  const places = useMemo(() => {
+    const offered = propertyOptions(properties.data ?? []);
+    return currentPlace === null || offered.some((place) => place.id === currentPlace.id)
+      ? offered
+      : [currentPlace, ...offered];
+  }, [properties.data, currentPlace]);
   const id = (field: string) => `${idPrefix}-${field}`;
 
   return (

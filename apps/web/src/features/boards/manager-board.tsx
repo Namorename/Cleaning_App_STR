@@ -28,6 +28,8 @@ interface ManagerBoardProps {
   /** The owner or an admin; absent, the board is read only. */
   actions?: CardActions;
   cardHref: (cardId: string) => string;
+  /** A plain click on a card opens it over the board. */
+  onOpen?: (cardId: string) => void;
 }
 
 /**
@@ -44,6 +46,7 @@ export function ManagerBoard({
   isFiltered,
   actions,
   cardHref,
+  onOpen,
 }: ManagerBoardProps) {
   const { t } = useTranslation();
   const drag = useColumnDrag<BoardCard, BoardColumn>({
@@ -83,6 +86,7 @@ export function ManagerBoard({
                   card={card}
                   today={today}
                   href={cardHref(card.id)}
+                  onOpen={onOpen}
                   actions={actions}
                   drag={canEdit ? drag.item : undefined}
                 />

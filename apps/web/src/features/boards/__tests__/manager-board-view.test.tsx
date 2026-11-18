@@ -119,6 +119,10 @@ const state = {
   boards: [makeBoard()] as Board[],
   cards: CARDS,
   detail: DETAIL as CardDetail | null,
+  /** The last read of the cards failed, the rows read before it still in hand. */
+  isStale: false,
+  /** The writes the server refuses (by their spy). */
+  failing: new Set<unknown>(),
 };
 
 /** Every write the view asks for; `onSuccess` runs at once, as a server that agrees. */
@@ -142,9 +146,20 @@ function mutation(spy: (variables: unknown) => void) {
     isPending: false,
     isError: false,
     error: null,
-    mutate: (variables: unknown, options?: { onSuccess?: () => void; onSettled?: () => void }) => {
+    mutate: (
+      variables: unknown,
+      options?: {
+        onSuccess?: () => void;
+        onError?: (error: unknown) => void;
+        onSettled?: () => void;
+      },
+    ) => {
       spy(variables);
-      options?.onSuccess?.();
+      if (state.failing.has(spy)) {
+        options?.onError?.({ message: 'refused', hint: 'serverErrors.boardNotYours' });
+      } else {
+        options?.onSuccess?.();
+      }
       options?.onSettled?.();
     },
   };
@@ -152,8 +167,18 @@ function mutation(spy: (variables: unknown) => void) {
 
 vi.mock('../use-boards', () => ({
   useBoards: () => ({ isPending: false, isError: false, error: null, data: state.boards }),
-  useBoardCards: () => ({ isPending: false, isError: false, error: null, data: state.cards }),
-  useCard: () => ({ isPending: false, isError: false, error: null, data: state.detail }),
+  useBoardCards: () => ({
+    isPending: false,
+    isError: state.isStale,
+    error: state.isStale ? new Error('offline') : null,
+    data: state.cards,
+  }),
+  useCard: () => ({
+    isPending: false,
+    isError: state.isStale,
+    error: state.isStale ? new Error('offline') : null,
+    data: state.detail,
+  }),
   useSaveCard: () => mutation(spies.saveCard),
   useMoveCard: () => mutation(spies.move),
   useSetCardShelf: () => mutation(spies.shelve),
@@ -202,6 +227,84 @@ beforeEach(() => {
   state.boards = [makeBoard()];
   state.cards = CARDS;
   state.detail = DETAIL;
+  state.isStale = false;
+  state.failing = new Set();
+});
+
+describe('after the review of the panel', () => {
+  test('a refresh that fails keeps the board and the open card, and says so', () => {
+    state.isStale = true;
+    show({ id: OWNER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
+    expect(screen.getByRole('dialog')).toHaveTextContent('Сантехник придёт во вторник');
+    expect(screen.getByText('Звонок юристу')).toBeInTheDocument();
+    expect(screen.getByText(/^Не удалось обновить доску/)).toBeInTheDocument();
+  });
+
+  test('the card moves by a press of its column, never by arrowing through a list', async () => {
+    const user = userEvent.setup();
+    show({ id: OWNER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
+    const group = within(screen.getByRole('dialog')).getByRole('group', { name: 'Переместить в…' });
+    expect(within(group).getByRole('button', { name: 'Открыто' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await user.click(within(group).getByRole('button', { name: 'В работе' }));
+    expect(spies.move).toHaveBeenCalledWith({ cardId: cardId(1), column: 'in_progress' });
+    await user.click(within(group).getByRole('button', { name: 'Открыто' }));
+    expect(spies.move).toHaveBeenCalledTimes(1);
+  });
+
+  test('a copy refused once is asked again under the same id', async () => {
+    const user = userEvent.setup();
+    state.failing.add(spies.duplicate);
+    show({ id: OWNER, isAdmin: false });
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await user.click(
+        screen.getByRole('button', { name: 'Действия с карточкой «Ремонт ванной»' }),
+      );
+      await user.click(await screen.findByRole('menuitem', { name: 'Дублировать' }));
+    }
+    const [first, second] = spies.duplicate.mock.calls.map(
+      ([variables]) => (variables as { cardId: string }).cardId,
+    );
+    expect(second).toBe(first);
+  });
+
+  test('an older refusal does not hide the «Отменить» of a later success', async () => {
+    const user = userEvent.setup();
+    state.failing.add(spies.duplicate);
+    show({ id: OWNER, isAdmin: false });
+    await user.click(screen.getByRole('button', { name: 'Действия с карточкой «Ремонт ванной»' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Дублировать' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Менять доску может только её владелец');
+    await user.click(screen.getByRole('button', { name: 'Действия с карточкой «Звонок юристу»' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'В архив' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Карточка в архиве');
+    expect(screen.getByRole('button', { name: 'Отменить' })).toBeInTheDocument();
+  });
+
+  test('a step is deleted only after a question', async () => {
+    const user = userEvent.setup();
+    show({ id: OWNER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
+    await user.click(
+      within(screen.getByRole('dialog')).getAllByRole('button', { name: 'Удалить шаг' })[0],
+    );
+    expect(spies.deleteStep).not.toHaveBeenCalled();
+    const question = await screen.findByRole('dialog', { name: 'Удалить шаг?' });
+    await user.click(within(question).getByRole('button', { name: 'Удалить шаг' }));
+    expect(spies.deleteStep).toHaveBeenCalledWith('s1');
+  });
+
+  test('the address of a card of another board opens it read only', () => {
+    state.detail = cardDetailSchema.parse({
+      ...DETAIL,
+      board_id: 'b0a2d100-0000-4000-8000-000000000009',
+    });
+    show({ id: OWNER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).queryByRole('textbox', { name: 'Комментарий' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Дублировать' })).not.toBeInTheDocument();
+  });
 });
 
 afterEach(() => {

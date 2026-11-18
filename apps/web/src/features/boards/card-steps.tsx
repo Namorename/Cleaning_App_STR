@@ -2,12 +2,13 @@
 
 import { BOARD_LIMITS } from '@str-ops/shared';
 import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react';
-import { useId, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { serverErrorText } from '@/lib/server-error';
+import { ConfirmMoveDialog } from '@/features/problems/board-dialogs';
+import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 import { cn } from '@/lib/utils';
 
 import { StepProgress } from './due-chip';
@@ -36,9 +37,16 @@ export function CardSteps({ card, canEdit }: CardStepsProps) {
   const [editing, setEditing] = useState<{ id: string; body: string } | null>(null);
   const [newBody, setNewBody] = useState('');
   const [newId, setNewId] = useState(() => crypto.randomUUID());
-
-  const failed = [tick, save, remove, order].find((mutation) => mutation.isError);
-  const failure = failed === undefined ? null : serverErrorText(failed.error);
+  const [deleting, setDeleting] = useState<CardStep | null>(null);
+  // The latest failure only: an older one never outlives a later success.
+  const [failure, setFailure] = useState<ServerErrorText | null>(null);
+  const outcome = (onSuccess?: () => void) => ({
+    onSuccess: () => {
+      setFailure(null);
+      onSuccess?.();
+    },
+    onError: (error: unknown) => setFailure(serverErrorText(error)),
+  });
 
   const add = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -48,12 +56,10 @@ export function CardSteps({ card, canEdit }: CardStepsProps) {
     }
     save.mutate(
       { stepId: newId, cardId: card.id, body },
-      {
-        onSuccess: () => {
-          setNewBody('');
-          setNewId(crypto.randomUUID());
-        },
-      },
+      outcome(() => {
+        setNewBody('');
+        setNewId(crypto.randomUUID());
+      }),
     );
   };
 
@@ -67,17 +73,21 @@ export function CardSteps({ card, canEdit }: CardStepsProps) {
       setEditing(null);
       return;
     }
-    save.mutate({ stepId: editing.id, cardId: null, body }, { onSuccess: () => setEditing(null) });
+    save.mutate(
+      { stepId: editing.id, cardId: null, body },
+      outcome(() => setEditing(null)),
+    );
   };
 
   const move = (index: number, delta: -1 | 1) => {
     const ids = steps.map((step) => step.id);
     const other = index + delta;
-    if (other < 0 || other >= ids.length) {
+    // One move at a time: the next is counted from the order the last one made.
+    if (other < 0 || other >= ids.length || order.isPending) {
       return;
     }
     [ids[index], ids[other]] = [ids[other], ids[index]];
-    order.mutate({ cardId: card.id, stepIds: ids });
+    order.mutate({ cardId: card.id, stepIds: ids }, outcome());
   };
 
   return (
@@ -96,12 +106,14 @@ export function CardSteps({ card, canEdit }: CardStepsProps) {
               isLast={index === steps.length - 1}
               canEdit={canEdit}
               editing={editing?.id === step.id ? editing.body : null}
-              onTick={() => tick.mutate({ stepId: step.id, done: step.done_at === null })}
+              onTick={() =>
+                tick.mutate({ stepId: step.id, done: step.done_at === null }, outcome())
+              }
               onEdit={() => setEditing({ id: step.id, body: step.body })}
               onEditChange={(body) => setEditing({ id: step.id, body })}
               onEditSave={saveEdit}
               onEditCancel={() => setEditing(null)}
-              onDelete={() => remove.mutate(step.id)}
+              onDelete={() => setDeleting(step)}
               onUp={() => move(index, -1)}
               onDown={() => move(index, 1)}
             />
@@ -115,7 +127,7 @@ export function CardSteps({ card, canEdit }: CardStepsProps) {
             maxLength={BOARD_LIMITS.step}
             placeholder={t('boards.newStep')}
             aria-label={t('boards.addStep')}
-            disabled={save.isPending}
+            aria-busy={save.isPending}
             onChange={(event) => setNewBody(event.target.value)}
             className="h-11"
           />
@@ -129,6 +141,21 @@ export function CardSteps({ card, canEdit }: CardStepsProps) {
           )}
         </p>
       )}
+      <ConfirmMoveDialog
+        open={deleting !== null}
+        title={t('boards.deleteStepTitle')}
+        description={deleting?.body ?? ''}
+        confirmLabel={t('boards.deleteStep')}
+        abortLabel={t('boards.cancel')}
+        isDestructive
+        isBusy={remove.isPending}
+        onConfirm={() => {
+          if (deleting !== null) {
+            remove.mutate(deleting.id, { ...outcome(), onSettled: () => setDeleting(null) });
+          }
+        }}
+        onClose={() => setDeleting(null)}
+      />
     </section>
   );
 }
@@ -167,16 +194,27 @@ function StepRow({
 }: StepRowProps) {
   const { t } = useTranslation();
   const isDone = step.done_at !== null;
+  // Enter and Escape settle the change themselves: the blur that follows them is not a save.
+  const isSettled = useRef(false);
 
   const keys = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault();
+      isSettled.current = true;
       onEditSave();
     } else if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
+      isSettled.current = true;
       onEditCancel();
     }
+  };
+  const blur = () => {
+    if (isSettled.current) {
+      isSettled.current = false;
+      return;
+    }
+    onEditSave();
   };
 
   return (
@@ -207,7 +245,7 @@ function StepRow({
           aria-label={t('boards.editStep')}
           onChange={(event) => onEditChange(event.target.value)}
           onKeyDown={keys}
-          onBlur={onEditSave}
+          onBlur={blur}
           className="h-11 flex-[3]"
         />
       )}

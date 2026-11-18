@@ -24,7 +24,7 @@ export function ColorPicker({ value, onChange, label, disabled = false }: ColorP
   const options: (CardColor | null)[] = [null, ...CARD_COLOR_NAMES];
 
   return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
+    <div role="group" aria-label={label} className="flex flex-wrap gap-1.5">
       {options.map((color) => {
         const isChosen = color === value;
         const name = color === null ? t('boards.noColor') : t(`boards.colors.${color}`);
@@ -32,8 +32,7 @@ export function ColorPicker({ value, onChange, label, disabled = false }: ColorP
           <button
             key={color ?? 'none'}
             type="button"
-            role="radio"
-            aria-checked={isChosen}
+            aria-pressed={isChosen}
             aria-label={name}
             title={name}
             disabled={disabled}
@@ -54,9 +53,7 @@ export function ColorPicker({ value, onChange, label, disabled = false }: ColorP
               )}
             >
               {isChosen ? (
-                <Check
-                  className={cn('size-4', color === null ? 'text-foreground' : 'text-white')}
-                />
+                <Check className={cn('size-4', color === null ? 'text-foreground' : 'text-card')} />
               ) : null}
             </span>
           </button>

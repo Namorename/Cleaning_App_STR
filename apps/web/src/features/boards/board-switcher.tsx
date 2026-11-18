@@ -67,7 +67,7 @@ export function BoardSwitcher({ activeId }: BoardSwitcherProps) {
           className={pill(activeId === board.id)}
           title={board.title}
         >
-          {board.title}
+          <span className="truncate">{board.title}</span>
         </Link>
       ))}
       <Button

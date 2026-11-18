@@ -99,6 +99,24 @@ describe('links in the words', () => {
     expect(splitLinks('')).toEqual([]);
   });
 
+  test("a bracket the link opened is the link's; one it did not open is the sentence's", () => {
+    expect(splitLinks('https://en.wikipedia.org/wiki/Foo_(bar).')).toEqual([
+      {
+        kind: 'link',
+        text: 'https://en.wikipedia.org/wiki/Foo_(bar)',
+        href: 'https://en.wikipedia.org/wiki/Foo_(bar)',
+      },
+      { kind: 'text', text: '.' },
+    ]);
+  });
+
+  test('a long run of punctuation after a link is read in linear time', () => {
+    const started = Date.now();
+    const parts = splitLinks(`https://a.cz/${'.'.repeat(20000)}`);
+    expect(Date.now() - started).toBeLessThan(500);
+    expect(parts[0]).toEqual({ kind: 'link', text: 'https://a.cz/', href: 'https://a.cz/' });
+  });
+
   test('a bare scheme is not a link', () => {
     expect(splitLinks('https:// nothing')).toEqual([{ kind: 'text', text: 'https:// nothing' }]);
   });

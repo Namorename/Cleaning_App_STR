@@ -150,7 +150,30 @@ export type TextPart =
 
 const LINK = /https?:\/\/[^\s<>"']+/gi;
 /** What a sentence puts after a link without it being part of it. */
-const TRAILING = /[.,;:!?)\]}»"']+$/;
+const TRAILING = new Set(['.', ',', ';', ':', '!', '?', ')', ']', '}', '»', '"', "'"]);
+
+function count(text: string, char: string): number {
+  return text.split(char).length - 1;
+}
+
+/**
+ * The link without the sentence's punctuation after it, read from its end one
+ * character at a time. A closing bracket stays when the link opened one
+ * (`…/Foo_(bar)`): only the brackets the link did not open are the sentence's.
+ */
+function linkOf(raw: string): string {
+  let end = raw.length;
+  while (end > 0 && TRAILING.has(raw[end - 1])) {
+    const char = raw[end - 1];
+    const opening = char === ')' ? '(' : char === ']' ? '[' : char === '}' ? '{' : null;
+    const head = raw.slice(0, end);
+    if (opening !== null && count(head, opening) >= count(head, char)) {
+      break;
+    }
+    end -= 1;
+  }
+  return raw.slice(0, end);
+}
 /** A link needs something after its scheme. */
 const BARE_SCHEME = /^https?:\/\/$/i;
 
@@ -165,8 +188,7 @@ export function splitLinks(text: string): TextPart[] {
   for (const match of text.matchAll(LINK)) {
     const start = match.index ?? 0;
     const raw = match[0];
-    const tail = TRAILING.exec(raw)?.[0] ?? '';
-    const href = raw.slice(0, raw.length - tail.length);
+    const href = linkOf(raw);
     if (BARE_SCHEME.test(href)) {
       continue;
     }

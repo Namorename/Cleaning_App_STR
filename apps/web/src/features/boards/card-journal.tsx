@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ConfirmMoveDialog } from '@/features/problems/board-dialogs';
 import { formatDateTime, formatDay } from '@/lib/format-date';
 import type { Language } from '@str-ops/shared';
-import { serverErrorText } from '@/lib/server-error';
+import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
 import { LinkedText } from './linked-text';
@@ -95,8 +95,15 @@ export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
   const [deleting, setDeleting] = useState<CardEntry | null>(null);
   const entries = orderedEntries(card.entries);
 
-  const failed = [save, remove].find((mutation) => mutation.isError);
-  const failure = failed === undefined ? null : serverErrorText(failed.error);
+  // The latest failure only: an older one never outlives a later success.
+  const [failure, setFailure] = useState<ServerErrorText | null>(null);
+  const outcome = (onSuccess?: () => void) => ({
+    onSuccess: () => {
+      setFailure(null);
+      onSuccess?.();
+    },
+    onError: (error: unknown) => setFailure(serverErrorText(error)),
+  });
 
   const send = (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
@@ -106,12 +113,10 @@ export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
     }
     save.mutate(
       { entryId, cardId: card.id, body: words },
-      {
-        onSuccess: () => {
-          setBody('');
-          setEntryId(crypto.randomUUID());
-        },
-      },
+      outcome(() => {
+        setBody('');
+        setEntryId(crypto.randomUUID());
+      }),
     );
   };
 
@@ -132,7 +137,7 @@ export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
     }
     save.mutate(
       { entryId: editing.id, cardId: null, body: words },
-      { onSuccess: () => setEditing(null) },
+      outcome(() => setEditing(null)),
     );
   };
 
@@ -200,7 +205,7 @@ export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
         isBusy={remove.isPending}
         onConfirm={() => {
           if (deleting !== null) {
-            remove.mutate(deleting.id, { onSettled: () => setDeleting(null) });
+            remove.mutate(deleting.id, { ...outcome(), onSettled: () => setDeleting(null) });
           }
         }}
         onClose={() => setDeleting(null)}

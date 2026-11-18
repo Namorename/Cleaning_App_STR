@@ -3074,6 +3074,7 @@
     "addStep": "Add a step",
     "editStep": "Edit the step",
     "deleteStep": "Delete the step",
+    "deleteStepTitle": "Delete the step?",
     "stepUp": "Move the step up",
     "stepDown": "Move the step down",
     "progress": "Steps ticked: {{done}} of {{total}}",
@@ -3157,6 +3158,7 @@
     "cardLoadError": "The card could not be loaded",
     "cardGone": "Card not found",
     "saveError": "Could not save",
+    "staleNote": "The board could not be refreshed — showing what was read before",
     "dragHint": "Drag a card to another column, or move it from its “⋯” menu",
     "moved": "Card moved to “{{column}}”"
   },

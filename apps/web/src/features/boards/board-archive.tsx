@@ -8,12 +8,15 @@ import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
+import { openPlainly } from './open-plainly';
 import { cardPlace, shelfOf, type BoardCard } from './schema';
 
 interface BoardArchiveProps {
   /** The board's shelved cards, already searched and filtered. */
   cards: readonly BoardCard[];
   cardHref: (cardId: string) => string;
+  /** A plain click on a card opens it over the board. */
+  onOpen?: (cardId: string) => void;
   /** The owner or an admin may bring a card back. */
   onRestore?: (card: BoardCard) => void;
   isBusy?: boolean;
@@ -24,7 +27,13 @@ interface BoardArchiveProps {
  * apart, the deleted ones. Nothing is gone for good: each comes back to the
  * column it left with «Вернуть».
  */
-export function BoardArchive({ cards, cardHref, onRestore, isBusy = false }: BoardArchiveProps) {
+export function BoardArchive({
+  cards,
+  cardHref,
+  onOpen,
+  onRestore,
+  isBusy = false,
+}: BoardArchiveProps) {
   const { t } = useTranslation();
   const archived = cards.filter((card) => shelfOf(card) === 'archived');
   const deleted = cards.filter((card) => shelfOf(card) === 'deleted');
@@ -36,6 +45,7 @@ export function BoardArchive({ cards, cardHref, onRestore, isBusy = false }: Boa
         cards={archived}
         at={(card) => card.archived_at}
         cardHref={cardHref}
+        onOpen={onOpen}
         onRestore={onRestore}
         isBusy={isBusy}
       />
@@ -45,6 +55,7 @@ export function BoardArchive({ cards, cardHref, onRestore, isBusy = false }: Boa
         cards={deleted}
         at={(card) => card.deleted_at}
         cardHref={cardHref}
+        onOpen={onOpen}
         onRestore={onRestore}
         isBusy={isBusy}
       />
@@ -58,11 +69,12 @@ interface ShelfProps {
   cards: readonly BoardCard[];
   at: (card: BoardCard) => string | null;
   cardHref: (cardId: string) => string;
+  onOpen?: (cardId: string) => void;
   onRestore?: (card: BoardCard) => void;
   isBusy: boolean;
 }
 
-function Shelf({ title, empty, cards, at, cardHref, onRestore, isBusy }: ShelfProps) {
+function Shelf({ title, empty, cards, at, cardHref, onOpen, onRestore, isBusy }: ShelfProps) {
   const { t } = useTranslation();
   const language = useLanguage();
   const headingId = useId();
@@ -86,6 +98,9 @@ function Shelf({ title, empty, cards, at, cardHref, onRestore, isBusy }: ShelfPr
                 <div className="flex min-w-0 flex-col">
                   <Link
                     href={cardHref(card.id)}
+                    onClick={(event) =>
+                      openPlainly(event, onOpen === undefined ? undefined : () => onOpen(card.id))
+                    }
                     scroll={false}
                     className="font-medium break-words hover:underline"
                   >

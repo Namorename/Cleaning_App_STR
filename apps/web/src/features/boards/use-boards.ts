@@ -1,7 +1,7 @@
 'use client';
 
 import type { BoardColumn } from '@str-ops/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useSupabase } from '@/lib/supabase/use-client';
 
@@ -52,15 +52,32 @@ export function useCard(cardId: string | null) {
   });
 }
 
-/** After any write every board read is stale: boards, cards and the card open. */
-function useInvalidateBoards() {
+/** What a write leaves stale: the list of boards, a board's cards, the card open. */
+type Stale = 'boards' | 'cards' | 'card';
+
+const STALE_KEY: Readonly<Record<Stale, readonly string[]>> = {
+  boards: boardKeys.list(),
+  cards: ['boards', 'cards'],
+  card: ['boards', 'card'],
+};
+
+/**
+ * Marks what a write changed as stale — only that: a tick does not read the
+ * company's boards again. Not awaited: a write is over when the server
+ * answers, and its field is free for the next one while the reads run.
+ */
+function useInvalidate(...parts: Stale[]) {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: boardKeys.all });
+  return () => {
+    for (const part of parts) {
+      void queryClient.invalidateQueries({ queryKey: STALE_KEY[part] });
+    }
+  };
 }
 
 export function useSaveBoard() {
   const client = useSupabase();
-  const invalidate = useInvalidateBoards();
+  const invalidate = useInvalidate('boards');
   return useMutation({
     mutationFn: (variables: SaveBoardVariables) => saveBoard(client, variables),
     onSettled: invalidate,
@@ -69,7 +86,7 @@ export function useSaveBoard() {
 
 export function useSetBoardArchived() {
   const client = useSupabase();
-  const invalidate = useInvalidateBoards();
+  const invalidate = useInvalidate('boards');
   return useMutation({
     mutationFn: (variables: { boardId: string; archived: boolean }) =>
       setBoardArchived(client, variables),
@@ -79,44 +96,63 @@ export function useSetBoardArchived() {
 
 export function useSaveCard() {
   const client = useSupabase();
-  const invalidate = useInvalidateBoards();
+  const invalidate = useInvalidate('cards', 'card');
   return useMutation({
     mutationFn: (variables: SaveCardVariables) => saveCard(client, variables),
     onSettled: invalidate,
   });
 }
 
+/** A cache entry set aside before an optimistic change, put back if the server refuses. */
+interface Kept {
+  key: readonly unknown[];
+  data: unknown;
+}
+
+async function keep(queryClient: QueryClient, key: readonly unknown[]): Promise<Kept> {
+  await queryClient.cancelQueries({ queryKey: key });
+  return { key, data: queryClient.getQueryData(key) };
+}
+
+function putBack(queryClient: QueryClient, kept: readonly Kept[] | undefined) {
+  for (const { key, data } of kept ?? []) {
+    if (data !== undefined) {
+      queryClient.setQueryData(key, data);
+    }
+  }
+}
+
 /**
- * A move shows at once: the card stands in its new column while the server
+ * A move shows at once — on the board and on the card open — while the server
  * is asked, and goes back if it refuses.
  */
 export function useMoveCard(boardId: string) {
   const client = useSupabase();
   const queryClient = useQueryClient();
-  const invalidate = useInvalidateBoards();
-  const key = boardKeys.cards(boardId);
+  const invalidate = useInvalidate('cards', 'card');
   return useMutation({
     mutationFn: (variables: { cardId: string; column: BoardColumn }) => moveCard(client, variables),
     onMutate: async ({ cardId, column }) => {
-      await queryClient.cancelQueries({ queryKey: key });
-      const before = queryClient.getQueryData<BoardCard[]>(key);
-      queryClient.setQueryData<BoardCard[]>(key, (cards) =>
+      const kept = [
+        await keep(queryClient, boardKeys.cards(boardId)),
+        await keep(queryClient, boardKeys.card(cardId)),
+      ];
+      queryClient.setQueryData<BoardCard[]>(boardKeys.cards(boardId), (cards) =>
         cards?.map((card) => (card.id === cardId ? { ...card, column_key: column } : card)),
       );
-      return { before };
+      queryClient.setQueryData<CardDetail | null>(boardKeys.card(cardId), (card) =>
+        card === undefined || card === null ? card : { ...card, column_key: column },
+      );
+      return kept;
     },
-    onError: (_error, _variables, context) => {
-      if (context?.before !== undefined) {
-        queryClient.setQueryData(key, context.before);
-      }
-    },
+    onError: (_error, _variables, kept) => putBack(queryClient, kept),
     onSettled: invalidate,
   });
 }
 
 export function useSetCardShelf() {
   const client = useSupabase();
-  const invalidate = useInvalidateBoards();
+  const invalidate = useInvalidate('cards', 'card');
   return useMutation({
     mutationFn: (variables: { cardId: string; shelf: CardShelf }) =>
       setCardShelf(client, variables),
@@ -126,7 +162,7 @@ export function useSetCardShelf() {
 
 export function useDuplicateCard() {
   const client = useSupabase();
-  const invalidate = useInvalidateBoards();
+  const invalidate = useInvalidate('cards', 'card');
   return useMutation({
     mutationFn: (variables: { sourceId: string; cardId: string; title: string }) =>
       duplicateCard(client, variables),
@@ -134,9 +170,10 @@ export function useDuplicateCard() {
   });
 }
 
+/** A step's write: the card and the board's progress and search are stale after it. */
 export function useSaveStep() {
   const client = useSupabase();
-  const invalidate = useInvalidateBoards();
+  const invalidate = useInvalidate('cards', 'card');
   return useMutation({
     mutationFn: (variables: { stepId: string; cardId: string | null; body: string }) =>
       saveStep(client, variables),
@@ -148,13 +185,12 @@ export function useSaveStep() {
 export function useSetStepDone(cardId: string) {
   const client = useSupabase();
   const queryClient = useQueryClient();
-  const invalidate = useInvalidateBoards();
+  const invalidate = useInvalidate('cards', 'card');
   const key = boardKeys.card(cardId);
   return useMutation({
     mutationFn: (variables: { stepId: string; done: boolean }) => setStepDone(client, variables),
     onMutate: async ({ stepId, done }) => {
-      await queryClient.cancelQueries({ queryKey: key });
-      const before = queryClient.getQueryData<CardDetail | null>(key);
+      const kept = [await keep(queryClient, key)];
       queryClient.setQueryData<CardDetail | null>(key, (card) =>
         card === undefined || card === null
           ? card
@@ -167,39 +203,55 @@ export function useSetStepDone(cardId: string) {
               ),
             },
       );
-      return { before };
+      return kept;
     },
-    onError: (_error, _variables, context) => {
-      if (context?.before !== undefined) {
-        queryClient.setQueryData(key, context.before);
-      }
-    },
+    onError: (_error, _variables, kept) => putBack(queryClient, kept),
     onSettled: invalidate,
   });
 }
 
 export function useDeleteStep() {
   const client = useSupabase();
-  const invalidate = useInvalidateBoards();
+  const invalidate = useInvalidate('cards', 'card');
   return useMutation({
     mutationFn: (stepId: string) => deleteStep(client, stepId),
     onSettled: invalidate,
   });
 }
 
+/** A new order shows at once on the open card, and goes back if the server refuses. */
 export function useOrderSteps() {
   const client = useSupabase();
-  const invalidate = useInvalidateBoards();
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidate('card');
   return useMutation({
     mutationFn: (variables: { cardId: string; stepIds: readonly string[] }) =>
       orderSteps(client, variables),
+    onMutate: async ({ cardId, stepIds }) => {
+      const key = boardKeys.card(cardId);
+      const kept = [await keep(queryClient, key)];
+      queryClient.setQueryData<CardDetail | null>(key, (card) =>
+        card === undefined || card === null
+          ? card
+          : {
+              ...card,
+              steps: card.steps.map((step) => ({
+                ...step,
+                sort_order: stepIds.indexOf(step.id) + 1,
+              })),
+            },
+      );
+      return kept;
+    },
+    onError: (_error, _variables, kept) => putBack(queryClient, kept),
     onSettled: invalidate,
   });
 }
 
+/** A comment's write: only the card's journal is stale. */
 export function useSaveComment() {
   const client = useSupabase();
-  const invalidate = useInvalidateBoards();
+  const invalidate = useInvalidate('card');
   return useMutation({
     mutationFn: (variables: { entryId: string; cardId: string | null; body: string }) =>
       saveComment(client, variables),
@@ -209,7 +261,7 @@ export function useSaveComment() {
 
 export function useDeleteComment() {
   const client = useSupabase();
-  const invalidate = useInvalidateBoards();
+  const invalidate = useInvalidate('card');
   return useMutation({
     mutationFn: (entryId: string) => deleteComment(client, entryId),
     onSettled: invalidate,

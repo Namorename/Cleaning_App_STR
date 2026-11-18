@@ -3126,6 +3126,7 @@
     "addStep": "Přidat krok",
     "editStep": "Upravit krok",
     "deleteStep": "Smazat krok",
+    "deleteStepTitle": "Smazat krok?",
     "stepUp": "Posunout krok výš",
     "stepDown": "Posunout krok níž",
     "progress": "Odškrtnuto kroků: {{done}} z {{total}}",
@@ -3209,6 +3210,7 @@
     "cardLoadError": "Kartu se nepodařilo načíst",
     "cardGone": "Karta nenalezena",
     "saveError": "Nepodařilo se uložit",
+    "staleNote": "Nástěnku se nepodařilo obnovit — zobrazeno, co bylo načteno dříve",
     "dragHint": "Kartu přetáhněte do jiného sloupce nebo ji přesuňte z nabídky „⋯“",
     "moved": "Karta přesunuta do „{{column}}“"
   },

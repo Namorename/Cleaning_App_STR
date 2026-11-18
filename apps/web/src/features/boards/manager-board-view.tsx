@@ -11,7 +11,7 @@ import {
   type DueFilter,
 } from '@str-ops/shared';
 import { Ellipsis, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageHeader } from '@/components/page-header';
@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmMoveDialog } from '@/features/problems/board-dialogs';
 import { todayIso } from '@/lib/format-date';
-import { serverErrorText } from '@/lib/server-error';
+import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 import { useAddressState } from '@/lib/use-address-state';
 
 import { readBoardAddress, writeBoardAddress, type BoardShelfView } from './address';
@@ -71,17 +71,28 @@ export function ManagerBoardView({ boardId, viewer }: ManagerBoardViewProps) {
   const boards = useBoards();
   const cards = useBoardCards(boardId);
 
-  if (boards.isPending || cards.isPending) {
-    return <LoadingState>{t('boards.loading')}</LoadingState>;
-  }
-  if (boards.isError || cards.isError) {
-    return <ErrorState message={t('boards.loadError')} error={boards.error ?? cards.error} />;
+  // A read that failed while the board was already on screen (a refresh after a write, a
+  // window focused again) leaves the board as it is — with its drafts, filters and dialogs —
+  // and says so under it; only a board never read shows the failure instead.
+  if (boards.data === undefined || cards.data === undefined) {
+    return boards.isError || cards.isError ? (
+      <ErrorState message={t('boards.loadError')} error={boards.error ?? cards.error} />
+    ) : (
+      <LoadingState>{t('boards.loading')}</LoadingState>
+    );
   }
   const board = boards.data.find((candidate) => candidate.id === boardId);
   if (board === undefined) {
     return <EmptyState>{t('serverErrors.boardNotFound')}</EmptyState>;
   }
-  return <BoardPage board={board} cards={cards.data} viewer={viewer} />;
+  return (
+    <BoardPage
+      board={board}
+      cards={cards.data}
+      viewer={viewer}
+      isStale={boards.isError || cards.isError}
+    />
+  );
 }
 
 /** What the line under the board says after a card left it: with «Отменить». */
@@ -94,13 +105,22 @@ function BoardPage({
   board,
   cards,
   viewer,
+  isStale,
 }: {
   board: Board;
   cards: readonly BoardCard[];
   viewer: BoardViewer;
+  /** The last read failed: what shows is the read before it. */
+  isStale: boolean;
 }) {
   const { t } = useTranslation();
   const [address, setAddress] = useAddressState(readBoardAddress, writeBoardAddress);
+  // The latest failure only: an older one never hides the line of a later success.
+  const [failure, setFailure] = useState<ServerErrorText | null>(null);
+  // A card opened from this page was pushed onto the history: closing it goes back.
+  const openedHere = useRef(false);
+  // The copy each card's «Дублировать» is making: a repeat after a lost answer is the same copy.
+  const copies = useRef(new Map<string, string>());
   const [filters, setFilters] = useState<CardFilters>(EMPTY_CARD_FILTERS);
   const [order, setOrder] = useState<CardOrder>('due');
   const [isCreating, setIsCreating] = useState(false);
@@ -127,38 +147,61 @@ function BoardPage({
 
   const here = { boardId: board.id, view: address.view, cardId: null };
   const cardHref = (cardId: string) => `/problems?${writeBoardAddress({ ...here, cardId })}`;
-  const openCard = (cardId: string) => setAddress({ ...here, cardId }, 'push');
-  const closeCard = () => setAddress({ ...here, cardId: null });
+  const openCard = (cardId: string) => {
+    openedHere.current = true;
+    setAddress({ ...here, cardId }, 'push');
+  };
+  const closeCard = () => {
+    if (openedHere.current) {
+      openedHere.current = false;
+      window.history.back();
+      return;
+    }
+    setAddress({ ...here, cardId: null });
+  };
+  /** A write's own outcome: its refusal replaces any older one, its success clears it. */
+  const outcome = (onSuccess?: () => void) => ({
+    onSuccess: () => {
+      setFailure(null);
+      onSuccess?.();
+    },
+    onError: (error: unknown) => setFailure(serverErrorText(error)),
+  });
 
-  const putOn = (card: Pick<BoardCard, 'id' | 'title'>, shelf: CardShelf) =>
+  const putOn = (card: Pick<BoardCard, 'id' | 'title'>, shelf: CardShelf) => {
+    setShelved(null);
     shelve.mutate(
       { cardId: card.id, shelf },
-      { onSuccess: () => setShelved(shelf === 'active' ? null : { card, shelf }) },
+      outcome(() => setShelved(shelf === 'active' ? null : { card, shelf })),
     );
+  };
+
+  const copy = (card: BoardCard) => {
+    if (duplicate.isPending) {
+      return;
+    }
+    const cardId = copies.current.get(card.id) ?? crypto.randomUUID();
+    copies.current.set(card.id, cardId);
+    const title = t('boards.copyTitle', { title: card.title }).slice(0, BOARD_LIMITS.cardTitle);
+    duplicate.mutate(
+      { sourceId: card.id, cardId, title },
+      outcome(() => {
+        copies.current.delete(card.id);
+        openCard(cardId);
+      }),
+    );
+  };
 
   const actions: CardActions | undefined = canEdit
     ? {
         onMove: (card, column) => {
           setShelved(null);
-          move.mutate({ cardId: card.id, column });
+          move.mutate({ cardId: card.id, column }, outcome());
         },
-        onDuplicate: (card) => {
-          const cardId = crypto.randomUUID();
-          const title = t('boards.copyTitle', { title: card.title }).slice(
-            0,
-            BOARD_LIMITS.cardTitle,
-          );
-          duplicate.mutate(
-            { sourceId: card.id, cardId, title },
-            { onSuccess: () => openCard(cardId) },
-          );
-        },
+        onDuplicate: copy,
         onShelve: putOn,
       }
     : undefined;
-
-  const failed = [move, shelve, duplicate, archiveBoard].find((mutation) => mutation.isError);
-  const failure = failed === undefined ? null : serverErrorText(failed.error);
 
   return (
     <div className="flex flex-col gap-4">
@@ -213,7 +256,7 @@ function BoardPage({
               type="button"
               className="h-11"
               disabled={archiveBoard.isPending}
-              onClick={() => archiveBoard.mutate({ boardId: board.id, archived: false })}
+              onClick={() => archiveBoard.mutate({ boardId: board.id, archived: false }, outcome())}
             >
               {t('boards.restoreBoard')}
             </Button>
@@ -253,12 +296,14 @@ function BoardPage({
             isFiltered={isFiltered}
             actions={actions}
             cardHref={cardHref}
+            onOpen={openCard}
           />
         </TabsContent>
         <TabsContent value="archive">
           <BoardArchive
             cards={offBoard}
             cardHref={cardHref}
+            onOpen={openCard}
             onRestore={canEdit ? (card) => putOn(card, 'active') : undefined}
             isBusy={shelve.isPending}
           />
@@ -286,6 +331,8 @@ function BoardPage({
               {t('boards.undo')}
             </Button>
           </span>
+        ) : isStale ? (
+          t('boards.staleNote')
         ) : canEdit ? (
           t('boards.dragHint')
         ) : null}
@@ -333,7 +380,7 @@ function BoardPage({
         onConfirm={() =>
           archiveBoard.mutate(
             { boardId: board.id, archived: true },
-            { onSettled: () => setIsArchiving(false) },
+            { ...outcome(), onSettled: () => setIsArchiving(false) },
           )
         }
         onClose={() => setIsArchiving(false)}

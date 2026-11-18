@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 
 import { DueChip, StepProgress } from './due-chip';
+import { openPlainly } from './open-plainly';
 import { cardPlace, type BoardCard, type CardShelf } from './schema';
 
 export interface CardActions {
@@ -33,6 +34,8 @@ interface CardTileProps {
   today: string;
   /** Where the card opens: the board's address with `card=<id>`. */
   href: string;
+  /** A plain click opens the card over the board ('openPlainly'). */
+  onOpen?: (cardId: string) => void;
   /** The owner or an admin: the menu and the drag; another manager only reads. */
   actions?: CardActions;
   drag?: ItemDrag<BoardCard>;
@@ -45,7 +48,7 @@ interface CardTileProps {
  * it — so nothing is left to the mouse alone. The title's link covers the
  * card; the menu sits above it.
  */
-export function CardTile({ card, today, href, actions, drag }: CardTileProps) {
+export function CardTile({ card, today, href, onOpen, actions, drag }: CardTileProps) {
   const { t } = useTranslation();
   const titleId = useId();
   const place = cardPlace(card);
@@ -78,6 +81,9 @@ export function CardTile({ card, today, href, actions, drag }: CardTileProps) {
         <Link
           id={titleId}
           href={href}
+          onClick={(event) =>
+            openPlainly(event, onOpen === undefined ? undefined : () => onOpen(card.id))
+          }
           scroll={false}
           className="font-medium break-words outline-none after:absolute after:inset-0 after:rounded-lg"
         >

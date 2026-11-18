@@ -8,7 +8,7 @@ import {
   LAST_BOARD_COLUMN,
   type BoardColumn,
 } from '@str-ops/shared';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cardColorStyle, SWATCH_CLASS } from '@/components/board/card-color';
@@ -21,10 +21,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { NativeSelect } from '@/components/ui/native-select';
 import { formatDateTime } from '@/lib/format-date';
-import { serverErrorText } from '@/lib/server-error';
+import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
 import { CardFieldsForm, draftOf, fieldsOf, type FieldsDraft } from './card-fields';
@@ -68,12 +66,13 @@ export function CardDialog(props: CardDialogProps) {
   return (
     <Dialog open onOpenChange={(next) => (next ? undefined : props.onClose())}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        {card.isPending ? (
+        {/* A refresh that fails keeps the card read before it, with what is being typed. */}
+        {card.data === undefined && !card.isError ? (
           <>
             <DialogTitle className="sr-only">{t('boards.cardLoading')}</DialogTitle>
             <LoadingState>{t('boards.cardLoading')}</LoadingState>
           </>
-        ) : card.isError ? (
+        ) : card.data === undefined ? (
           <>
             <DialogTitle className="sr-only">{t('boards.cardLoadError')}</DialogTitle>
             <ErrorState message={t('boards.cardLoadError')} error={card.error} />
@@ -104,7 +103,12 @@ function CardBody({
   const shelve = useSetCardShelf();
   const duplicate = useDuplicateCard();
   const [dismissedDone, setDismissedDone] = useState(false);
-  const boardEditable = canEditBoard(board, viewer);
+  // The latest failure only: an older one never outlives a later success.
+  const [failure, setFailure] = useState<ServerErrorText | null>(null);
+  // The copy «Дублировать» is making: a repeat after a lost answer is the same copy.
+  const copyId = useRef<string | null>(null);
+  // A card of another board in the address is read, never changed from this one's rights.
+  const boardEditable = canEditBoard(board, viewer) && card.board_id === board.id;
   const shelf = shelfOf(card);
   const canEdit = boardEditable && shelf === 'active';
   const offersDone =
@@ -113,19 +117,38 @@ function CardBody({
     card.column_key !== LAST_BOARD_COLUMN &&
     isEveryStepDone(card.steps);
 
-  const failed = [move, shelve, duplicate].find((mutation) => mutation.isError);
-  const failure = failed === undefined ? null : serverErrorText(failed.error);
   const lastColumn = t(`problems.statuses.${LAST_BOARD_COLUMN}`);
+  const outcome = (onSuccess?: () => void) => ({
+    onSuccess: () => {
+      setFailure(null);
+      onSuccess?.();
+    },
+    onError: (error: unknown) => setFailure(serverErrorText(error)),
+  });
 
-  const moveTo = (column: BoardColumn) => move.mutate({ cardId: card.id, column });
+  const moveTo = (column: BoardColumn) => {
+    if (column !== card.column_key) {
+      move.mutate({ cardId: card.id, column }, outcome());
+    }
+  };
   const putOn = (next: CardShelf) =>
-    shelve.mutate({ cardId: card.id, shelf: next }, { onSuccess: () => onShelved(card, next) });
+    shelve.mutate(
+      { cardId: card.id, shelf: next },
+      outcome(() => onShelved(card, next)),
+    );
   const copy = () => {
-    const cardId = crypto.randomUUID();
+    if (duplicate.isPending) {
+      return;
+    }
+    const cardId = copyId.current ?? crypto.randomUUID();
+    copyId.current = cardId;
     const title = t('boards.copyTitle', { title: card.title }).slice(0, BOARD_LIMITS.cardTitle);
     duplicate.mutate(
       { sourceId: card.id, cardId, title },
-      { onSuccess: () => onDuplicated(cardId) },
+      outcome(() => {
+        copyId.current = null;
+        onDuplicated(cardId);
+      }),
     );
   };
 
@@ -186,7 +209,7 @@ function CardBody({
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <div className="flex min-w-0 flex-col gap-6">
-          <ColumnLine card={card} canEdit={canEdit} isBusy={move.isPending} onMove={moveTo} />
+          <ColumnLine card={card} canEdit={canEdit} onMove={moveTo} />
           <CardFields card={card} today={today} canEdit={canEdit} />
           <CardSteps card={card} canEdit={canEdit} />
           {boardEditable && shelf === 'active' ? (
@@ -235,19 +258,21 @@ function CardBody({
   );
 }
 
+/**
+ * The card's column as four buttons, the current one pressed: a move is a
+ * press, never the side effect of arrowing through a list (WCAG 3.2.2). The
+ * move shows at once (useMoveCard) and goes back if the server refuses.
+ */
 function ColumnLine({
   card,
   canEdit,
-  isBusy,
   onMove,
 }: {
   card: CardDetail;
   canEdit: boolean;
-  isBusy: boolean;
   onMove: (column: BoardColumn) => void;
 }) {
   const { t } = useTranslation();
-  const id = `card-${card.id}-column`;
   if (!canEdit) {
     return (
       <p className="text-sm">
@@ -257,21 +282,22 @@ function ColumnLine({
     );
   }
   return (
-    <div className="flex flex-col gap-1">
-      <Label htmlFor={id}>{t('boards.column')}</Label>
-      <NativeSelect
-        id={id}
-        value={card.column_key}
-        disabled={isBusy}
-        className="h-11 sm:max-w-xs"
-        onChange={(event) => onMove(event.target.value as BoardColumn)}
-      >
+    <div role="group" aria-label={t('boards.moveTo')} className="flex flex-col gap-1">
+      <span className="text-sm font-medium">{t('boards.column')}</span>
+      <div className="flex flex-wrap gap-2">
         {BOARD_COLUMNS.map((column) => (
-          <option key={column} value={column}>
+          <Button
+            key={column}
+            type="button"
+            variant={column === card.column_key ? 'default' : 'outline'}
+            aria-pressed={column === card.column_key}
+            className="h-11"
+            onClick={() => onMove(column)}
+          >
             {t(`problems.statuses.${column}`)}
-          </option>
+          </Button>
         ))}
-      </NativeSelect>
+      </div>
     </div>
   );
 }
@@ -305,7 +331,14 @@ function CardFields({
     };
     return (
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <CardFieldsForm draft={draft} onChange={setDraft} idPrefix={`card-${card.id}`} />
+        <CardFieldsForm
+          draft={draft}
+          onChange={setDraft}
+          idPrefix={`card-${card.id}`}
+          currentPlace={
+            card.property_id === null ? null : { id: card.property_id, name: place ?? '—' }
+          }
+        />
         {failure === null ? null : (
           <p role="alert" className="text-sm text-destructive">
             {failure.text}

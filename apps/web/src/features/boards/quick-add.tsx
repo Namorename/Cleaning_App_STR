@@ -56,7 +56,7 @@ export function QuickAdd({ boardId, column }: QuickAddProps) {
         maxLength={BOARD_LIMITS.cardTitle}
         placeholder={t('boards.quickAdd')}
         aria-label={t('boards.quickAddLabel', { column: columnName })}
-        disabled={save.isPending}
+        aria-busy={save.isPending}
         onChange={(event) => setTitle(event.target.value)}
         className="h-11 bg-card"
       />
