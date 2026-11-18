@@ -161,9 +161,10 @@ export function duplicateCard(variables: {
   });
 }
 
+/** Adds a step to the card `cardId` names; with `cardId` null, changes the step's words. */
 export function saveStep(variables: {
   stepId: string;
-  cardId: string;
+  cardId: string | null;
   body: string;
 }): Promise<void> {
   return call('save_manager_step', {
@@ -188,9 +189,10 @@ export function orderSteps(variables: {
   return call('order_manager_steps', { p_card_id: variables.cardId, p_ids: variables.stepIds });
 }
 
+/** Writes a comment on the card `cardId` names; with `cardId` null, its author changes its words. */
 export function saveComment(variables: {
   entryId: string;
-  cardId: string;
+  cardId: string | null;
   body: string;
 }): Promise<void> {
   return call('save_manager_comment', {

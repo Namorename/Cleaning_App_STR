@@ -1,6 +1,6 @@
 import { t } from 'i18next';
 
-import { moveCard, saveCard, saveComment, setCardShelf } from '../api';
+import { moveCard, saveCard, saveComment, saveStep, setCardShelf } from '../api';
 import { entrySentence } from '../format';
 import {
   canDeleteComment,
@@ -111,6 +111,15 @@ describe('the writes', () => {
       p_column: 'open',
       p_steps: ['one'],
     });
+  });
+
+  test("a change of a step's or a comment's words names no card", async () => {
+    await saveStep({ stepId: 's1', cardId: null, body: ' new ' });
+    await saveComment({ entryId: 'e1', cardId: null, body: 'changed' });
+    expect(mockRpc.mock.calls).toEqual([
+      ['save_manager_step', { p_id: 's1', p_card_id: null, p_body: 'new' }],
+      ['save_manager_comment', { p_id: 'e1', p_card_id: null, p_body: 'changed' }],
+    ]);
   });
 
   test('a saved card sends neither a column nor steps', async () => {

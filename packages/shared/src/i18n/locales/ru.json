@@ -3161,6 +3161,8 @@
     "cardDeleted": "Карточка удалена",
     "undo": "Отменить",
     "cardMenu": "Действия с карточкой «{{title}}»",
+    "stepMenu": "Действия с шагом «{{step}}»",
+    "commentMenu": "Действия с комментарием",
     "openCard": "Открыть карточку «{{title}}»",
     "viewBoard": "Доска",
     "viewArchive": "Архив",

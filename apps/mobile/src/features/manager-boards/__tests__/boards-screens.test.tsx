@@ -289,6 +289,33 @@ describe('the card screen', () => {
     expect(mockSpies.move).toHaveBeenCalledWith({ cardId: DETAIL.id, column: 'resolved' });
   });
 
+  test('the due date is picked on the month grid and saved with the fields', async () => {
+    await render(<CardScreen cardId={DETAIL.id} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Изменить' }));
+    const day = addDays(5);
+    if (day.slice(0, 7) !== DETAIL.due_on?.slice(0, 7)) {
+      await fireEvent.press(screen.getByLabelText(/следующий месяц/i));
+    }
+    await fireEvent.press(screen.getByTestId(`month-grid-day-${day}`));
+    await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(mockSpies.saveCard).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        cardId: DETAIL.id,
+        fields: expect.objectContaining({ dueOn: day }),
+      }),
+    );
+  });
+
+  test('«Убрать срок» saves a card without one', async () => {
+    await render(<CardScreen cardId={DETAIL.id} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Изменить' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Убрать срок' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(mockSpies.saveCard).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fields: expect.objectContaining({ dueOn: null }) }),
+    );
+  });
+
   test('a tick goes to its function', async () => {
     mockState.detail = cardDetailSchema.parse({
       ...DETAIL,

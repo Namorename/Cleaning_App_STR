@@ -67,10 +67,7 @@ export function CardSteps({ card, canEdit }: CardStepsProps) {
       setEditing(null);
       return;
     }
-    save.mutate(
-      { stepId: editing.id, cardId: card.id, body },
-      { onSuccess: () => setEditing(null) },
-    );
+    save.mutate({ stepId: editing.id, cardId: null, body }, { onSuccess: () => setEditing(null) });
   };
 
   const move = (index: number, delta: -1 | 1) => {

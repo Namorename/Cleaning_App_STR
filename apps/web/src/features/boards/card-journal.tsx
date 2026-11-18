@@ -131,7 +131,7 @@ export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
       return;
     }
     save.mutate(
-      { entryId: editing.id, cardId: card.id, body: words },
+      { entryId: editing.id, cardId: null, body: words },
       { onSuccess: () => setEditing(null) },
     );
   };

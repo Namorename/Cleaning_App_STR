@@ -12,6 +12,7 @@ import {
   orderSteps,
   saveCard,
   saveComment,
+  saveStep,
   setCardShelf,
   type Client,
 } from '../api';
@@ -196,6 +197,18 @@ describe('the calls', () => {
       ['order_manager_steps', { p_card_id: CARD, p_ids: ['s2', 's1'] }],
       ['save_manager_comment', { p_id: 'e1', p_card_id: CARD, p_body: 'hi' }],
       ['delete_manager_comment', { p_id: 'e1' }],
+    ]);
+  });
+
+  test("a change of a step's or a comment's words names no card; an add names it", async () => {
+    const { client, rpc } = recordingClient();
+    await saveStep(client, { stepId: 's1', cardId: null, body: ' new words ' });
+    await saveComment(client, { entryId: 'e1', cardId: null, body: 'changed' });
+    await saveStep(client, { stepId: 's2', cardId: CARD, body: 'added' });
+    expect(rpc.mock.calls).toEqual([
+      ['save_manager_step', { p_id: 's1', p_card_id: null, p_body: 'new words' }],
+      ['save_manager_comment', { p_id: 'e1', p_card_id: null, p_body: 'changed' }],
+      ['save_manager_step', { p_id: 's2', p_card_id: CARD, p_body: 'added' }],
     ]);
   });
 

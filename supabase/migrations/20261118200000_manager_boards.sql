@@ -297,12 +297,15 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_title text := btrim(coalesce(p_title, ''));
+  v_title text := btrim(coalesce(p_title, ''), E' \t\r\n');
   v_board public.manager_boards;
 begin
   if not public.is_manager() then
     raise exception 'Only a manager may do this'
       using errcode = 'insufficient_privilege', hint = 'serverErrors.managerOnly';
+  end if;
+  if p_id is null then
+    raise exception 'A board needs an id' using errcode = 'invalid_parameter_value', hint = 'serverErrors.unknown';
   end if;
   if char_length(v_title) not between 1 and 80 then
     raise exception 'A board needs a title of up to 80 characters'
@@ -316,6 +319,11 @@ begin
   values (p_id, public.current_host_id(), v_title, (select auth.uid()))
   on conflict (id) do nothing;
 
+  -- The row is written below: taken for update first, so two saves of one board queue rather
+  -- than each holding the share the other's update waits for.
+  perform 1 from public.manager_boards b
+  where b.id = p_id and b.host_id = public.current_host_id()
+  for update;
   v_board := public.manager_board_for_edit(p_id, false);
   if v_board.title is distinct from v_title then
     update public.manager_boards b
@@ -340,6 +348,14 @@ as $$
 declare
   v_board public.manager_boards;
 begin
+  if not public.is_manager() then
+    raise exception 'Only a manager may do this'
+      using errcode = 'insufficient_privilege', hint = 'serverErrors.managerOnly';
+  end if;
+  -- Taken for update before the rights' share: two archives of one board queue (see above).
+  perform 1 from public.manager_boards b
+  where b.id = p_id and b.host_id = public.current_host_id()
+  for update;
   v_board := public.manager_board_for_edit(p_id, true);
   if coalesce(p_archived, false) = (v_board.archived_at is not null) then
     return v_board;
@@ -367,8 +383,11 @@ comment on function public.set_manager_board_archived(uuid, boolean) is
  * ('open' when none is said) with the steps p_steps names (an array of their words, in order).
  * A saved card keeps its board, its column (move_manager_card moves it) and its steps (they
  * have functions of their own): p_board_id, p_column and p_steps are read on the create only.
- * A due date that changes leaves a line in the journal. A repeat of the create answers the same
- * card.
+ * A due date that changes leaves a line in the journal.
+ *
+ * A call that says its column is a create, and a save of the fields never says one: a repeat of
+ * a create — the card is there already — answers the card as it stands, whatever was done to it
+ * since. A stale create neither undoes an edit nor stumbles on a card archived meanwhile.
  */
 create or replace function public.save_manager_card(
   p_id          uuid,
@@ -387,7 +406,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_title       text := btrim(coalesce(p_title, ''));
+  v_title       text := btrim(coalesce(p_title, ''), E' \t\r\n');
   v_description text := coalesce(p_description, '');
   v_column      text := coalesce(p_column, 'open');
   v_card        public.manager_board_cards;
@@ -398,6 +417,9 @@ begin
   if not public.is_manager() then
     raise exception 'Only a manager may do this'
       using errcode = 'insufficient_privilege', hint = 'serverErrors.managerOnly';
+  end if;
+  if p_id is null then
+    raise exception 'A card needs an id' using errcode = 'invalid_parameter_value', hint = 'serverErrors.unknown';
   end if;
   if char_length(v_title) not between 1 and 200 then
     raise exception 'A card needs a title of up to 200 characters'
@@ -435,7 +457,7 @@ begin
     end if;
     for v_step in select value from jsonb_array_elements(p_steps) loop
       if jsonb_typeof(v_step) <> 'string'
-         or char_length(btrim(v_step #>> '{}')) not between 1 and 500 then
+         or char_length(btrim(v_step #>> '{}', E' \t\r\n')) not between 1 and 500 then
         raise exception 'A step needs words, up to 500 characters'
           using errcode = 'check_violation', hint = 'serverErrors.boardStepInvalid',
                 detail = jsonb_build_object('max', 500)::text;
@@ -457,12 +479,24 @@ begin
 
     if v_card.id is not null then
       insert into public.manager_board_steps (id, host_id, card_id, body, sort_order, created_by)
-      select gen_random_uuid(), v_card.host_id, v_card.id, btrim(s.body), s.n::integer,
+      select gen_random_uuid(), v_card.host_id, v_card.id, btrim(s.body, E' \t\r\n'), s.n::integer,
              (select auth.uid())
       from jsonb_array_elements_text(coalesce(p_steps, '[]'::jsonb)) with ordinality s(body, n);
       return v_card;
     end if;
-    -- Saved meanwhile by a repeat: it is the card below.
+    -- Saved meanwhile by a repeat: it is a repeat of the create, below.
+  end if;
+
+  if p_column is not null then
+    -- A repeat of a create: the card as it stands, if it is the caller's company's.
+    select c.* into v_card
+    from public.manager_board_cards c
+    where c.id = p_id and c.host_id = public.current_host_id();
+    if not found then
+      raise exception 'Card % not found', p_id
+        using errcode = 'no_data_found', hint = 'serverErrors.boardCardNotFound';
+    end if;
+    return v_card;
   end if;
 
   v_card := public.manager_card_for_edit(p_id, false);
@@ -577,7 +611,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_title  text := btrim(coalesce(p_title, ''));
+  v_title  text := btrim(coalesce(p_title, ''), E' \t\r\n');
   v_source public.manager_board_cards;
   v_card   public.manager_board_cards;
 begin
@@ -654,8 +688,8 @@ comment on function public.manager_step_card(uuid) is
   'Internal: the card of a step the caller may change, or the refusal (20261118200000).';
 
 /**
- * Adds a step with the client's id at the end of the card's list, or changes its words. A
- * repeat of the add answers the same step.
+ * Adds a step with the client's id at the end of the card's list (p_card_id names the card), or
+ * changes its words (p_card_id null). A repeat of the add answers the step as it stands.
  */
 create or replace function public.save_manager_step(p_id uuid, p_card_id uuid, p_body text)
 returns public.manager_board_steps
@@ -664,13 +698,16 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_body text := btrim(coalesce(p_body, ''));
+  v_body text := btrim(coalesce(p_body, ''), E' \t\r\n');
   v_card public.manager_board_cards;
   v_step public.manager_board_steps;
 begin
   if not public.is_manager() then
     raise exception 'Only a manager may do this'
       using errcode = 'insufficient_privilege', hint = 'serverErrors.managerOnly';
+  end if;
+  if p_id is null then
+    raise exception 'A step needs an id' using errcode = 'invalid_parameter_value', hint = 'serverErrors.unknown';
   end if;
   if char_length(v_body) not between 1 and 500 then
     raise exception 'A step needs words, up to 500 characters'
@@ -679,8 +716,24 @@ begin
   end if;
 
   if exists (select 1 from public.manager_board_steps s where s.id = p_id) then
+    if p_card_id is not null then
+      -- A repeat of an add (an add names its card, a change of words does not): the step as it
+      -- stands, whatever was done to it since, if it is the caller's company's.
+      select s.* into v_step
+      from public.manager_board_steps s
+      where s.id = p_id and s.host_id = public.current_host_id();
+      if not found then
+        raise exception 'Step % not found', p_id
+          using errcode = 'no_data_found', hint = 'serverErrors.boardStepNotFound';
+      end if;
+      return v_step;
+    end if;
     v_card := public.manager_step_card(p_id);
   else
+    if p_card_id is null then
+      raise exception 'Step % not found', p_id
+        using errcode = 'no_data_found', hint = 'serverErrors.boardStepNotFound';
+    end if;
     v_card := public.manager_card_for_edit(p_card_id, false);
     if (select count(*) from public.manager_board_steps s where s.card_id = v_card.id) >= 100 then
       raise exception 'A card holds up to 100 steps'
@@ -692,7 +745,19 @@ begin
             coalesce((select max(s.sort_order) from public.manager_board_steps s
                       where s.card_id = v_card.id), 0) + 1,
             (select auth.uid()))
-    on conflict (id) do nothing;
+    on conflict (id) do nothing
+    returning * into v_step;
+    if v_step.id is null then
+      -- Added meanwhile by a repeat: that step, as it stands.
+      select s.* into v_step
+      from public.manager_board_steps s
+      where s.id = p_id and s.host_id = v_card.host_id;
+      if not found then
+        raise exception 'Step % not found', p_id
+          using errcode = 'no_data_found', hint = 'serverErrors.boardStepNotFound';
+      end if;
+    end if;
+    return v_step;
   end if;
 
   select s.* into v_step
@@ -818,8 +883,9 @@ comment on function public.order_manager_steps(uuid, uuid[]) is
 -- ===================================================================
 
 /**
- * Writes a comment with the client's id, or changes its words — its author only; a change
- * marks it edited. A repeat of the first save answers the same comment.
+ * Writes a comment with the client's id (p_card_id names the card), or changes its words
+ * (p_card_id null) — its author only; a change marks it edited. A repeat of the write answers
+ * the comment as it stands, whatever was done to it since.
  */
 create or replace function public.save_manager_comment(p_id uuid, p_card_id uuid, p_body text)
 returns public.manager_board_entries
@@ -828,13 +894,16 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_body  text := btrim(coalesce(p_body, ''));
+  v_body  text := btrim(coalesce(p_body, ''), E' \t\r\n');
   v_card  public.manager_board_cards;
   v_entry public.manager_board_entries;
 begin
   if not public.is_manager() then
     raise exception 'Only a manager may do this'
       using errcode = 'insufficient_privilege', hint = 'serverErrors.managerOnly';
+  end if;
+  if p_id is null then
+    raise exception 'A comment needs an id' using errcode = 'invalid_parameter_value', hint = 'serverErrors.unknown';
   end if;
   if v_body = '' then
     raise exception 'A comment needs words'
@@ -850,22 +919,33 @@ begin
   from public.manager_board_entries e
   where e.id = p_id and e.host_id = public.current_host_id();
 
+  if found and p_card_id is not null then
+    -- A repeat of a write (a write names its card, a change of words does not): the comment as
+    -- it stands, whatever was done to it since.
+    return v_entry;
+  end if;
+
   if not found then
+    if p_card_id is null then
+      raise exception 'Comment % not found', p_id
+        using errcode = 'no_data_found', hint = 'serverErrors.boardCommentNotYours';
+    end if;
     v_card := public.manager_card_for_edit(p_card_id, false);
     insert into public.manager_board_entries (id, host_id, card_id, kind, body, author_id)
     values (p_id, v_card.host_id, v_card.id, 'comment', v_body, (select auth.uid()))
     on conflict (id) do nothing
     returning * into v_entry;
-    if v_entry.id is not null then
-      return v_entry;
+    if v_entry.id is null then
+      -- Written meanwhile by a repeat (or another company's id): the comment as it stands.
+      select e.* into v_entry
+      from public.manager_board_entries e
+      where e.id = p_id and e.host_id = v_card.host_id;
+      if not found then
+        raise exception 'Comment % not found', p_id
+          using errcode = 'no_data_found', hint = 'serverErrors.boardCommentNotYours';
+      end if;
     end if;
-    select e.* into v_entry
-    from public.manager_board_entries e
-    where e.id = p_id and e.host_id = v_card.host_id;
-    if not found then
-      raise exception 'Comment % not found', p_id
-        using errcode = 'no_data_found', hint = 'serverErrors.boardCommentNotYours';
-    end if;
+    return v_entry;
   end if;
 
   v_card := public.manager_card_for_edit(v_entry.card_id, false);

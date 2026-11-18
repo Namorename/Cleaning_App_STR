@@ -197,9 +197,10 @@ export async function duplicateCard(
   });
 }
 
+/** Adds a step to the card `cardId` names; with `cardId` null, changes the step's words. */
 export async function saveStep(
   client: Client,
-  variables: { stepId: string; cardId: string; body: string },
+  variables: { stepId: string; cardId: string | null; body: string },
 ): Promise<void> {
   await call(client, 'save_manager_step', {
     p_id: variables.stepId,
@@ -229,9 +230,10 @@ export async function orderSteps(
   });
 }
 
+/** Writes a comment on the card `cardId` names; with `cardId` null, its author changes its words. */
 export async function saveComment(
   client: Client,
-  variables: { entryId: string; cardId: string; body: string },
+  variables: { entryId: string; cardId: string | null; body: string },
 ): Promise<void> {
   await call(client, 'save_manager_comment', {
     p_id: variables.entryId,

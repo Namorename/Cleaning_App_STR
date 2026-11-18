@@ -59,12 +59,12 @@ const AFTER = {
     "manager_boards:the office reads the company's boards",
   functions:
     'delete_manager_comment(1) 2b426551e6518325329b387704fb522f; delete_manager_step(1) 3416f9597ed38dede98c1a85df73e4e7; ' +
-    'duplicate_manager_card(3) 14ea0c4efb7f3e2e8654e5b10c086ba4; manager_board_column(1) 51a8c80f5d28b6cca728dd7841105a4d; ' +
+    'duplicate_manager_card(3) 909f93ad481b16c24c9332d0121f7362; manager_board_column(1) 51a8c80f5d28b6cca728dd7841105a4d; ' +
     'manager_board_for_edit(2) d889671504b15b4093f503a4bdd12145; manager_card_for_edit(2) 38f50be565214edc0495fba617a6ed83; ' +
     'manager_step_card(1) 755b5a8fb942f553ce7d7616abf70065; move_manager_card(2) 723afdf74ee7cd0ff4033f8a47818138; ' +
-    'order_manager_steps(2) 11c0a417b3b40b1d16014cde65b8ad0e; save_manager_board(2) 02f3798437ef0c7b0f265c5279b28be7; ' +
-    'save_manager_card(9) 980fe1802e924ac2a0822417f1c0d514; save_manager_comment(3) 419fc15967e99c75ff03207b7d481c28; ' +
-    'save_manager_step(3) 1d4ffe47605bd21ae2fb72d27d4a8383; set_manager_board_archived(2) 4645f1c132870ad9c0f37ec70830609c; ' +
+    'order_manager_steps(2) 11c0a417b3b40b1d16014cde65b8ad0e; save_manager_board(2) 1c1152328c04ee39fbb296a19d70a488; ' +
+    'save_manager_card(9) 5ae77a48be21821ccbdfbb4b1b4f6efe; save_manager_comment(3) 11e4bb00b5e7b5458fa11923a475e7c2; ' +
+    'save_manager_step(3) 32cf8041e6be25575477f6dcbd71947a; set_manager_board_archived(2) 94bd11315badc02a55c8ba57e8621b24; ' +
     'set_manager_card_state(2) 418ec55ee6987052df879864355d22dc; set_manager_step_done(2) 795ef857ed63da946946b15665c056fc',
   client_execute: [
     'delete_manager_comment',

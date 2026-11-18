@@ -3109,6 +3109,8 @@
     "cardDeleted": "Card deleted",
     "undo": "Undo",
     "cardMenu": "Actions for “{{title}}”",
+    "stepMenu": "Actions for the step “{{step}}”",
+    "commentMenu": "Comment actions",
     "openCard": "Open “{{title}}”",
     "viewBoard": "Board",
     "viewArchive": "Archive",

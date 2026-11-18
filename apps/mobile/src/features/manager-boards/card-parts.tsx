@@ -189,7 +189,7 @@ export function CardStepsList({ card, canEdit }: { card: CardDetail; canEdit: bo
               maxLength={BOARD_LIMITS.step}
               onSubmitEditing={() =>
                 save.mutate(
-                  { stepId: step.id, cardId: card.id, body: editing.body },
+                  { stepId: step.id, cardId: null, body: editing.body },
                   { onSuccess: () => setEditing(null) },
                 )
               }
@@ -216,7 +216,7 @@ export function CardStepsList({ card, canEdit }: { card: CardDetail; canEdit: bo
             {canEdit ? (
               <IconButton
                 icon="action.more"
-                accessibilityLabel={t('boards.editStep')}
+                accessibilityLabel={t('boards.stepMenu', { step: step.body })}
                 onPress={() => setMenuFor(step)}
               />
             ) : null}
@@ -329,7 +329,7 @@ export function CardJournalList({
               {mayEdit || mayDelete ? (
                 <IconButton
                   icon="action.more"
-                  accessibilityLabel={t('boards.editComment')}
+                  accessibilityLabel={t('boards.commentMenu')}
                   onPress={() => setMenuFor(entry)}
                 />
               ) : null}
@@ -351,7 +351,7 @@ export function CardJournalList({
                   isDisabled={editing.body.trim() === ''}
                   onPress={() =>
                     save.mutate(
-                      { entryId: entry.id, cardId: card.id, body: editing.body },
+                      { entryId: entry.id, cardId: null, body: editing.body },
                       { onSuccess: () => setEditing(null) },
                     )
                   }

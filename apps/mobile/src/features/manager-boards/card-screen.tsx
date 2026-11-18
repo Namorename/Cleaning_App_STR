@@ -21,12 +21,14 @@ import { ChoiceChips } from '@/components/choice-chips';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { ErrorState } from '@/components/error-state';
 import { LoadingState } from '@/components/loading-state';
+import { MonthGrid } from '@/components/month-grid';
 import { Text } from '@/components/text';
 import { TextField } from '@/components/text-field';
 import { Radius, Spacing, type Theme } from '@/constants/theme';
 import { PropertyPicker } from '@/features/properties/property-picker';
 import { useReportProperties } from '@/features/properties/use-properties';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { monthOf } from '@/lib/calendar-month';
 import { serverErrorText } from '@/lib/server-error';
 
 import type { CardFields } from './api';
@@ -269,33 +271,19 @@ function ReadFields({ card, onEdit }: { card: CardDetail; onEdit?: () => void })
   );
 }
 
-/** The days a due date is picked from on the phone: none, today, and the days after it. */
-const DUE_OFFSETS = [0, 1, 2, 3, 7, 14] as const;
-
-function addDays(day: string, days: number): string {
-  const [year, month, date] = day.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, date + days)).toISOString().slice(0, 10);
-}
-
 function EditFields({ card, onDone }: { card: CardDetail; onDone: () => void }) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const save = useSaveCard();
   const properties = useReportProperties();
-  const today = localDay();
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description);
   const [dueOn, setDueOn] = useState<string | null>(card.due_on);
+  // The month the grid shows: the due date's, or this one.
+  const [month, setMonth] = useState(() => monthOf(card.due_on ?? localDay()));
   const [propertyId, setPropertyId] = useState<number | null>(card.property_id);
   const [color, setColor] = useState<CardColor | null>(isCardColor(card.color) ? card.color : null);
   const failure = save.isError ? serverErrorText(save.error).text : null;
-
-  const days = DUE_OFFSETS.map((offset) => addDays(today, offset));
-  const dueOptions = [
-    { value: 'none', label: t('boards.noDue') },
-    ...(dueOn !== null && !days.includes(dueOn) ? [{ value: dueOn, label: formatDue(dueOn) }] : []),
-    ...days.map((day) => ({ value: day, label: formatDue(day) })),
-  ];
 
   const submit = () => {
     if (title.trim() === '' || save.isPending) {
@@ -322,15 +310,18 @@ function EditFields({ card, onDone }: { card: CardDetail; onDone: () => void }) 
         multiline
       />
       <Text variant="chip" tone="secondary">
-        {t('boards.due')}
+        {t('boards.due')}: {dueOn === null ? t('boards.noDue') : formatDue(dueOn)}
       </Text>
-      <ChoiceChips
-        options={dueOptions}
-        value={dueOn ?? 'none'}
-        onChange={(value) => setDueOn(value === 'none' ? null : value)}
-        accessibilityLabel={t('boards.due')}
-        semantics="radio"
+      <MonthGrid
+        month={month}
+        selectedDay={dueOn}
+        onSelectDay={setDueOn}
+        onMonthChange={setMonth}
+        testID="card-due"
       />
+      {dueOn === null ? null : (
+        <Button label={t('boards.clearDue')} variant="outline" onPress={() => setDueOn(null)} />
+      )}
       <PropertyPicker
         properties={properties.data ?? []}
         selectedId={propertyId}

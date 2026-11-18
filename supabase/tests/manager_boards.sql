@@ -253,7 +253,7 @@ select pg_temp.check('2.2 the steps are in order, trimmed, unticked',
 select pg_temp.check('2.3 a repeat of the create answers the same card and adds no step',
   (select c.title || ' ' || (select count(*) from public.manager_board_steps s where s.card_id = c.id)::text
    from public.save_manager_card(pg_temp.cid(1), pg_temp.bid(1), 'Renovate flat', 'See https://example.invalid/plan',
-                                 current_date + 3, 900120001, 'blue', null, '["Call the plumber", "Buy tiles", "Book the painter"]') c),
+                                 current_date + 3, 900120001, 'blue', 'open', '["Call the plumber", "Buy tiles", "Book the painter"]') c),
   'Renovate flat 3');
 select pg_temp.check('2.4 a card goes to the column it was added in',
   (select pg_temp.card(c.id) from public.save_manager_card(
@@ -361,7 +361,7 @@ select pg_temp.check('4.1 a new due date, colour and no place',
      pg_temp.cid(1), pg_temp.bid(1), 'Renovate flat', 'See https://example.invalid/plan', current_date + 5,
      null, 'green') c),
   'assigned green 5 - active');
-select pg_temp.check('4.2 the board, the column and the steps of a saved card stay as they were',
+select pg_temp.check('4.2 a call that says a column is a repeat of the create: the card as it stands',
   (select c.board_id = pg_temp.bid(1) and c.column_key = 'assigned'
           and pg_temp.steps(c.id) = 'Call the plumber|Buy tiles|Book the painter'
    from public.save_manager_card(pg_temp.cid(1), pg_temp.bid(2), 'Renovate flat', 'See https://example.invalid/plan',
@@ -390,7 +390,7 @@ select pg_temp.check('5.2 a repeat of the add answers the same step',
    from public.save_manager_step(pg_temp.sid(1), pg_temp.cid(1), 'Clean up') s),
   'Clean up 4');
 select pg_temp.check('5.3 its words change',
-  (select s.body from public.save_manager_step(pg_temp.sid(1), pg_temp.cid(1), 'Clean up and air') s), 'Clean up and air');
+  (select s.body from public.save_manager_step(pg_temp.sid(1), null, 'Clean up and air') s), 'Clean up and air');
 select pg_temp.check('5.4 a step needs words',
   pg_temp.refusal($q$ select public.save_manager_step(pg_temp.sid(2), pg_temp.cid(1), '  ') $q$),
   'serverErrors.boardStepInvalid');
@@ -442,7 +442,7 @@ select pg_temp.check('5.17 a step already gone changes nothing',
 select pg_temp.as_user(pg_temp.ina());
 select pg_temp.check('5.18 another manager ticks, writes, orders and deletes no step',
   array[pg_temp.refusal($q$ select public.set_manager_step_done(pg_temp.sid(1), false) $q$),
-        pg_temp.refusal($q$ select public.save_manager_step(pg_temp.sid(1), pg_temp.cid(1), 'Mine') $q$),
+        pg_temp.refusal($q$ select public.save_manager_step(pg_temp.sid(1), null, 'Mine') $q$),
         pg_temp.refusal($q$ select public.save_manager_step(pg_temp.sid(3), pg_temp.cid(1), 'Mine') $q$),
         pg_temp.refusal($q$ select public.delete_manager_step(pg_temp.sid(1)) $q$),
         pg_temp.refusal(format('select public.order_manager_steps(%L, %L::uuid[])', pg_temp.cid(1),
@@ -475,7 +475,7 @@ select pg_temp.check('6.2 a repeat answers the same comment, not edited',
   'true 1');
 select pg_temp.check('6.3 she changes it: marked edited',
   (select e.body || ' ' || (e.edited_at is not null)::text
-   from public.save_manager_comment(pg_temp.eid(1), pg_temp.cid(1), 'Plumber comes Wednesday') e),
+   from public.save_manager_comment(pg_temp.eid(1), null, 'Plumber comes Wednesday') e),
   'Plumber comes Wednesday true');
 select pg_temp.check('6.4 an empty comment is refused',
   pg_temp.refusal($q$ select public.save_manager_comment(pg_temp.eid(2), pg_temp.cid(1), ' ') $q$),
@@ -493,12 +493,12 @@ select pg_temp.as_user(pg_temp.ada());
 select pg_temp.check('6.7 an admin writes on anybody''s card',
   (select pg_temp.who(author_id) from public.save_manager_comment(pg_temp.eid(3), pg_temp.cid(1), 'Admin note')), 'ada');
 select pg_temp.check('6.8 an admin changes no one else''s comment',
-  pg_temp.refusal($q$ select public.save_manager_comment(pg_temp.eid(1), pg_temp.cid(1), 'Rewritten') $q$),
+  pg_temp.refusal($q$ select public.save_manager_comment(pg_temp.eid(1), null, 'Rewritten') $q$),
   'serverErrors.boardCommentNotYours');
 
 select pg_temp.as_user(pg_temp.boss());
 select pg_temp.check('6.9 the owner changes no admin''s comment, nor deletes it',
-  array[pg_temp.refusal($q$ select public.save_manager_comment(pg_temp.eid(3), pg_temp.cid(1), 'Rewritten') $q$),
+  array[pg_temp.refusal($q$ select public.save_manager_comment(pg_temp.eid(3), null, 'Rewritten') $q$),
         pg_temp.refusal($q$ select public.delete_manager_comment(pg_temp.eid(3)) $q$)],
   array['serverErrors.boardCommentNotYours', 'serverErrors.boardCommentNotYours']);
 select pg_temp.check('6.10 nobody deletes a system line',
@@ -508,7 +508,7 @@ select pg_temp.check('6.10 nobody deletes a system line',
 select pg_temp.check('6.11 a system line is not a comment to change',
   pg_temp.refusal(format('select public.save_manager_comment(%L, %L, %L)',
     (select id from public.manager_board_entries where card_id = pg_temp.cid(1) and kind = 'moved' limit 1),
-    pg_temp.cid(1), 'words')),
+    null, 'words')),
   'serverErrors.boardCommentNotYours');
 
 select pg_temp.as_user(pg_temp.ina());
@@ -688,5 +688,86 @@ select pg_temp.check('9.5 a system line names only columns, dates and counts',
                    end
                    and (select count(*) from jsonb_object_keys(e.facts)) = 2)
    from public.manager_board_entries e where e.kind <> 'comment'), true);
+
+-- ===========================================================================
+-- 10. Repeats that come late, blank words, no id, strangers, a role taken away
+-- ===========================================================================
+
+select pg_temp.as_user(pg_temp.boss());
+select public.save_manager_card(pg_temp.cid(20), pg_temp.bid(1), 'Late repeat', '', current_date + 1, null, null, 'open');
+select public.save_manager_card(pg_temp.cid(20), pg_temp.bid(1), 'Late repeat', '', current_date + 9, null, 'olive');
+select pg_temp.check('10.1 a create repeated after an edit answers the card as it stands, and undoes nothing',
+  (select pg_temp.card(c.id) || ' ' || pg_temp.lines(c.id, 'due_changed')::text
+   from public.save_manager_card(pg_temp.cid(20), pg_temp.bid(1), 'Late repeat', '', current_date + 1, null, null, 'open') c),
+  'open olive 9 - active 1');
+select public.save_manager_step(pg_temp.sid(20), pg_temp.cid(20), 'first words');
+select public.save_manager_step(pg_temp.sid(20), null, 'second words');
+select pg_temp.check('10.2 an add of a step repeated after a change of its words keeps the new words',
+  (select s.body from public.save_manager_step(pg_temp.sid(20), pg_temp.cid(20), 'first words') s), 'second words');
+select public.save_manager_comment(pg_temp.eid(20), pg_temp.cid(20), 'v1');
+select public.save_manager_comment(pg_temp.eid(20), null, 'v2');
+select pg_temp.check('10.3 a comment repeated after its author changed it keeps the change',
+  (select e.body || ' ' || (e.edited_at is not null)::text
+   from public.save_manager_comment(pg_temp.eid(20), pg_temp.cid(20), 'v1') e), 'v2 true');
+select public.set_manager_card_state(pg_temp.cid(20), 'archived');
+select pg_temp.check('10.4 a create, a step and a comment repeated after the card was archived answer, not refuse',
+  array[pg_temp.refusal($q$ select public.save_manager_card(pg_temp.cid(20), pg_temp.bid(1), 'Late repeat', '', null, null, null, 'open') $q$),
+        pg_temp.refusal($q$ select public.save_manager_step(pg_temp.sid(20), pg_temp.cid(20), 'first words') $q$),
+        pg_temp.refusal($q$ select public.save_manager_comment(pg_temp.eid(20), pg_temp.cid(20), 'v1') $q$)],
+  array['no error', 'no error', 'no error']);
+select pg_temp.check('10.5 and the card is still archived',
+  pg_temp.card(pg_temp.cid(20)), 'open olive 9 - archived');
+select pg_temp.check('10.6 a change of words names no card: an unknown step or comment is not found',
+  array[pg_temp.refusal($q$ select public.save_manager_step(pg_temp.sid(21), null, 'x') $q$),
+        pg_temp.refusal($q$ select public.save_manager_comment(pg_temp.eid(21), null, 'x') $q$)],
+  array['serverErrors.boardStepNotFound', 'serverErrors.boardCommentNotYours']);
+
+select pg_temp.check('10.7 words of tabs, spaces and line breaks are no words',
+  array[pg_temp.refusal(format('select public.save_manager_board(%L, %L)', pg_temp.bid(21), E'\n\t ')),
+        pg_temp.refusal(format('select public.save_manager_card(%L, %L, %L, %L, null, null, null, %L)', pg_temp.cid(21), pg_temp.bid(1), E'\t', '', 'open')),
+        pg_temp.refusal(format('select public.save_manager_card(%L, %L, %L, %L, null, null, null, %L, %L)', pg_temp.cid(21), pg_temp.bid(1), 'x', '', 'open', '["\r\n"]')),
+        pg_temp.refusal(format('select public.save_manager_step(%L, %L, %L)', pg_temp.sid(21), pg_temp.cid(1), E'\n')),
+        pg_temp.refusal(format('select public.save_manager_comment(%L, %L, %L)', pg_temp.eid(21), pg_temp.cid(1), E'\r\n'))],
+  array['serverErrors.boardTitleInvalid', 'serverErrors.boardCardTitleInvalid', 'serverErrors.boardStepInvalid',
+        'serverErrors.boardStepInvalid', 'serverErrors.commentEmpty']);
+select pg_temp.check('10.8 no id is refused with a key, not a bare constraint',
+  array[pg_temp.refusal($q$ select public.save_manager_board(null, 'x') $q$),
+        pg_temp.refusal($q$ select public.save_manager_card(null, pg_temp.bid(1), 'x', '', null, null, null) $q$),
+        pg_temp.refusal($q$ select public.save_manager_step(null, pg_temp.cid(1), 'x') $q$),
+        pg_temp.refusal($q$ select public.save_manager_comment(null, pg_temp.cid(1), 'x') $q$)],
+  array['serverErrors.unknown', 'serverErrors.unknown', 'serverErrors.unknown', 'serverErrors.unknown']);
+
+select pg_temp.as_user(pg_temp.olga());
+select pg_temp.check('10.9 another company finds none of it, by any function',
+  array[pg_temp.refusal($q$ select public.save_manager_comment(pg_temp.eid(3), null, 'x') $q$),
+        pg_temp.refusal($q$ select public.save_manager_comment(pg_temp.eid(3), pg_temp.cid(1), 'x') $q$),
+        pg_temp.refusal($q$ select public.move_manager_card(pg_temp.cid(1), 'resolved') $q$),
+        pg_temp.refusal($q$ select public.set_manager_card_state(pg_temp.cid(1), 'deleted') $q$),
+        pg_temp.refusal($q$ select public.set_manager_board_archived(pg_temp.bid(1), true) $q$),
+        pg_temp.refusal($q$ select public.duplicate_manager_card(pg_temp.cid(1), pg_temp.cid(22), 'x') $q$),
+        pg_temp.refusal($q$ select public.order_manager_steps(pg_temp.cid(1), '{}') $q$),
+        pg_temp.refusal($q$ select public.save_manager_step(pg_temp.sid(20), null, 'x') $q$),
+        pg_temp.refusal($q$ select public.save_manager_step(pg_temp.sid(20), pg_temp.cid(1), 'x') $q$),
+        pg_temp.refusal($q$ select public.save_manager_card(pg_temp.cid(20), pg_temp.bid(1), 'x', '', null, null, null, 'open') $q$)],
+  array['serverErrors.boardCommentNotYours', 'serverErrors.boardCardNotFound', 'serverErrors.boardCardNotFound',
+        'serverErrors.boardCardNotFound', 'serverErrors.boardNotFound', 'serverErrors.boardCardNotFound',
+        'serverErrors.boardCardNotFound', 'serverErrors.boardStepNotFound', 'serverErrors.boardStepNotFound',
+        'serverErrors.boardCardNotFound']);
+select public.delete_manager_comment(pg_temp.eid(3));
+select pg_temp.as_server();
+select pg_temp.check('10.10 a delete from another company leaves the comment where it is',
+  (select count(*) from public.manager_board_entries where id = pg_temp.eid(3)), 1::bigint);
+
+update public.profiles set role = 'manager' where id = pg_temp.ada();
+select pg_temp.as_user(pg_temp.ada());
+select pg_temp.check('10.11 an admin made a manager changes another''s board no more',
+  pg_temp.refusal($q$ select public.save_manager_board(pg_temp.bid(1), 'x') $q$), 'serverErrors.boardNotYours');
+select pg_temp.as_server();
+update public.profiles set role = 'cleaner' where id = pg_temp.boss();
+select pg_temp.check('10.12 a manager made a cleaner reads nothing, her own board neither',
+  pg_temp.reads(pg_temp.boss()), '0 0 0 0');
+select pg_temp.as_user(pg_temp.boss());
+select pg_temp.check('10.13 and changes nothing',
+  pg_temp.refusal($q$ select public.save_manager_board(pg_temp.bid(1), 'x') $q$), 'serverErrors.managerOnly');
 
 rollback;

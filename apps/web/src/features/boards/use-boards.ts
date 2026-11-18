@@ -138,7 +138,7 @@ export function useSaveStep() {
   const client = useSupabase();
   const invalidate = useInvalidateBoards();
   return useMutation({
-    mutationFn: (variables: { stepId: string; cardId: string; body: string }) =>
+    mutationFn: (variables: { stepId: string; cardId: string | null; body: string }) =>
       saveStep(client, variables),
     onSettled: invalidate,
   });
@@ -201,7 +201,7 @@ export function useSaveComment() {
   const client = useSupabase();
   const invalidate = useInvalidateBoards();
   return useMutation({
-    mutationFn: (variables: { entryId: string; cardId: string; body: string }) =>
+    mutationFn: (variables: { entryId: string; cardId: string | null; body: string }) =>
       saveComment(client, variables),
     onSettled: invalidate,
   });

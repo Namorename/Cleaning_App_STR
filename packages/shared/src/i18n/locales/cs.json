@@ -3161,6 +3161,8 @@
     "cardDeleted": "Karta smazána",
     "undo": "Vrátit",
     "cardMenu": "Akce karty „{{title}}“",
+    "stepMenu": "Akce kroku „{{step}}“",
+    "commentMenu": "Akce komentáře",
     "openCard": "Otevřít kartu „{{title}}“",
     "viewBoard": "Nástěnka",
     "viewArchive": "Archiv",
