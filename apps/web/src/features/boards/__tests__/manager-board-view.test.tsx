@@ -575,10 +575,6 @@ describe('a card opened over the board', () => {
   });
 });
 
-/** A paragraph whose whole text is this: a label and its value in two nodes. */
-const paragraph = (text: string) => (_: string, element: Element | null) =>
-  element?.tagName === 'P' && element.textContent === text;
-
 describe('the assignee of a card (20261118230000)', () => {
   const withAssignees = () => [
     makeCard(1, {
