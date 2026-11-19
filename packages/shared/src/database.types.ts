@@ -5917,6 +5917,25 @@ export type Database = {
         Returns: undefined
       }
       manager_board_column: { Args: { p_column: string }; Returns: string }
+      manager_board_for_cards: {
+        Args: { p_board_id: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          created_at: string
+          host_id: string
+          id: string
+          owner_id: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_boards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       manager_board_for_edit: {
         Args: { p_archived_ok: boolean; p_board_id: string }
         Returns: {
