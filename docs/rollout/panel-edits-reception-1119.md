@@ -1,0 +1,44 @@
+# Выкат: правки панели и роль Reception (CORE), 19.11
+
+Решения и состав — `docs/panel-edits-reception-1119.md`. Ветка `panel-edits-1119`. Миграции:
+`20261119140000_problem_edit_text`, `20261119141000_guest_chats_switch`,
+`20261119142000_reception_role`, `20261119143000_reception_rights`. Откат —
+`docs/one-off-writes/panel-edits-reception-rollback.sql`; проба —
+`docs/rollout/probe_panel_edits_reception.sql`; репетиция —
+`docs/rollout/rehearsal-panel-edits-reception-1119.mjs` (GREEN 19.11: откат даёт md5 облака по всем
+функциям и политикам, значение `reception` остаётся; повторный push даёт «после»).
+
+**Слова на выкат пока нет.**
+
+## Порядок выката
+
+Не в 03:00–04:40 UTC для шага, который пишет в базу.
+
+1. Чтение состояния: голова облака `20261119090000`; проба = `BEFORE` репетиции.
+2. Четыре миграции одним push под заставой: `HEAD_WANT=20261119090000`, sha256 каждого файла, сухой
+   прогон называет ровно эти четыре. Проба = `AFTER`.
+3. Edge-функции: `manage-staff`, `guest-message-text`, `guest-review-text`, `sync-listings` и
+   `send-push` (обе импортируют `_shared/caller.ts`), `api` и `mcp` (перечисление ролей в OpenAPI и
+   каталоге).
+4. `main` — перемотка (ff-only) на ветку, push; Vercel Ready, `/login` 200.
+5. OTA preview, затем field — экспорт `ota-export.cmd` в дереве `cleanings-cancel-overdue-1105`,
+   `bundle-check` против №25 (`~/dev-tools/str-ops/day-1119/dist-ota25`), натив против `7030a46` пуст.
+
+## Старые телефоны и старая панель
+
+База добавляет функции и значение роли; права менеджера и админа те же. Пока роль никто не носит,
+каждому отвечают как раньше. Старая сборка телефона не знает роли `reception` и показывает ей экраны
+горничной — сервер решает, что читать. Старая панель не пускает Reception (роли нет в списке панели).
+Выключатель чатов в базе тот же, что ставили разовые скрипты.
+
+## Откат
+
+В обратном порядке, не в 03:00–04:40 UTC:
+
+1. OTA: переопубликовать №25 — preview `957f9d3e-072b-4ac8-81e1-d8153d696477`, field
+   `ca4031bd-01b6-4f75-b224-e4f020130a3c`.
+2. `git revert` коммитов ветки в `main`; Edge-функции — передеплой из `main`.
+3. Сначала сменить роль всем, у кого `reception` (откат иначе откажется), затем
+   `npx supabase db query --linked -f docs/one-off-writes/panel-edits-reception-rollback.sql` и
+   `npx supabase migration repair --status reverted 20261119143000 20261119142000 20261119141000 20261119140000 --linked`.
+   Переименованные задания и выключенные чаты остаются как есть.
