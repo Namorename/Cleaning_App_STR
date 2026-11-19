@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { tabBarIcon } from '@/components/icon';
 import { LoadingState } from '@/components/loading-state';
 import { renderTabBar } from '@/components/tab-bar';
-import { isOffice, isTechnician, wordContextOf } from '@/features/auth/role';
+import { hasBoards, isOffice, isTechnician, wordContextOf } from '@/features/auth/role';
 import { useSession } from '@/features/auth/session';
 import { useRole } from '@/features/auth/use-role';
 import { usePermissionPrompt, usePushTaps } from '@/features/push/hooks';
@@ -74,7 +74,8 @@ export default function TabsLayout() {
   const isOfficeRole = isOffice(role);
   const context = wordContextOf(role);
   const forCleanersOnly = isTech || isOfficeRole ? HIDDEN : undefined;
-  const forOfficeOnly = isOfficeRole ? undefined : HIDDEN;
+  // «Доски» are a manager's and an admin's; the reception runs the rest (owner, 2026-11-19).
+  const forBoardsOnly = hasBoards(role) ? undefined : HIDDEN;
 
   return (
     // The gear opens the settings; signing out lives at the bottom of them.
@@ -108,7 +109,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="boards"
-        options={{ title: t('boards.switcherLabel'), tabBarIcon: TAB_ICON.boards, ...forOfficeOnly }}
+        options={{ title: t('boards.switcherLabel'), tabBarIcon: TAB_ICON.boards, ...forBoardsOnly }}
       />
     </Tabs>
   );

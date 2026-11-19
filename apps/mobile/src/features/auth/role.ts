@@ -45,15 +45,26 @@ export function isTechnician(role: AppRole | null): boolean {
   return role !== null && TECHNICIANS.has(role);
 }
 
-/** The office's roles: the manager and the admin, who run the company's cleanings. */
-const OFFICE: ReadonlySet<AppRole> = new Set(['manager', 'admin']);
+/**
+ * The office's roles: the manager, the admin and the reception (20261119143000), who run the
+ * company's cleanings.
+ */
+const OFFICE: ReadonlySet<AppRole> = new Set(['manager', 'admin', 'reception']);
 
 /**
- * The manager and the admin: on the phone they may cancel a cleaning
- * (cancel_cleaning, 20261118120000) and hear when a cleaner hands one back.
+ * The office: on the phone they may cancel a cleaning (cancel_cleaning, 20261118120000) and hear
+ * when a cleaner hands one back.
  */
 export function isOffice(role: AppRole | null): boolean {
   return role !== null && OFFICE.has(role);
+}
+
+/** Who has manager boards: the manager and the admin; not the reception (owner, 2026-11-19). */
+const BOARD_ROLES: ReadonlySet<AppRole> = new Set(['manager', 'admin']);
+
+/** «Доски» and their cards: the office without the reception — the server shows her none. */
+export function hasBoards(role: AppRole | null): boolean {
+  return role !== null && BOARD_ROLES.has(role);
 }
 
 /**

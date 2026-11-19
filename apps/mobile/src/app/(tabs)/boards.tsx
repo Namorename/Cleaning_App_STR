@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 
-import { isOffice } from '@/features/auth/role';
+import { hasBoards } from '@/features/auth/role';
 import { useRole } from '@/features/auth/use-role';
 import { BoardsTab } from '@/features/manager-boards/boards-tab';
 
@@ -11,7 +11,7 @@ import { BoardsTab } from '@/features/manager-boards/boards-tab';
  * anybody may read of the boards is the server's to decide.
  */
 export default function BoardsScreen() {
-  if (!isOffice(useRole())) {
+  if (!hasBoards(useRole())) {
     return <Redirect href="/(tabs)" />;
   }
   return <BoardsTab />;

@@ -14,8 +14,11 @@ export type PushKind = Enums<'push_kind'>;
  */
 export const PUSH_KINDS: readonly PushKind[] = Constants.public.Enums.push_kind;
 
-/** Who hears that a cleaner handed her cleaning back: the office (20261118120000). */
-const OFFICE_ROLES: readonly AppRole[] = ['manager', 'admin'];
+/** Who hears that a cleaner handed her cleaning back: the office (20261118120000, 20261119143000). */
+const OFFICE_ROLES: readonly AppRole[] = ['manager', 'admin', 'reception'];
+
+/** Who has manager boards, and so hears a card given to her: not the reception (20261119143000). */
+const BOARD_ROLES: readonly AppRole[] = ['manager', 'admin'];
 
 /**
  * The kinds sent to some roles only, each with the roles it is for; a kind
@@ -31,7 +34,7 @@ const KIND_ROLES: Partial<Record<PushKind, readonly AppRole[]>> = {
   problem_new: ['head_tech'],
   cleaning_declined: OFFICE_ROLES,
   cleaning_interrupted: OFFICE_ROLES,
-  board_card_assigned: OFFICE_ROLES,
+  board_card_assigned: BOARD_ROLES,
 };
 
 /**

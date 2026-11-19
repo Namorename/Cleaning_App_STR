@@ -92,7 +92,8 @@ const OFFICE: readonly string[] = Constants.public.Enums.app_role.filter(
   (role) => role === 'manager' || role === 'admin',
 );
 const NEITHER_TECHNICIAN_NOR_OFFICE = Constants.public.Enums.app_role.filter(
-  (role) => role !== 'head_tech' && role !== 'tech' && !OFFICE.includes(role),
+  (role) =>
+    role !== 'head_tech' && role !== 'tech' && role !== 'reception' && !OFFICE.includes(role),
 );
 
 test.each(OFFICE)('a %s is not offered a new task, and every other kind stays', (role) => {
@@ -177,4 +178,12 @@ test('a cached row no build can read is a start from everything on', () => {
     profile_id: ME,
     muted: ['chat_message'],
   });
+});
+
+// The reception is the office without boards (20261119143000): she hears a cleaning handed back
+// or interrupted, never a board's card, and no new task.
+test('the reception is offered the office kinds but a board card and a new task', () => {
+  expect(kindsFor('reception')).toEqual(
+    PUSH_KINDS.filter((kind) => kind !== 'problem_new' && kind !== 'board_card_assigned'),
+  );
 });

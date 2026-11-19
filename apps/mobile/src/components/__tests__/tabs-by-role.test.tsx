@@ -144,6 +144,8 @@ test.each([
   ['head_tech', TECHNICIAN_TABS],
   ['manager', OFFICE_TABS],
   ['admin', OFFICE_TABS],
+  // The office without boards (owner, 2026-11-19).
+  ['reception', ['Уборки', 'Задания']],
   ['auditor', CLEANER_TABS],
   [undefined, CLEANER_TABS],
 ])('a %s is shown the tabs %j', async (role, tabs) => {
