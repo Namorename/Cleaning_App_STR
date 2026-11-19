@@ -34,7 +34,7 @@ import { answerKey } from "./cache.ts";
 import { ConversationGoneError } from "./pms.ts";
 
 /** The roles that may read a guest's message at all; the database decides the rest. */
-export const READER_ROLES: readonly string[] = ["manager", "admin", "head_tech"];
+export const READER_ROLES: readonly string[] = ["manager", "admin", "reception", "head_tech"];
 /** The panel and the phone send `{"problem_id": "<uuid>"}` or `{"finding_id": "<uuid>"}`. */
 const MAX_BODY_BYTES = 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

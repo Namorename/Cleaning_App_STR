@@ -17,6 +17,7 @@ import {
   fetchRunStatus,
   fetchSettings,
   rejectFinding,
+  setGuestChats,
   updateSettings,
   type AddFindingVariables,
   type ApproveVariables,
@@ -24,7 +25,13 @@ import {
 } from './api';
 import { reviewTextKey, signalKeys } from './keys';
 import { reviewFiltersKey, type ReviewFilters } from './review-filters';
-import { FINDING_TABS, type FindingTab, type RejectReason, type SignalKind } from './schema';
+import {
+  candidateKinds,
+  FINDING_TABS,
+  type FindingTab,
+  type RejectReason,
+  type SignalKind,
+} from './schema';
 
 /** The menu's count reads this every few minutes; the screen refreshes it on every decision. */
 const COUNT_REFRESH_MS = 5 * 60 * 1000;
@@ -47,19 +54,26 @@ export function useFindings(tab: FindingTab, kinds: readonly SignalKind[] = ['re
   return useQuery({
     queryKey: signalKeys.findings(tab, kinds),
     queryFn: () => fetchFindings(client, FINDING_TABS[tab], kinds),
+    // Every source switched off: nothing to ask for.
+    enabled: kinds.length > 0,
   });
 }
 
-/** Candidates waiting, chats among them while they are on; off for a person the section is not for. */
+/**
+ * Candidates waiting: of reviews while their tasks are on, of chats while chats are on
+ * («Настройки → Компания», 2026-11-19); off for a person the section is not for. Settings that
+ * cannot be read count the reviews, as before the switches.
+ */
 export function useCandidateCount(enabled = true) {
   const client = useSupabase();
   const chats = useChatsOn(enabled);
-  const kinds: SignalKind[] = chats.data === true ? ['review', 'message'] : ['review'];
+  const settings = useSignalSettings(enabled);
+  const kinds = candidateKinds(settings.data?.tasks_enabled ?? true, chats.data === true);
   return useQuery({
     queryKey: signalKeys.count(kinds),
-    queryFn: () => fetchCandidateCount(client, kinds),
+    queryFn: () => (kinds.length === 0 ? Promise.resolve(0) : fetchCandidateCount(client, kinds)),
     refetchInterval: chats.data === true ? CHATS_REFRESH_MS : COUNT_REFRESH_MS,
-    enabled,
+    enabled: enabled && !settings.isPending,
   });
 }
 
@@ -112,9 +126,14 @@ export function usePlaceProblems(findingId: string) {
   });
 }
 
-export function useSignalSettings() {
+/** The reviews' switches; off for a person the section is not for (`enabled`). */
+export function useSignalSettings(enabled = true) {
   const client = useSupabase();
-  return useQuery({ queryKey: signalKeys.settings(), queryFn: () => fetchSettings(client) });
+  return useQuery({
+    queryKey: signalKeys.settings(),
+    queryFn: () => fetchSettings(client),
+    enabled,
+  });
 }
 
 export function useRunStatus(kind: SignalKind = 'review', enabled = true) {
@@ -160,6 +179,16 @@ export function useAddFinding() {
   const invalidate = useInvalidateAfterDecision();
   return useMutation({
     mutationFn: (v: AddFindingVariables) => addFinding(client, v),
+    onSuccess: invalidate,
+  });
+}
+
+/** «Задания из чатов» on or off, whole (set_guest_chats): every screen that shows chats follows. */
+export function useSetGuestChats() {
+  const client = useSupabase();
+  const invalidate = useInvalidateAfterDecision();
+  return useMutation({
+    mutationFn: (enabled: boolean) => setGuestChats(client, enabled),
     onSuccess: invalidate,
   });
 }

@@ -56,6 +56,7 @@ const mutations = {
   unarchive: vi.fn(),
   falsePositive: vi.fn(),
   nameWorker: vi.fn(),
+  edit: vi.fn(),
 };
 /** Where the page sends the manager after a delete. */
 const router = { replace: vi.fn() };
@@ -104,6 +105,7 @@ vi.mock('../use-problems', () => ({
   useResolveProblem: () => ({ ...idle, mutate: mutations.resolve }),
   useReopenProblem: () => ({ ...idle, mutate: mutations.reopen }),
   useArchiveProblem: () => ({ ...idle, mutate: mutations.archive }),
+  useEditProblemText: () => ({ ...idle, mutate: mutations.edit }),
   useUnarchiveProblem: () => ({ ...idle, mutate: mutations.unarchive }),
   useMarkFalsePositive: () => ({
     ...idle,
@@ -1052,4 +1054,38 @@ describe('«Ложное срабатывание»', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(mutations.falsePositive).not.toHaveBeenCalled();
   }, 20000);
+});
+
+describe('«Изменить» (owner, 2026-11-19)', () => {
+  test("the office renames any report and rewrites its description, from the report's head", async () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Изменить' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Изменить задание' });
+    const title = within(dialog).getByLabelText('Что случилось');
+    const description = within(dialog).getByLabelText('Подробности');
+    expect(title).toHaveValue('Течёт кран');
+    expect(description).toHaveValue('На кухне, под мойкой');
+
+    await userEvent.clear(title);
+    await userEvent.type(title, '  Течёт кран на кухне ');
+    await userEvent.clear(description);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+
+    expect(mutations.edit).toHaveBeenCalledWith(
+      { problemId: PROBLEM_ID, title: 'Течёт кран на кухне', description: '' },
+      expect.anything(),
+    );
+  });
+
+  test('a blank title is not sent', async () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Изменить' }));
+    const dialog = screen.getByRole('dialog', { name: 'Изменить задание' });
+    await userEvent.clear(within(dialog).getByLabelText('Что случилось'));
+    expect(within(dialog).getByRole('button', { name: 'Сохранить' })).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(mutations.edit).not.toHaveBeenCalled();
+  });
 });

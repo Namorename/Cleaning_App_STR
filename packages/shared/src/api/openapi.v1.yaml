@@ -697,7 +697,7 @@ paths:
       parameters:
         - name: role
           in: query
-          description: One or more of `cleaner`, `tech`, `head_tech`, `manager`, `admin`.
+          description: One or more of `cleaner`, `tech`, `head_tech`, `reception`, `manager`, `admin`.
           schema: { type: string, example: cleaner }
         - name: active
           in: query
@@ -1261,7 +1261,7 @@ components:
       description: A member of staff on a task. Null when nobody is known.
       properties:
         id: { type: string, format: uuid }
-        role: { type: [string, "null"], enum: [cleaner, tech, head_tech, manager, admin, null] }
+        role: { type: [string, "null"], enum: [cleaner, tech, head_tech, reception, manager, admin, null] }
         full_name:
           type: [string, "null"]
           description: Only with the sensitive scope `staff:read_names`.
@@ -1272,7 +1272,7 @@ components:
       required: [id, role, is_active, created_at, updated_at]
       properties:
         id: { type: string, format: uuid }
-        role: { type: string, enum: [cleaner, tech, head_tech, manager, admin] }
+        role: { type: string, enum: [cleaner, tech, head_tech, reception, manager, admin] }
         is_active: { type: boolean }
         full_name:
           type: [string, "null"]

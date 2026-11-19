@@ -209,7 +209,8 @@ Deno.test("only the office and the head technician read: a technician, a maid, a
     assertEquals(await hintOf(response), "serverErrors.guestMessageForbidden");
     assertEquals(calls, [], "nothing is counted or looked up");
   }
-  for (const role of ["manager", "admin"]) {
+  // The reception reads as the office does (20261119143000).
+  for (const role of ["manager", "admin", "reception"]) {
     const { deps } = world({ identify: () => Promise.resolve({ ...HEAD, role }) });
     assertEquals((await createMessageTextHandler(deps)(post())).status, 200, role);
   }

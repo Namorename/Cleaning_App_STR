@@ -1,7 +1,7 @@
 import type { User } from '@supabase/supabase-js';
 
 /** The roles the panel is for. Read from `app_metadata`, never `user_metadata`. */
-export const PANEL_ROLES = ['manager', 'admin'] as const;
+export const PANEL_ROLES = ['manager', 'admin', 'reception'] as const;
 export type PanelRole = (typeof PANEL_ROLES)[number];
 
 /**
@@ -20,19 +20,27 @@ export function isPanelRole(role: string | null): role is PanelRole {
 }
 
 /**
- * How much of the panel a person reaches: all of it for the office, the
- * knowledge base alone for the head technician (the owner's decision of
- * 2026-10-16 — he writes and publishes it), nothing for anybody else. Row
- * level security decides what each may read and write either way.
+ * How much of the panel a person reaches: all of it for a manager and an admin;
+ * all but «Команда» for the reception (the owner's request of 2026-11-19 — her
+ * boards and settings are narrowed on their own pages); the knowledge base alone
+ * for the head technician (the owner's decision of 2026-10-16 — he writes and
+ * publishes it); nothing for anybody else. Row level security decides what each
+ * may read and write either way.
  */
-export type PanelAccess = 'full' | 'knowledge';
+export type PanelAccess = 'full' | 'reception' | 'knowledge';
 
 export function panelAccessOf(role: string | null): PanelAccess | null {
+  if (role === 'reception') {
+    return 'reception';
+  }
   if (isPanelRole(role)) {
     return 'full';
   }
   return role === 'head_tech' ? 'knowledge' : null;
 }
+
+/** «Команда» and whatever lives under it: a manager's and an admin's alone. */
+const TEAM_PATH = '/team';
 
 /**
  * Whether a page is one this access reaches. Paths only: the query is the
@@ -41,6 +49,9 @@ export function panelAccessOf(role: string | null): PanelAccess | null {
  * someone puts under it later is not his by default.
  */
 export function isPathOpenTo(access: PanelAccess, pathname: string): boolean {
+  if (access === 'reception') {
+    return pathname !== TEAM_PATH && !pathname.startsWith(`${TEAM_PATH}/`);
+  }
   return (
     access === 'full' ||
     pathname === '/knowledge' ||
@@ -51,5 +62,5 @@ export function isPathOpenTo(access: PanelAccess, pathname: string): boolean {
 
 /** Where an access lands: after the sign-in, and from a page it does not reach. */
 export function homeOf(access: PanelAccess): string {
-  return access === 'full' ? '/dashboard' : '/knowledge';
+  return access === 'knowledge' ? '/knowledge' : '/dashboard';
 }

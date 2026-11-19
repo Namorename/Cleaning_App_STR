@@ -10,6 +10,7 @@ import {
   archiveProblem,
   assignProblem,
   cancelProblem,
+  editProblemText,
   fetchFixTaskSteps,
   fetchProblem,
   fetchProblemPhotos,
@@ -24,6 +25,7 @@ import {
   unarchiveProblem,
   unassignProblem,
   type AssignProblemVariables,
+  type EditProblemTextVariables,
   type FalsePositiveVariables,
   type ReportProblemVariables,
   type ResolveProblemVariables,
@@ -155,6 +157,16 @@ export function useReopenProblem() {
   const invalidate = useInvalidateProblems();
   return useMutation({
     mutationFn: (problemId: string) => reopenProblem(client, problemId),
+    onSuccess: invalidate,
+  });
+}
+
+/** «Изменить»: the office's new title and description of any task. */
+export function useEditProblemText() {
+  const client = useSupabase();
+  const invalidate = useInvalidateProblems();
+  return useMutation({
+    mutationFn: (variables: EditProblemTextVariables) => editProblemText(client, variables),
     onSuccess: invalidate,
   });
 }

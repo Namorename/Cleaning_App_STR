@@ -495,3 +495,9 @@ Deno.test("the browser's preflight is answered, and only POST is served", async 
   assertEquals(get.status, 405);
   assertEquals(get.headers.get("Allow"), "POST");
 });
+
+Deno.test("the reception reads a review's words as a manager does", async () => {
+  // The office grew by the reception (20261119143000).
+  const { deps } = world({ identify: () => Promise.resolve({ ...MANAGER, role: "reception" }) });
+  assertEquals((await createReviewTextHandler(deps)(post())).status, 200);
+});

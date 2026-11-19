@@ -19,8 +19,8 @@
  * refusals raised by the database.
  */
 
-/** app_role as the panel may hand it out; head_tech since 20261003100000. */
-export const STAFF_ROLES = ["cleaner", "tech", "head_tech", "manager", "admin"] as const;
+/** app_role as the panel may hand it out; head_tech since 20261003100000, reception since 20261119142000. */
+export const STAFF_ROLES = ["cleaner", "tech", "head_tech", "reception", "manager", "admin"] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
 
 export const LANGUAGES = ["en", "ru", "cs"] as const;

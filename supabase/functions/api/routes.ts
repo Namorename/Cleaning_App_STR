@@ -44,7 +44,7 @@ const PROBLEM_STATUS = ["open", "assigned", "in_progress", "resolved", "cancelle
 // "critical" is the level above high (20261115090000): a task filed with it
 // reads priority "high" and critical true; as a filter it finds those alone.
 const PROBLEM_PRIORITY = ["low", "normal", "high", "critical"];
-const STAFF_ROLE = ["cleaner", "tech", "head_tech", "manager", "admin"];
+const STAFF_ROLE = ["cleaner", "tech", "head_tech", "reception", "manager", "admin"];
 const CHANNEL = ["airbnb", "booking", "vrbo", "direct", "google", "other"];
 
 const PATH_UUID = (arg: string): ParamSpec => ({ name: "id", arg, kind: "uuid", required: true });

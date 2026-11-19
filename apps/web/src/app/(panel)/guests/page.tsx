@@ -13,5 +13,7 @@ export default async function GuestsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return <GuestSignalsView isAdmin={roleOf(user) === 'admin'} />;
+  const role = roleOf(user);
+  // «Настройки» of guests are the company's levers: not the reception's (owner, 2026-11-19).
+  return <GuestSignalsView isAdmin={role === 'admin'} hasSettings={role !== 'reception'} />;
 }

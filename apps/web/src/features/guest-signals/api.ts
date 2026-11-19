@@ -371,3 +371,14 @@ export async function updateSettings(client: Client, change: SettingsChange): Pr
     throw error;
   }
 }
+
+/**
+ * «Задания из чатов» (set_guest_chats, 20261119141000): the admin turns the company's chats on or
+ * off whole — off, no conversation is read at all, for tasks or for «Качество объектов».
+ */
+export async function setGuestChats(client: Client, enabled: boolean): Promise<void> {
+  const { error } = await client.rpc('set_guest_chats', { p_enabled: enabled });
+  if (error) {
+    throw error;
+  }
+}

@@ -12,17 +12,27 @@ import type { BoardViewer } from './schema';
 
 interface ProblemsSectionProps {
   viewer: BoardViewer;
+  /**
+   * Whether the person has manager boards at all: the reception does not (the owner's request of
+   * 2026-11-19) — the database shows her none either.
+   */
+  hasBoards?: boolean;
 }
 
 /**
  * «Задания» with its boards (owner, 2026-11-18): the switcher on top, then
  * the technicians' board as it always was — a bare `/problems` — or the
  * manager board the address names. The technicians' board, its views and its
- * address are untouched.
+ * address are untouched. Without boards, the technicians' board alone, under
+ * any address: no switcher, no «Назначено мне».
  */
-export function ProblemsSection({ viewer }: ProblemsSectionProps) {
+export function ProblemsSection({ viewer, hasBoards = true }: ProblemsSectionProps) {
   const params = useSearchParams();
   const { boardId } = readBoardAddress(new URLSearchParams(params.toString()));
+
+  if (!hasBoards) {
+    return <ProblemsView />;
+  }
 
   return (
     <div className="flex flex-col gap-4">

@@ -15,9 +15,10 @@ describe('roleOf', () => {
 });
 
 describe('isPanelRole', () => {
-  test('lets managers and admins in, nobody else', () => {
+  test('lets managers, admins and the reception in, nobody else', () => {
     expect(isPanelRole('manager')).toBe(true);
     expect(isPanelRole('admin')).toBe(true);
+    expect(isPanelRole('reception')).toBe(true);
     expect(isPanelRole('cleaner')).toBe(false);
     expect(isPanelRole('tech')).toBe(false);
     expect(isPanelRole('head_tech')).toBe(false);
@@ -78,5 +79,29 @@ describe('isPathOpenTo', () => {
   test('where each one lands after the sign-in', () => {
     expect(homeOf('full')).toBe('/dashboard');
     expect(homeOf('knowledge')).toBe('/knowledge');
+  });
+});
+
+// The owner's request of 2026-11-19: the reception reaches all of the panel but «Команда».
+describe('the reception', () => {
+  test('has an access of her own, landing on the dashboard', () => {
+    expect(panelAccessOf('reception')).toBe('reception');
+    expect(homeOf('reception')).toBe('/dashboard');
+  });
+
+  test('reaches every page but «Команда» and what lives under it', () => {
+    for (const path of [
+      '/dashboard',
+      '/tasks',
+      '/problems',
+      '/guests',
+      '/knowledge',
+      '/settings',
+    ]) {
+      expect(isPathOpenTo('reception', path)).toBe(true);
+    }
+    expect(isPathOpenTo('reception', '/team')).toBe(false);
+    expect(isPathOpenTo('reception', '/team/123')).toBe(false);
+    expect(isPathOpenTo('reception', '/teams')).toBe(true);
   });
 });

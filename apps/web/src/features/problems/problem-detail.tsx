@@ -12,7 +12,14 @@ import { Person } from '@/components/person';
 import { StatusBadge } from '@/components/status-badge';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { ChatSheet } from '@/features/chat/chat-sheet';
 import { UnreadBadge } from '@/features/chat/unread-mark';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
@@ -28,6 +35,7 @@ import {
 } from './address';
 import { AssignForm } from './assign-form';
 import { FixTaskSteps } from './fix-task-steps';
+import { EditProblemButton } from './edit-problem-dialog';
 import { GuestMessageBlock } from './guest-message';
 import { GuestOriginBlock } from './guest-origin';
 import { formatClock } from './format';
@@ -215,6 +223,10 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
             <CardDescription>
               <ReportMeta problem={problem} />
             </CardDescription>
+            {/* The office's lever on any report, whoever wrote it (edit_problem_text). */}
+            <CardAction>
+              <EditProblemButton problem={problem} />
+            </CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-6 text-sm">
             <DetailSection title={t('panel.problems.detail.description')}>

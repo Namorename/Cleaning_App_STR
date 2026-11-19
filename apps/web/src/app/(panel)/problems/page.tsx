@@ -14,5 +14,12 @@ export default async function ProblemsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return <ProblemsSection viewer={{ id: user?.id ?? '', isAdmin: roleOf(user) === 'admin' }} />;
+  const role = roleOf(user);
+  // The reception has no manager boards (owner, 2026-11-19): the technicians' board alone.
+  return (
+    <ProblemsSection
+      viewer={{ id: user?.id ?? '', isAdmin: role === 'admin' }}
+      hasBoards={role !== 'reception'}
+    />
+  );
 }

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { foldForSearch } from '@/lib/search';
 
 /** `app_role` as the panel hands it out — the list `manage-staff` accepts. */
-export const STAFF_ROLES = ['cleaner', 'tech', 'head_tech', 'manager', 'admin'] as const;
+export const STAFF_ROLES = ['cleaner', 'tech', 'head_tech', 'reception', 'manager', 'admin'] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
 
 /** The two who fix things: jobs reach them by assignment, never through a listing. */

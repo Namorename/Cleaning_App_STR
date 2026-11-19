@@ -222,6 +222,15 @@ export function kindsOf(source: SignalSource, chatsOn: boolean): SignalKind[] {
 }
 
 /**
+ * The kinds whose candidates wait for a decision (owner, 2026-11-19, «Настройки → Компания»):
+ * reviews while their tasks are on, chats while chats are on. A source switched off offers no
+ * card to decide on, since no task can come of it.
+ */
+export function candidateKinds(reviewTasksOn: boolean, chatsOn: boolean): SignalKind[] {
+  return [...(reviewTasksOn ? (['review'] as const) : []), ...(chatsOn ? (['message'] as const) : [])];
+}
+
+/**
  * The chats' line (read-guest-messages journals its ticks as the classify stage
  * of messages, at least once an hour): failed when the last tick went wrong,
  * stale when no clean tick came for three hours — the reading pauses 03:00–04:40

@@ -302,6 +302,32 @@ export async function reopenProblem(client: Client, problemId: string): Promise<
   return problemSchema.parse(data);
 }
 
+export interface EditProblemTextVariables {
+  problemId: string;
+  title: string;
+  /** The whole description as it should read; an empty one clears it. */
+  description: string;
+}
+
+/**
+ * The office corrects any task's title and description (edit_problem_text, 20261119140000): a
+ * cleaner's report, a technician's, a guest's, in any status. A new title drops the translations.
+ */
+export async function editProblemText(
+  client: Client,
+  variables: EditProblemTextVariables,
+): Promise<Problem> {
+  const { data, error } = await client.rpc('edit_problem_text', {
+    p_id: variables.problemId,
+    p_title: variables.title,
+    p_description: variables.description,
+  });
+  if (error) {
+    throw error;
+  }
+  return problemSchema.parse(data);
+}
+
 /** Off every screen but the archive. Nothing is deleted; a live fix task is cancelled. */
 export async function archiveProblem(client: Client, problemId: string): Promise<Problem> {
   const { data, error } = await client.rpc('archive_problem', { p_id: problemId });

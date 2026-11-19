@@ -270,7 +270,7 @@ export function NavMenu({
   const unread = useUnreadSubjects();
   // The candidates from what guests wrote: a count in the menu instead of a push (the owner's
   // decision 7). The head technician's menu has no «Гости», so his panel does not ask.
-  const candidates = useCandidateCount(access === 'full');
+  const candidates = useCandidateCount(access !== 'knowledge');
   // How many conversations wait under each section. Threads hang off jobs
   // and breakages, so the count sits on the section that lists them.
   const unreadBy: UnreadCounts = {
@@ -293,7 +293,14 @@ export function NavMenu({
           <Fragment key={group.key}>
             {isCollapsed && index > 0 ? <Separator /> : null}
             <NavSection label={t(`panel.nav.groups.${group.key}`)} isCollapsed={isCollapsed}>
-              <NavList items={group.items} {...rows} />
+              <NavList
+                items={
+                  access === 'reception'
+                    ? group.items.filter((item) => item.key !== 'team')
+                    : group.items
+                }
+                {...rows}
+              />
             </NavSection>
           </Fragment>
         ))

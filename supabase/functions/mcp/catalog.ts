@@ -850,7 +850,7 @@ export const CATALOG: McpCatalog = {
         "properties": {
           "role": {
             "type": "string",
-            "description": "One or more of `cleaner`, `tech`, `head_tech`, `manager`, `admin`."
+            "description": "One or more of `cleaner`, `tech`, `head_tech`, `reception`, `manager`, `admin`."
           },
           "active": {
             "type": "boolean"

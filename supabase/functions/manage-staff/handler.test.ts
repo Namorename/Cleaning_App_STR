@@ -1002,3 +1002,24 @@ Deno.test("the block lasts until somebody lifts it, in words Auth reads", async 
   // Auth parses this as a Go duration, which ends at about 292 years.
   assert(hours < 2_562_047, `${hours} hours does not fit a Go duration`);
 });
+
+Deno.test("the reception is handed out by a manager, and manages nobody herself", async () => {
+  // The role of 20261119142000: «Команда» is a manager's and an admin's, never the reception's.
+  const created: StaffProfile[] = [];
+  const hiring = createStaffHandler(
+    deps({
+      createStaff: (input) => {
+        created.push(input.profile);
+        return Promise.resolve({ id: "new-3", sent: true, failureKey: null });
+      },
+    }),
+  );
+  const hired = await hiring(post({ action: "create", staff: { ...NEW_STAFF, role: "reception" } }));
+  assertEquals([hired.status, created[0].role], [200, "reception"]);
+
+  const reception: Caller = { id: "r-1", role: "reception", hostId: "host-1", isActive: true };
+  const asked = createStaffHandler(deps({ identify: () => Promise.resolve(reception) }));
+  const response = await asked(post({ action: "create", staff: NEW_STAFF }));
+  assertEquals(response.status, 403);
+  assertEquals((await refusalOf(response)).error.hint, "serverErrors.managerOnly");
+});

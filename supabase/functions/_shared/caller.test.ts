@@ -109,3 +109,14 @@ Deno.test("a job only the scheduler starts knows it by its key alone", () => {
   // A key that was never configured recognises nobody.
   assertEquals(isScheduler("", ""), false);
 });
+
+Deno.test("and so may the reception, as the office", async () => {
+  assertEquals(
+    await allowsSync({
+      token: "reception-token",
+      serviceKey: SERVICE_KEY,
+      roleOf: () => Promise.resolve("reception"),
+    }),
+    true,
+  );
+});

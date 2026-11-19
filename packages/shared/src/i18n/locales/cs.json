@@ -69,6 +69,13 @@
       "parallelStartHint": "Zapnuto: uklízečka může mít rozdělaných několik úklidů najednou — tak se uklízí po patrech, jeden člověk ve všech pokojích. Vypnuto: měření času počítá s jedním úklidem naráz.",
       "gallery": "Povolit nahrávání z galerie",
       "galleryHint": "Vypnuto: fotky a video se pořizují jen fotoaparátem a přímo na místě. Zapnuto: uklízečka může přiložit hotový soubor z galerie — i pořízený v jiném bytě nebo před týdnem, a pak médium přestává být důkazem o stavu bytu v době úklidu. Platí pro úklidy i pro úkoly.",
+      "guestTasks": {
+        "title": "Úkoly od hostů",
+        "reviews": "Úkoly z recenzí",
+        "reviewsHint": "Vypnuto: recenze nenavrhují ani nevytvářejí úkoly. Hodnocení a Kvalita objektů se aktualizují dál.",
+        "chats": "Úkoly z chatů",
+        "chatsHint": "Vypnuto: konverzace s hosty se nečtou vůbec, ani pro úkoly, ani pro Kvalitu objektů. Co bylo nalezeno dřív, je skryté a vrátí se po zapnutí."
+      },
       "video": {
         "title": "Video",
         "hint": "Pro krok „Video“ v úklidech a opravách. Video se natáčí jen kamerou aplikace, v 720p, ne déle a ne větší než tyto limity; galerie zůstává pro video zavřená bez ohledu na svůj přepínač. Krok může mít vlastní limit délky — jen kratší.",
@@ -823,6 +830,13 @@
         "submit": "Vytvořit",
         "saving": "Vytváříme…",
         "close": "Zrušit"
+      },
+      "edit": {
+        "open": "Upravit",
+        "title": "Upravit úkol",
+        "description": "Název a popis uvidí každý, kdo na úkolu pracuje, i ten, kdo ho nahlásil.",
+        "save": "Uložit",
+        "saving": "Ukládáme…"
       }
     },
     "guests": {
@@ -856,7 +870,8 @@
         "rejected": "Nic nezamítnuto.",
         "linked": "Nic nepřipojeno.",
         "dropped": "Nic neodloženo.",
-        "all": "Zatím nejsou načtené žádné recenze."
+        "all": "Zatím nejsou načtené žádné recenze.",
+        "sourceOff": "Úkoly z tohoto zdroje jsou vypnuté: Nastavení → Společnost."
       },
       "card": {
         "urgent": "Naléhavé",
@@ -1800,6 +1815,7 @@
       "cleaner": "Uklízečka",
       "tech": "Technik",
       "head_tech": "Hlavní technik",
+      "reception": "Recepce",
       "manager": "Manažer",
       "admin": "Administrátor",
       "unknown": "Zaměstnanec"
@@ -2461,6 +2477,7 @@
         "cleaner": "uklízečka",
         "tech": "technik",
         "head_tech": "hlavní technik",
+        "reception": "recepce",
         "manager": "manažer",
         "admin": "administrátor"
       }
@@ -2753,6 +2770,7 @@
         "cleaner": "uklízečka",
         "tech": "technik",
         "head_tech": "hlavní technik",
+        "reception": "recepce",
         "manager": "manažer",
         "admin": "administrátor"
       },

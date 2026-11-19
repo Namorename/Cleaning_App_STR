@@ -37,7 +37,7 @@ import { pageKey } from "./cache.ts";
 export { isPanelOrigin };
 
 /** The panel's roles: the office reads the reviews (row level security says the same). */
-export const READER_ROLES: readonly string[] = ["manager", "admin"];
+export const READER_ROLES: readonly string[] = ["manager", "admin", "reception"];
 /** The panel sends `{"signal_id": "<uuid>"}`; anything this large is not the panel. */
 const MAX_BODY_BYTES = 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

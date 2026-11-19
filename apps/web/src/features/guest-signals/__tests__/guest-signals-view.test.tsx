@@ -79,7 +79,8 @@ const state = {
   settings: {
     sync_enabled: true,
     texts_enabled: false,
-    tasks_enabled: false,
+    // Tasks from reviews on, as in the field: their candidates are offered (owner, 2026-11-19).
+    tasks_enabled: true,
     model_enabled: false,
     auto_kinds: ['repair'],
     daily_model_cap: 50,
@@ -220,6 +221,7 @@ beforeEach(() => {
   runs.error = null;
   state.findings = [finding()];
   state.place = [];
+  state.settings.tasks_enabled = true;
   state.settings = {
     ...state.settings,
     texts_enabled: false,
@@ -1046,5 +1048,29 @@ describe('chatFreshness', () => {
       'stale',
     );
     expect(chatFreshness([], now)).toEqual({ updatedAt: null, problem: null, at: null });
+  });
+});
+
+describe('the sources of tasks (owner, 2026-11-19)', () => {
+  test('with tasks from reviews off, «Найдено» offers no review and says where they are switched on', () => {
+    state.settings.tasks_enabled = false;
+    render(<GuestSignalsView isAdmin={false} />);
+    expect(screen.queryByRole('article')).toBeNull();
+    expect(
+      screen.getByText('Задания из этого источника выключены: «Настройки → Компания».'),
+    ).toBeInTheDocument();
+  });
+
+  test('the reception has no «Настройки» tab, and its address opens «Найдено»', () => {
+    window.history.replaceState(null, '', '/guests?tab=settings');
+    render(<GuestSignalsView isAdmin={false} hasSettings={false} />);
+    expect(screen.queryByRole('tab', { name: 'Настройки' })).toBeNull();
+    expect(screen.getByRole('tab', { name: /^Найдено/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('article')).toBeInTheDocument();
+  });
+
+  test('a manager keeps it', () => {
+    render(<GuestSignalsView isAdmin={false} />);
+    expect(screen.getByRole('tab', { name: 'Настройки' })).toBeInTheDocument();
   });
 });

@@ -9,6 +9,10 @@ vi.mock('../host-toggles', async () => {
   const { createElement } = await import('react');
   return { HostToggles: () => createElement('p', null, 'Переключатели компании') };
 });
+vi.mock('../guest-task-sources', async () => {
+  const { createElement } = await import('react');
+  return { GuestTaskSources: () => createElement('p', null, 'Задания от гостей') };
+});
 vi.mock('@/features/workflow/process-section', async () => {
   const { createElement } = await import('react');
   return {
@@ -119,7 +123,57 @@ describe('the head technician’s settings', () => {
   });
 });
 
+// The owner's answer of 2026-11-19: the reception keeps her own sections and «Процесс»;
+// «Компания» and «API» are the company's levers.
+describe('the reception’s settings', () => {
+  const receptionView = () => (
+    <SettingsView
+      email="reception.test@example.com"
+      userId={USER}
+      theme="system"
+      access="reception"
+      onSignOut={vi.fn()}
+    />
+  );
+
+  test('lists her account, the look and the process, not the company or the API', () => {
+    render(receptionView());
+
+    expect(within(submenu()).getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Аккаунт',
+      'Оформление',
+      'Процесс',
+    ]);
+    expect(screen.queryByText('Переключатели компании')).not.toBeInTheDocument();
+    expect(screen.queryByText('Задания от гостей')).not.toBeInTheDocument();
+  });
+
+  test('a link to «Компания» opens her account instead', () => {
+    window.history.replaceState(null, '', '/settings?section=company');
+
+    render(receptionView());
+
+    expect(section('Аккаунт')).toHaveTextContent('Вы вошли как reception.test@example.com.');
+    expect(section('Компания')).toBeNull();
+  });
+});
+
 describe('the page', () => {
+  test('the company section holds its switches and the sources of tasks from guests', () => {
+    window.history.replaceState(null, '', '/settings?section=company');
+    render(
+      <SettingsView
+        email="manager.test@example.com"
+        userId={USER}
+        theme="system"
+        access="full"
+        onSignOut={vi.fn()}
+      />,
+    );
+    expect(section('Компания')).toHaveTextContent('Переключатели компании');
+    expect(section('Компания')).toHaveTextContent('Задания от гостей');
+  });
+
   test('is headed by the common header, the submenu lists its sections as links', () => {
     render(view());
 

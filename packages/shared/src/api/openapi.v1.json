@@ -1538,7 +1538,7 @@
           {
             "name": "role",
             "in": "query",
-            "description": "One or more of `cleaner`, `tech`, `head_tech`, `manager`, `admin`.",
+            "description": "One or more of `cleaner`, `tech`, `head_tech`, `reception`, `manager`, `admin`.",
             "schema": {
               "type": "string",
               "example": "cleaner"
@@ -3228,6 +3228,7 @@
               "cleaner",
               "tech",
               "head_tech",
+              "reception",
               "manager",
               "admin",
               null
@@ -3264,6 +3265,7 @@
               "cleaner",
               "tech",
               "head_tech",
+              "reception",
               "manager",
               "admin"
             ]

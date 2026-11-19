@@ -25,7 +25,7 @@ interface ToggleProps {
  * sentence explaining what has to reach whoever is listening rather than
  * only whoever is looking.
  */
-function Toggle({ id, label, hint, checked, disabled, onChange }: ToggleProps) {
+export function Toggle({ id, label, hint, checked, disabled, onChange }: ToggleProps) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">

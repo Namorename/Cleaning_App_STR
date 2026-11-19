@@ -20,6 +20,7 @@ import {
   writeSettingsAddress,
   type SettingsSection,
 } from './address';
+import { GuestTaskSources } from './guest-task-sources';
 import { HostToggles } from './host-toggles';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeSwitcher } from './theme-switcher';
@@ -53,6 +54,12 @@ const SECTION_TITLE_KEY: Record<SettingsSection, string> = {
 /** A person's own sections: what the head technician's settings hold. */
 const PERSONAL_SECTIONS: readonly SettingsSection[] = ['account', 'appearance'];
 
+/**
+ * The reception's (the owner's answer of 2026-11-19): her own two and «Процесс»; «Компания» and
+ * «API» are the company's levers, closed to her on the server too.
+ */
+const RECEPTION_SECTIONS: readonly SettingsSection[] = ['account', 'appearance', 'process'];
+
 /** The address of a section, as its link carries it. */
 function sectionHref(section: SettingsSection): string {
   const search = writeSettingsAddress({ section });
@@ -83,12 +90,14 @@ export function SettingsView({
 }: SettingsViewProps) {
   const { t } = useTranslation();
   const [address, setAddress] = useAddressState(readSettingsAddress, writeSettingsAddress);
-  // The office sees every section but «API», which is an admin's; the head
-  // technician his own two.
+  // A manager and an admin see every section but «API», which is an admin's;
+  // the reception her own two and «Процесс»; the head technician his own two.
   const shown: readonly SettingsSection[] =
     access === 'full'
       ? SETTINGS_SECTIONS.filter((section) => section !== 'api' || isAdmin)
-      : PERSONAL_SECTIONS;
+      : access === 'reception'
+        ? RECEPTION_SECTIONS
+        : PERSONAL_SECTIONS;
   // A link to a section that is not theirs opens the account.
   const current = shown.includes(address.section)
     ? address.section
@@ -116,7 +125,15 @@ export function SettingsView({
       description: t('panel.settings.appearanceHint'),
       body: <ThemeSwitcher initial={theme} />,
     },
-    company: { description: t('panel.settings.companyHint'), body: <HostToggles /> },
+    company: {
+      description: t('panel.settings.companyHint'),
+      body: (
+        <>
+          <HostToggles />
+          <GuestTaskSources isAdmin={isAdmin} />
+        </>
+      ),
+    },
     // «Процесс → Видео» (docs/tech-plan.md, 9): the company's video limits
     // after the steps they hold the video step to.
     process: {

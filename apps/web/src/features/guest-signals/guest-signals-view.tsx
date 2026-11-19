@@ -33,6 +33,7 @@ import {
 } from './review-filters';
 import { ReviewFiltersBar } from './review-filters-bar';
 import {
+  candidateKinds,
   chatFreshness,
   DAILY_AUTO_CAP_MAX,
   DAILY_AUTO_CAP_MIN,
@@ -68,6 +69,8 @@ import {
 interface GuestSignalsViewProps {
   /** The switches are the admin's (the owner's decisions of 2026-10-17); the server says so too. */
   isAdmin: boolean;
+  /** «Настройки» at all: not the reception's (owner, 2026-11-19); the server refuses her too. */
+  hasSettings?: boolean;
 }
 
 /**
@@ -80,15 +83,28 @@ interface GuestSignalsViewProps {
  * other screens: a reload, a forwarded link or «Назад» find the screen as it
  * was. A new tab is a step of the history; a filter is changed in place.
  */
-export function GuestSignalsView({ isAdmin }: GuestSignalsViewProps) {
+export function GuestSignalsView({ isAdmin, hasSettings = true }: GuestSignalsViewProps) {
   const { t } = useTranslation();
   const [address, setAddress] = useAddressState(readGuestsAddress, writeGuestsAddress);
-  const { tab } = address;
+  const tabs: readonly GuestTab[] = hasSettings
+    ? GUEST_TABS
+    : GUEST_TABS.filter((key) => key !== 'settings');
+  // A link to «Настройки» for somebody without them opens «Найдено».
+  const tab = tabs.includes(address.tab) ? address.tab : 'found';
   const setTab = (next: GuestTab) => setAddress({ ...address, tab: next }, 'push');
   const setReviewFilters = (next: ReviewFilters) => setAddress({ ...address, reviews: next });
   const count = useCandidateCount();
   const chats = useChatsOn();
   const chatsOn = chats.data === true;
+  // «Найдено» offers only what can still become a task: a source switched off in
+  // «Настройки → Компания» leaves the list (owner, 2026-11-19).
+  const reviewTasksOn = useSignalSettings().data?.tasks_enabled ?? true;
+  const kindsFor = (tab: FindingTab) =>
+    tab === 'found'
+      ? kindsOf(source, chatsOn).filter((kind) =>
+          candidateKinds(reviewTasksOn, chatsOn).includes(kind),
+        )
+      : kindsOf(source, chatsOn);
   const [source, setSource] = useState<SignalSource>('all');
 
   return (
@@ -96,7 +112,7 @@ export function GuestSignalsView({ isAdmin }: GuestSignalsViewProps) {
       <PageHeader title={t('panel.guests.title')} meta={<RunLine chatsOn={chatsOn} />} />
       <Tabs value={tab} onValueChange={(value) => setTab(value as GuestTab)}>
         <TabsList>
-          {GUEST_TABS.map((key) => (
+          {tabs.map((key) => (
             <TabsTrigger key={key} value={key}>
               {t(`panel.guests.tabs.${key}`)}
               {key === 'found' && (count.data ?? 0) > 0 ? ` ${count.data}` : ''}
@@ -108,7 +124,7 @@ export function GuestSignalsView({ isAdmin }: GuestSignalsViewProps) {
             {tab === key ? (
               <div className="flex flex-col gap-3">
                 {chatsOn ? <SourcePicker value={source} onChange={setSource} /> : null}
-                <FindingList tab={key} kinds={kindsOf(source, chatsOn)} />
+                <FindingList tab={key} kinds={kindsFor(key)} />
               </div>
             ) : null}
           </TabsContent>
@@ -119,7 +135,7 @@ export function GuestSignalsView({ isAdmin }: GuestSignalsViewProps) {
           ) : null}
         </TabsContent>
         <TabsContent value="settings">
-          {tab === 'settings' ? <SettingsPanel isAdmin={isAdmin} /> : null}
+          {tab === 'settings' && hasSettings ? <SettingsPanel isAdmin={isAdmin} /> : null}
         </TabsContent>
       </Tabs>
     </div>
@@ -210,6 +226,9 @@ function FindingList({ tab, kinds }: { tab: FindingTab; kinds: ReturnType<typeof
   const { t } = useTranslation();
   const language = useLanguage();
   const findings = useFindings(tab, kinds);
+  if (kinds.length === 0) {
+    return <EmptyState>{t('panel.guests.empty.sourceOff')}</EmptyState>;
+  }
   if (findings.isPending) {
     return <LoadingState />;
   }
