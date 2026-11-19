@@ -2,6 +2,7 @@ import * as shared from '@str-ops/shared/src/problems/categories';
 import {
   CATALOG_FIXTURE,
   SEARCH_CASES,
+  UNREADABLE_LEVEL_CATEGORY,
 } from '@str-ops/shared/src/testing/problem-categories.fixture';
 
 import * as phone from '../categories';
@@ -16,12 +17,14 @@ import type { ProblemCategory } from '../categories';
  * catalogue. This test holds them together; it ships in no bundle.
  */
 
-const CATALOG = CATALOG_FIXTURE as unknown as ProblemCategory[];
+// The client's 27, and one whose level could not be read: it must lead in both.
+const CATALOG = [...CATALOG_FIXTURE, UNREADABLE_LEVEL_CATEGORY] as unknown as ProblemCategory[];
 const ids = (list: readonly { id: string }[]) => list.map((category) => category.id);
 
 describe('the phone and the panel pick a category by the same rules', () => {
   test('the same order of the list', () => {
     expect(ids(shared.inPickOrder(CATALOG))).toEqual(ids(phone.inPickOrder(CATALOG)));
+    expect(shared.inPickOrder(CATALOG)[0].id).toBe(UNREADABLE_LEVEL_CATEGORY.id);
   });
 
   test.each(SEARCH_CASES)('the same answers to «$query» ($note)', ({ query }) => {

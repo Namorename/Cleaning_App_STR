@@ -48,6 +48,11 @@ export function useReportCatalog(): ReportCatalog {
     queryKey: problemCatalogKeys.all,
     queryFn: () => fetchReportCatalog(client),
     staleTime: CATALOG_FRESH_MS,
+    // A failed read is the typed title at once, not after a retry; and the form opened after it
+    // takes the failure as it stands rather than waiting on a read again. A later focus of the
+    // window reads it anew.
+    retry: false,
+    retryOnMount: false,
   });
   return reportCatalogOf(query);
 }

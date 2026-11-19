@@ -193,6 +193,23 @@ describe('a company that reports by catalogue', () => {
     expect(field(form)).toHaveValue('Царапины');
   });
 
+  test('letters typed right after a pick are a new search, not added to the name', async () => {
+    const form = openForm();
+    await userEvent.type(field(form), 'царап');
+    await userEvent.keyboard('{Enter}');
+    expect(field(form)).toHaveValue('Царапины');
+
+    // The focus and the caret stay after the name (no click): what comes next is a search of its own.
+    expect(field(form)).toHaveFocus();
+    await userEvent.keyboard('душ');
+    expect(optionNames(form)).toEqual(['Душ, срочность: Высокая']);
+  });
+
+  test('the form stands from the top, so the list opening below does not move it', () => {
+    const form = openForm();
+    expect(form).toHaveClass('top-4', 'translate-y-0', 'overflow-y-auto');
+  });
+
   test('another pick replaces the first, and the search starts empty again', async () => {
     const form = openForm();
     await userEvent.click(field(form));
@@ -219,6 +236,9 @@ describe('a company that types, and a catalogue that did not load', () => {
 
     expect(within(form).queryByRole('combobox', { name: 'Категория' })).not.toBeInTheDocument();
     expect(within(form).getByLabelText('Срочность')).toHaveDisplayValue('Обычная');
+    // In the middle of the window, where it always stood.
+    expect(form).not.toHaveClass('top-4');
+    expect(form).not.toHaveClass('overflow-y-auto');
 
     await userEvent.selectOptions(within(form).getByLabelText('Объект'), 'Vinohrady 12');
     await userEvent.type(within(form).getByLabelText('Что случилось'), 'Течёт кран');

@@ -19,6 +19,15 @@ import { useLanguage } from '@/lib/use-language';
 
 import type { ReportCategory } from './catalog';
 
+/**
+ * What was typed as a search. With the list closed the field shows the chosen name with the caret
+ * after it, and the letters typed next arrive appended to it: the search is those letters, not
+ * «Затоплениед». A name edited in its middle is searched as it reads.
+ */
+function searchTyped(value: string, shownName: string): string {
+  return shownName !== '' && value.startsWith(shownName) ? value.slice(shownName.length) : value;
+}
+
 interface CategoryComboboxProps {
   /** The input's id, for the form's `<Label htmlFor>`. */
   id: string;
@@ -164,7 +173,7 @@ export function CategoryCombobox({
           }
           onClick={open}
           onChange={(event) => {
-            setQuery(event.target.value);
+            setQuery(searchTyped(event.target.value, isOpen ? '' : selectedName));
             setActive(0);
             setIsOpen(true);
           }}

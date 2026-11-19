@@ -118,6 +118,62 @@ describe('the catalogue', () => {
     expect(asked.map((entry) => entry.table)).toEqual(['hosts']);
   });
 
+  test('the two reads share one deadline', async () => {
+    const { client, asked } = fakeClient({
+      hosts: { data: { problem_report_mode: 'catalog' }, error: null },
+      problem_categories: { data: [FLOOD], error: null },
+    });
+    const deadline = new AbortController();
+    await fetchReportCatalog(client, deadline.signal);
+
+    const signals = asked.map(
+      (entry) => entry.calls.find(([name]) => name === 'abortSignal')?.[1],
+    );
+    expect(signals).toEqual([deadline.signal, deadline.signal]);
+  });
+
+  test('a read that hangs past the deadline fails, for the form to take a typed title', async () => {
+    const deadline = new AbortController();
+    // A client that answers only when its request is aborted, as supabase-js does.
+    const hanging = {
+      from: () => {
+        let signal: AbortSignal | undefined;
+        const chain: Record<string, unknown> = new Proxy(
+          {
+            then: (resolve: (answer: Answer) => void) => {
+              const aborted = () => resolve({ data: null, error: { message: 'AbortError: aborted' } });
+              if (signal?.aborted) {
+                aborted();
+              } else {
+                signal?.addEventListener('abort', aborted);
+              }
+            },
+          },
+          {
+            get(target, property: string) {
+              if (property in target) {
+                return target[property as keyof typeof target];
+              }
+              return (...args: unknown[]) => {
+                if (property === 'abortSignal') {
+                  signal = args[0] as AbortSignal;
+                }
+                return chain;
+              };
+            },
+          },
+        );
+        return chain;
+      },
+    };
+
+    const answer = fetchReportCatalog(hanging as never, deadline.signal);
+    // The request is out and nothing answers; then the deadline passes.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    deadline.abort();
+    await expect(answer).rejects.toEqual({ message: 'AbortError: aborted' });
+  });
+
   test('a company that picks reads both', async () => {
     const { client } = fakeClient({
       hosts: { data: { problem_report_mode: 'catalog' }, error: null },

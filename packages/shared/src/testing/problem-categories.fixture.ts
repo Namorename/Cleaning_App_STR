@@ -57,6 +57,19 @@ export const CATALOG_FIXTURE: readonly CatalogCategory[] = [
   row('53254afb-447f-46df-ac19-e265389a9d9b', 'P4', 'Доставка (бельё, химия, кроватка и т. д.)', 'Delivery (linen, cleaning supplies, cot, etc.)', 'Dovoz (prádlo, drogerie, postýlka atd.)', ['полотенца']),
 ];
 
+/**
+ * A category whose urgency a newer server spelled in a way this build cannot read: it is read
+ * with no level, stays pickable and leads the list.
+ */
+export const UNREADABLE_LEVEL_CATEGORY: CatalogCategory = {
+  id: '00000000-0000-4000-8000-0000000000aa',
+  name: 'Прочее',
+  name_i18n: { en: 'Other', cs: 'Ostatní' },
+  synonyms: ['другое'],
+  priority: null,
+  critical: null,
+};
+
 /** What a person types into the search, for the tests that hold both apps to the same answers. */
 export const SEARCH_CASES: readonly { readonly query: string; readonly note: string }[] = [
   { query: '', note: 'nothing typed keeps them all' },

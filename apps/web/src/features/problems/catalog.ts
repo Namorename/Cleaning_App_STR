@@ -39,8 +39,9 @@ export type ReportCategory = z.infer<typeof reportCategorySchema> & CatalogCateg
 const reportCategoryListSchema = z.array(reportCategorySchema);
 
 /**
- * How long the form waits for an answer before it gives up on the catalogue and takes a typed
- * title: a request that hangs must not hold a task up (owner, 2026-11-20).
+ * How long the form waits for the whole answer — the mode and the list together — before it gives
+ * up on the catalogue and takes a typed title: a request that hangs must not hold a task up
+ * (owner, 2026-11-20).
  */
 export const CATALOG_WAIT_MS = 5_000;
 
@@ -48,12 +49,15 @@ export const CATALOG_WAIT_MS = 5_000;
  * The company's way of naming a task. No filter and no id: the read policy on `hosts` answers
  * with the reader's own company (as `fetchHostSettings`). No row reads as typed.
  */
-export async function fetchReportMode(client: Client): Promise<ReportMode> {
+export async function fetchReportMode(
+  client: Client,
+  signal: AbortSignal = AbortSignal.timeout(CATALOG_WAIT_MS),
+): Promise<ReportMode> {
   const { data, error } = await client
     .from('hosts')
     .select('problem_report_mode')
     .limit(1)
-    .abortSignal(AbortSignal.timeout(CATALOG_WAIT_MS))
+    .abortSignal(signal)
     .maybeSingle();
   if (error) {
     throw error;
@@ -66,14 +70,17 @@ export async function fetchReportMode(client: Client): Promise<ReportMode> {
  * `fetchProblemCategories`): the read policy answers with the reader's own company; archived
  * categories are no longer offered.
  */
-export async function fetchReportCategories(client: Client): Promise<ReportCategory[]> {
+export async function fetchReportCategories(
+  client: Client,
+  signal: AbortSignal = AbortSignal.timeout(CATALOG_WAIT_MS),
+): Promise<ReportCategory[]> {
   const { data, error } = await client
     .from('problem_categories')
     .select('id, name, name_i18n, synonyms, priority, critical')
     .is('archived_at', null)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true })
-    .abortSignal(AbortSignal.timeout(CATALOG_WAIT_MS));
+    .abortSignal(signal);
   if (error) {
     throw error;
   }
@@ -86,13 +93,19 @@ export interface ReportCatalogData {
   readonly categories: readonly ReportCategory[];
 }
 
-/** The catalogue is read only by a company that reports by it: a typed company asks once. */
-export async function fetchReportCatalog(client: Client): Promise<ReportCatalogData> {
-  const mode = await fetchReportMode(client);
+/**
+ * The catalogue is read only by a company that reports by it: a typed company asks once. Both
+ * reads share one deadline, so the answer — or the typed title — comes within `CATALOG_WAIT_MS`.
+ */
+export async function fetchReportCatalog(
+  client: Client,
+  signal: AbortSignal = AbortSignal.timeout(CATALOG_WAIT_MS),
+): Promise<ReportCatalogData> {
+  const mode = await fetchReportMode(client, signal);
   if (mode !== 'catalog') {
     return { mode, categories: [] };
   }
-  return { mode, categories: await fetchReportCategories(client) };
+  return { mode, categories: await fetchReportCategories(client, signal) };
 }
 
 /**

@@ -59,6 +59,15 @@ const PLACE_NONE = 'none';
 /** Ties the listing field to the sentence that says what «Без объекта» costs. */
 const NO_LISTING_HINT_ID = 'problem-no-listing-hint';
 
+/**
+ * The form of a catalogue company. The category's list opens inside the form and grows it, so
+ * the form stands from the top rather than the middle — a centred one would move under the cursor
+ * as the list opens and narrows — and a short window scrolls it rather than cuts it. The typed
+ * form keeps its place in the middle, as before.
+ */
+const CATALOG_FORM_CLASS =
+  'top-4 max-h-[calc(100dvh-2rem)] translate-y-0 overflow-y-auto sm:top-[8vh] sm:max-h-[84dvh] sm:max-w-lg';
+
 function placeValue(propertyId: Draft['propertyId']): string {
   if (propertyId === undefined) {
     return PLACE_UNSET;
@@ -195,8 +204,7 @@ export function NewProblemDialog({ from, onClose }: NewProblemDialogProps) {
 
   return (
     <Dialog open onOpenChange={(next) => (next ? undefined : close())}>
-      {/* The category's list opens inside the form: a short window scrolls rather than cuts it. */}
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+      <DialogContent className={categories === null ? 'sm:max-w-lg' : CATALOG_FORM_CLASS}>
         <DialogHeader>
           <DialogTitle>{t('panel.problems.form.title')}</DialogTitle>
           <DialogDescription>{t('panel.problems.form.description')}</DialogDescription>
