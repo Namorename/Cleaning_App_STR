@@ -99,7 +99,7 @@ export function entrySentence(
 interface CardJournalProps {
   card: CardDetail;
   viewer: BoardViewer;
-  /** Whoever works on the card (its board's owner, an admin, its assignee), not shelved: may write. */
+  /** Every manager and admin, on a live board and a card that is not shelved: may write. */
   canEdit: boolean;
 }
 

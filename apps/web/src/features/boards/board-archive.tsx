@@ -17,7 +17,7 @@ interface BoardArchiveProps {
   cardHref: (cardId: string) => string;
   /** A plain click on a card opens it over the board. */
   onOpen?: (cardId: string) => void;
-  /** The owner or an admin may bring a card back. */
+  /** Every manager and admin brings a card back, on a live board. */
   onRestore?: (card: BoardCard) => void;
   isBusy?: boolean;
 }

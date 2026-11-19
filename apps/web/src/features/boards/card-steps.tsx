@@ -25,7 +25,7 @@ import { useDeleteStep, useOrderSteps, useSaveStep, useSetStepDone } from './use
 
 interface CardStepsProps {
   card: CardDetail;
-  /** The owner or an admin, on a card that is not shelved. */
+  /** Every manager and admin, on a live board and a card that is not shelved. */
   canEdit: boolean;
 }
 

@@ -144,8 +144,9 @@ export function orderedEntries(entries: readonly CardEntry[]): CardEntry[] {
 }
 
 /**
- * Who may change a board: its owner and an admin (the server says the same,
- * manager_board_for_edit). Another manager reads it.
+ * Who looks at a board. Its cards are worked on by every manager and admin on a live board; the
+ * board itself (name, archive) by its owner and an admin — the server says the same
+ * (manager_board_for_cards, manager_board_for_edit).
  */
 export interface BoardViewer {
   id: string;

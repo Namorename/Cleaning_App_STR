@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 
 import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { todayIso } from '@/lib/format-date';
 import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
@@ -23,8 +24,8 @@ import { BoardFilters } from './board-filters';
 import { CardDialog } from './card-dialog';
 import { boardKeys } from './keys';
 import { ManagerBoard } from './manager-board';
-import type { BoardCard, BoardViewer, MyCard } from './schema';
-import { useBoards, useCard, useMoveCard, useMyCards } from './use-boards';
+import type { BoardCard, BoardViewer, CardShelf, MyCard } from './schema';
+import { useBoards, useCard, useMoveCard, useMyCards, useSetCardShelf } from './use-boards';
 
 interface MyCardsViewProps {
   viewer: BoardViewer;
@@ -32,8 +33,9 @@ interface MyCardsViewProps {
 
 /**
  * «Назначено мне» (owner, 2026-11-18): the cards the viewer is the assignee of, from every board
- * that is not archived, in the same four columns — each tile names its board. The assignee works
- * on them here as on their boards: moves them, opens them; a new card is made on a board.
+ * that is not archived, in the same four columns — each tile names its board. They are worked on
+ * here as on their boards: moved, opened, copied and shelved (a copy opens; a shelved card leaves a
+ * line with «Отменить»); a new card is made on a board.
  */
 export function MyCardsView({ viewer }: MyCardsViewProps) {
   const { t } = useTranslation();
@@ -83,6 +85,12 @@ function MyCardsPage({
     }
   }, [address.cardId]);
   const move = useMoveCard(boardKeys.mine(viewer.id));
+  const shelve = useSetCardShelf();
+  // A card that left the list from its dialog: the line says so, with «Отменить».
+  const [shelved, setShelved] = useState<{
+    card: Pick<BoardCard, 'id' | 'title'>;
+    shelf: CardShelf;
+  } | null>(null);
 
   const today = todayIso();
   const matching = cards.filter((card) => matchesCardFilters(card, filters, today));
@@ -161,6 +169,29 @@ function MyCardsPage({
             {failure.text}
             {failure.detail === null ? '' : ` (${failure.detail})`}
           </span>
+        ) : shelved !== null ? (
+          <span className="flex flex-wrap items-center gap-2">
+            {shelved.shelf === 'deleted' ? t('boards.cardDeleted') : t('boards.cardArchived')}
+            {' · '}
+            {shelved.card.title}
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              disabled={shelve.isPending}
+              onClick={() =>
+                shelve.mutate(
+                  { cardId: shelved.card.id, shelf: 'active' },
+                  {
+                    onSuccess: () => setShelved(null),
+                    onError: (error: unknown) => setFailure(serverErrorText(error)),
+                  },
+                )
+              }
+            >
+              {t('boards.undo')}
+            </Button>
+          </span>
         ) : isStale ? (
           t('boards.staleNote')
         ) : null}
@@ -174,8 +205,15 @@ function MyCardsPage({
           today={today}
           listKey={boardKeys.mine(viewer.id)}
           onClose={closeCard}
-          onShelved={closeCard}
-          onDuplicated={() => closeCard()}
+          onShelved={(card, shelf) => {
+            closeCard();
+            setShelved(shelf === 'active' ? null : { card, shelf });
+          }}
+          onDuplicated={(cardId) => {
+            // The copy is its board owner's, not in this list: it opens by its address, as on a board.
+            openedHere.current = true;
+            setAddress({ ...here, cardId }, 'push');
+          }}
         />
       )}
     </div>

@@ -455,10 +455,11 @@ describe('another manager', () => {
 });
 
 describe('an admin', () => {
-  test("changes anybody's board", () => {
+  test("changes anybody's board, its cards and the board itself", () => {
     show({ id: ADMIN, isAdmin: true });
     expect(screen.getAllByRole('textbox', { name: /Новая карточка в колонке/ })).toHaveLength(4);
     expect(screen.getByRole('button', { name: 'Добавить карточку' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Действия с доской' })).toBeInTheDocument();
   });
 });
 
@@ -862,11 +863,67 @@ describe('the board itself (20261119090000)', () => {
     ).toBeInTheDocument();
   });
 
-  test('an archived board is brought back by its owner, not by another manager, and its cards are read', () => {
+  test('an archived board is read by another manager: no «Вернуть доску», no card controls', () => {
     state.boards = [makeBoard({ archived_at: '2026-11-15T10:00:00Z' })];
     show({ id: READER, isAdmin: false });
+    expect(screen.getByText('Доска в архиве: карточки только для просмотра.')).toBeInTheDocument();
+    expect(screen.getByText('Ремонт ванной')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Вернуть доску' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Добавить карточку' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Действия с карточкой/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('after the review of stage 3', () => {
+  test('an admin brings an archived board back', async () => {
+    const user = userEvent.setup();
+    state.boards = [makeBoard({ archived_at: '2026-11-15T10:00:00Z' })];
+    show({ id: ADMIN, isAdmin: true });
+    await user.click(screen.getByRole('button', { name: 'Вернуть доску' }));
+    expect(spies.archiveBoard).toHaveBeenCalledWith({ boardId: BOARD, archived: false });
+  });
+
+  test('a card opened on an archived board is read even by its owner and an admin', () => {
+    state.boards = [makeBoard({ archived_at: '2026-11-15T10:00:00Z' })];
+    for (const viewer of [
+      { id: OWNER, isAdmin: false },
+      { id: ADMIN, isAdmin: true },
+    ]) {
+      const view = show(viewer, `?board=${BOARD}&card=${cardId(1)}`);
+      const dialog = screen.getByRole('dialog');
+      expect(
+        within(dialog).queryByRole('group', { name: 'Переместить в…' }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(dialog).queryByRole('textbox', { name: 'Комментарий' }),
+      ).not.toBeInTheDocument();
+      expect(within(dialog).queryByRole('button', { name: 'Дублировать' })).not.toBeInTheDocument();
+      view.unmount();
+    }
+  });
+
+  test("another manager writes in the journal but neither changes nor deletes the owner's comment", () => {
+    show({ id: READER, isAdmin: false }, `?board=${BOARD}&card=${cardId(1)}`);
+    const journal = within(screen.getByRole('region', { name: 'Журнал' }));
+    expect(journal.getByRole('textbox', { name: 'Комментарий' })).toBeInTheDocument();
+    expect(journal.queryByRole('button', { name: 'Изменить' })).not.toBeInTheDocument();
+    expect(journal.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument();
+  });
+
+  test('«Назначено мне»: a copy made from a card opens, a card archived from it leaves a line with «Отменить»', async () => {
+    const user = userEvent.setup();
+    state.mine = [
+      myCardSchema.parse({
+        ...makeCard(1, { title: 'Ремонт ванной', assignee_id: OWNER }),
+        board: { id: BOARD, title: 'Проекты', owner_id: OWNER, archived_at: null },
+      }),
+    ];
+    window.history.replaceState(null, '', `/problems?board=mine&card=${cardId(1)}`);
+    render(<MyCardsView viewer={{ id: READER, isAdmin: false }} />);
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'В архив' }));
+    expect(spies.shelve).toHaveBeenCalledWith({ cardId: cardId(1), shelf: 'archived' });
+    expect(screen.getByRole('status')).toHaveTextContent('Карточка в архиве');
+    await user.click(screen.getByRole('button', { name: 'Отменить' }));
+    expect(spies.shelve).toHaveBeenLastCalledWith({ cardId: cardId(1), shelf: 'active' });
   });
 });

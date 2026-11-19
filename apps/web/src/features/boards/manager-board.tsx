@@ -27,7 +27,7 @@ interface ManagerBoardProps {
   isFiltered: boolean;
   /** What may be done to a card; none for a card the viewer only reads. */
   actionsFor: (card: BoardCard) => CardActions | undefined;
-  /** The board's owner or an admin: each column ends in a quick add. */
+  /** Every manager and admin on a live board: each column ends in a quick add. */
   canAdd: boolean;
   cardHref: (cardId: string) => string;
   /** A plain click on a card opens it over the board. */
@@ -40,7 +40,7 @@ interface ManagerBoardProps {
  * The four columns of a manager board — the technicians' board's, under the
  * same words — side by side, scrolling sideways inside their frame on a narrow
  * screen. A card goes to any column by the mouse or by its menu; each column
- * ends in a quick add. A reader sees the same board without either.
+ * ends in a quick add. An archived board is the same board without either.
  */
 export function ManagerBoard({
   boardId,

@@ -23,8 +23,8 @@ import { openPlainly } from './open-plainly';
 import { cardPlace, initialsOf, type BoardCard, type CardShelf } from './schema';
 
 /**
- * What can be done to one card from the board: a move for whoever works on it (the owner, an
- * admin, its assignee); a copy and the shelves for the board's owner and an admin only.
+ * What can be done to one card from the board — by every manager and admin on a live board: a move,
+ * and where the view offers them, a copy and the shelves.
  */
 export interface CardActions {
   onMove: (card: BoardCard, column: BoardColumn) => void;
@@ -40,7 +40,7 @@ interface CardTileProps {
   href: string;
   /** A plain click opens the card over the board ('openPlainly'). */
   onOpen?: (cardId: string) => void;
-  /** Whoever works on the card: the menu and the drag; anybody else only reads it. */
+  /** The menu and the drag; absent on an archived board, where the cards are read. */
   actions?: CardActions;
   drag?: ItemDrag<BoardCard>;
   /** The card's board, named on a card shown away from it («Назначено мне»). */
