@@ -30,7 +30,27 @@ import {
   type ReportProblemVariables,
   type ResolveProblemVariables,
 } from './api';
-import { problemKeys } from './keys';
+import { fetchReportCatalog, reportCatalogOf, type ReportCatalog } from './catalog';
+import { problemCatalogKeys, problemKeys } from './keys';
+
+/** The catalogue changes seldom: read with the page, again only after a while. */
+const CATALOG_FRESH_MS = 5 * 60_000;
+
+/**
+ * How «Новое задание» names a task: by a category of the company's catalogue when the company
+ * reports by it (hosts.problem_report_mode = catalog, as the cleaners' phones), by a typed title
+ * otherwise — and whenever the catalogue cannot be read: a task is never held up by it. The page
+ * asks as it opens, so the form opens knowing.
+ */
+export function useReportCatalog(): ReportCatalog {
+  const client = useSupabase();
+  const query = useQuery({
+    queryKey: problemCatalogKeys.all,
+    queryFn: () => fetchReportCatalog(client),
+    staleTime: CATALOG_FRESH_MS,
+  });
+  return reportCatalogOf(query);
+}
 
 /** `refetchInterval` for a page that stays open and counts them, the dashboard. */
 export function useProblems(refetchInterval?: number) {

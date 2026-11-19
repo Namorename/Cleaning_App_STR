@@ -11,3 +11,11 @@ export const problemKeys = {
   staff: () => ['problems', 'staff'] as const,
   workers: () => ['problems', 'workers'] as const,
 };
+
+/**
+ * How the company names a task, and its catalogue (catalog.ts): apart from `problemKeys.all`, so
+ * a task written does not read the catalogue again.
+ */
+export const problemCatalogKeys = {
+  all: ['problem-catalog'] as const,
+};

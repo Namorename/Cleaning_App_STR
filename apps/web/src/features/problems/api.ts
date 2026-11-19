@@ -204,6 +204,12 @@ export interface ReportProblemVariables {
   critical?: boolean;
   /** The listing it stands on; null for a task of no listing. */
   propertyId: number | null;
+  /**
+   * The category picked from the company's catalogue (20261115100000). The server then names the
+   * task and sets its urgency from the category, whatever title and priority say. Absent or null:
+   * the call of before, which never names one.
+   */
+  categoryId?: string | null;
 }
 
 /**
@@ -223,6 +229,7 @@ export async function reportProblem(
     p_priority: variables.priority,
     p_critical: variables.critical,
     p_property_id: variables.propertyId ?? undefined,
+    p_category_id: variables.categoryId ?? undefined,
   });
   if (error) {
     throw error;

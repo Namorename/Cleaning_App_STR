@@ -79,6 +79,9 @@ vi.mock('../use-problems', () => ({
   useReopenProblem: () => idle,
   useUnarchiveProblem: () => ({ ...idle, mutate: unarchive }),
   useReportProblem: () => ({ ...reportState, mutate: report }),
+  // A company that types its tasks: the form of before (the catalogue's form has its own file,
+  // new-problem-dialog.test.tsx).
+  useReportCatalog: () => ({ kind: 'free' }),
 }));
 
 // The listings the new task can stand on: the same reader «Уборки» use.

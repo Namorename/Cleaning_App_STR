@@ -17,6 +17,7 @@ import * as guestSignals from '../guest-signals/api';
 import { EMPTY_REVIEW_FILTERS } from '../guest-signals/review-filters';
 import * as knowledge from '../knowledge/api';
 import * as problems from '../problems/api';
+import * as problemCatalog from '../problems/catalog';
 import * as settings from '../settings/api';
 import * as supplies from '../supplies/api';
 import * as tasks from '../tasks/api';
@@ -124,6 +125,9 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => problems.fetchFixTaskSteps(client, ANY_ID),
   (client) => problems.fetchStaff(client),
   (client) => problems.fetchWorkers(client),
+  // «Новое задание» of a company that reports by catalogue: the switch and the list.
+  (client) => problemCatalog.fetchReportMode(client),
+  (client) => problemCatalog.fetchReportCategories(client),
   (client) => tasks.fetchCleaners(client),
   (client) => guestSignals.fetchFindings(client, ['candidate']),
   // Chats on: the cards of messages beside the reviews', their count, the switch (20261110120000).

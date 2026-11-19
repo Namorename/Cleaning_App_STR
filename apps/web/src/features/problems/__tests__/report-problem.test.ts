@@ -107,6 +107,43 @@ describe('reportProblem', () => {
     expect(recorded.rpc?.args).toMatchObject({ p_priority: 'high', p_critical: true });
   });
 
+  // A company that reports by catalogue (owner, 2026-11-20): the category goes to the server,
+  // which names the task and sets its urgency from it, whatever the title and level sent.
+  test('a category picked goes out as p_category_id', async () => {
+    const { client, recorded } = fakeClient();
+
+    await reportProblem(client, {
+      problemId: ROW.id,
+      title: 'Затопление',
+      description: '',
+      priority: 'high',
+      critical: true,
+      propertyId: 7,
+      categoryId: 'd2e00844-d88c-4324-ab60-dbed5bb56a59',
+    });
+
+    expect(recorded.rpc?.args).toMatchObject({
+      p_title: 'Затопление',
+      p_category_id: 'd2e00844-d88c-4324-ab60-dbed5bb56a59',
+    });
+  });
+
+  test('a typed task sends no category: the call of before', async () => {
+    const { client, recorded } = fakeClient();
+
+    await reportProblem(client, {
+      problemId: ROW.id,
+      title: 'Течёт кран',
+      description: '',
+      priority: 'normal',
+      propertyId: 7,
+      categoryId: null,
+    });
+
+    // Undefined is left out of the request: PostgREST takes the argument's default, null.
+    expect((recorded.rpc?.args as Record<string, unknown>).p_category_id).toBeUndefined();
+  });
+
   test('a refusal from the server is passed through as it came', async () => {
     const refusal = { message: 'too long', hint: 'serverErrors.problemTitleTooLong' };
     const { client } = fakeClient(refusal);

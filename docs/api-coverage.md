@@ -484,7 +484,7 @@
 | `oauth_clients` | MCP sign-in: dynamically registered OAuth clients. |
 | `oauth_codes` | MCP sign-in: authorization codes, as digests. |
 | `oauth_tokens` | MCP sign-in: access and refresh tokens of connections, as digests. |
-| `problem_categories` | CLIENT:Wagnerstays reporting aid (owner 2026-11-14): the catalogue a cleaner picks a task's category from on the phone when hosts.problem_report_mode is catalog; loaded by a one-off script, no screen or API write yet; a task's category reaches the API with Task when the catalogue gets an editor |
+| `problem_categories` | CLIENT:Wagnerstays reporting aid (owner 2026-11-14): the catalogue a cleaner picks a task's category from on the phone, and the office from the panel's New task form (owner 2026-11-20), when hosts.problem_report_mode is catalog; both file through report_problem p_category_id, which API v1 does not take: by the owner's word of 2026-11-20 the API adds nothing and creates typed tasks only; loaded by a one-off script, no editor yet; a task's category reaches the API with Task when the catalogue gets an editor |
 | `problem_themes` | the theme of a problem, beside it |
 | `property_internal_notes` | office-only note of a listing ("never leaves the manager panel"); free text that may hold access details |
 | `property_month_stats` | stays and nights by month, read from the PMS |

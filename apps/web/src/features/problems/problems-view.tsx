@@ -26,7 +26,7 @@ import { ProblemsBoard } from './problems-board';
 import { ProblemsFilters } from './problems-filters';
 import { ProblemsTable } from './problems-table';
 import { isProblemArchived, type Problem } from './schema';
-import { useProblems } from './use-problems';
+import { useProblems, useReportCatalog } from './use-problems';
 
 const NO_PROBLEMS: Problem[] = [];
 
@@ -50,6 +50,8 @@ export function ProblemsView() {
   const [address, setAddress] = useAddressState(readProblemsAddress, writeProblemsAddress);
   const { view } = address;
   const { data, isPending, isError, error } = useProblems();
+  // Asked with the page, so «Новое задание» opens knowing whether a task is typed or picked.
+  useReportCatalog();
   const all = data ?? NO_PROBLEMS;
 
   const places = useMemo(() => placeOptions(all), [all]);
