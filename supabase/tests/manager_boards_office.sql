@@ -156,10 +156,11 @@ select pg_temp.check('1.4 she adds a step, ticks it, edits its words, orders and
         pg_temp.refusal(format('select public.order_manager_steps(%L, array[%L, %L]::uuid[])', pg_temp.cid(1), pg_temp.sid(2), pg_temp.sid(1))),
         pg_temp.refusal(format('select public.delete_manager_step(%L)', pg_temp.sid(2)))],
   array['no error', 'no error', 'no error', 'no error', 'no error']);
+-- Written, then edited: two statements, so the order is the statements' own.
+select public.save_manager_comment(pg_temp.eid(2), pg_temp.cid(1), 'Ina note');
 select pg_temp.check('1.5 she writes a comment and edits her own, which says «edited»',
   (select e.body || ' ' || (e.edited_at is not null)::text
-   from public.save_manager_comment(pg_temp.eid(2), pg_temp.cid(1), 'Ina note') x,
-        public.save_manager_comment(pg_temp.eid(2), null, 'Ina note, fixed') e),
+   from public.save_manager_comment(pg_temp.eid(2), null, 'Ina note, fixed') e),
   'Ina note, fixed true');
 select pg_temp.check('1.6 she assigns the card, to an admin',
   (select pg_temp.who(c.assignee_id) from public.set_manager_card_assignee(pg_temp.cid(1), pg_temp.ada()) c), 'ada');
