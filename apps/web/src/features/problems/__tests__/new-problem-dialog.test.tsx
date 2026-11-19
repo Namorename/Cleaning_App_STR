@@ -208,6 +208,9 @@ describe('a company that reports by catalogue', () => {
   test('the form stands from the top, so the list opening below does not move it', () => {
     const form = openForm();
     expect(form).toHaveClass('top-4', 'translate-y-0', 'overflow-y-auto');
+    // The centring of the base dialog is gone, not merely outnumbered.
+    expect(form).not.toHaveClass('top-1/2');
+    expect(form).not.toHaveClass('-translate-y-1/2');
   });
 
   test('another pick replaces the first, and the search starts empty again', async () => {

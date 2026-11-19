@@ -42,17 +42,17 @@ const CATALOG_FRESH_MS = 5 * 60_000;
  * otherwise — and whenever the catalogue cannot be read: a task is never held up by it. The page
  * asks as it opens, so the form opens knowing.
  */
-export function useReportCatalog(): ReportCatalog {
+export function useReportCatalog({ isForm = false }: { isForm?: boolean } = {}): ReportCatalog {
   const client = useSupabase();
   const query = useQuery({
     queryKey: problemCatalogKeys.all,
     queryFn: () => fetchReportCatalog(client),
     staleTime: CATALOG_FRESH_MS,
-    // A failed read is the typed title at once, not after a retry; and the form opened after it
-    // takes the failure as it stands rather than waiting on a read again. A later focus of the
-    // window reads it anew.
+    // A failed read is the typed title at once, not after a retry. The form opened after it
+    // takes the failure as it stands rather than waiting on a read again; the page, opened
+    // anew, reads again — so does a later focus of the window.
     retry: false,
-    retryOnMount: false,
+    retryOnMount: !isForm,
   });
   return reportCatalogOf(query);
 }

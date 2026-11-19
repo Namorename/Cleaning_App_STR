@@ -108,7 +108,7 @@ function namedBy(
  * hands. Until the first answer, the page's own read stands.
  */
 function useSettledCatalog(): ReportCatalog {
-  const live = useReportCatalog();
+  const live = useReportCatalog({ isForm: true });
   const [settled, setSettled] = useState<ReportCatalog | null>(null);
   if (settled === null && live.kind !== 'pending') {
     setSettled(live);

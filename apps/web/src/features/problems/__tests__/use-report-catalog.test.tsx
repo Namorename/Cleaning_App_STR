@@ -24,11 +24,12 @@ function panelCache() {
   return new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } });
 }
 
-function renderCatalog(cache: QueryClient) {
+/** The page's reader by default; `isForm` for the form's own. */
+function renderCatalog(cache: QueryClient, isForm = false) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={cache}>{children}</QueryClientProvider>
   );
-  return renderHook(() => useReportCatalog(), { wrapper });
+  return renderHook(() => useReportCatalog({ isForm }), { wrapper });
 }
 
 /** Longer than the cache's retry delay (1 s for the first retry). */
@@ -57,11 +58,35 @@ describe('the catalogue for «Новое задание»', () => {
     await waitFor(() => expect(page.result.current.kind).toBe('free'));
 
     // The form mounts its own reader of the same answer.
-    const form = renderCatalog(cache);
+    const form = renderCatalog(cache, true);
     expect(form.result.current.kind).toBe('free');
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(form.result.current.kind).toBe('free');
     expect(fetchReportCatalog).toHaveBeenCalledTimes(1);
+  });
+
+  test('the page opened anew after a failure reads again, and recovers', async () => {
+    fetchReportCatalog.mockRejectedValueOnce(new Error('AbortError: aborted'));
+    const cache = panelCache();
+    const first = renderCatalog(cache);
+    await waitFor(() => expect(first.result.current.kind).toBe('free'));
+    first.unmount();
+
+    const categories = [
+      {
+        id: 'd2e00844-d88c-4324-ab60-dbed5bb56a59',
+        name: 'Затопление',
+        name_i18n: {},
+        synonyms: [],
+        priority: 'high',
+        critical: true,
+      },
+    ];
+    fetchReportCatalog.mockResolvedValue({ mode: 'catalog', categories });
+    const again = renderCatalog(cache);
+
+    await waitFor(() => expect(again.result.current).toEqual({ kind: 'catalog', categories }));
+    expect(fetchReportCatalog).toHaveBeenCalledTimes(2);
   });
 
   test('a company that picks gets its list', async () => {
