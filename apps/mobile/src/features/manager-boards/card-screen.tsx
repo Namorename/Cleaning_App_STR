@@ -268,8 +268,8 @@ function CardBody({ card, canWork }: { card: CardDetail; canWork: boolean }) {
 }
 
 /**
- * Who works on the card. The board's owner and an admin pick from the company's active managers
- * and admins, or «Без исполнителя» (one push goes to the new assignee); anybody else reads it.
+ * Who works on the card. Every manager and admin picks from the company's active managers and
+ * admins, or «Без исполнителя» (one push goes to the new assignee); on an archived board it is read.
  */
 function AssigneeSection({ card, canAssign }: { card: CardDetail; canAssign: boolean }) {
   const { t } = useTranslation();

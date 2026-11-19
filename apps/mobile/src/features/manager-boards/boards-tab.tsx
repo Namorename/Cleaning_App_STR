@@ -174,7 +174,8 @@ interface BoardBodyProps {
   viewer: BoardViewer;
 }
 
-function BoardBody({ board, viewer }: BoardBodyProps) {
+/** One board under the switcher; exported for its tests (an archived board, read by everybody). */
+export function BoardBody({ board, viewer }: BoardBodyProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const cards = useBoardCards(board.id);
