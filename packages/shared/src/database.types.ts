@@ -5574,6 +5574,43 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      edit_problem_text: {
+        Args: { p_description?: string; p_id: string; p_title: string }
+        Returns: {
+          archived_at: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          category_id: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
+          completed_by_source: string | null
+          created_at: string
+          critical: boolean
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string | null
+          resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          title_i18n: Json | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       effective_cleaner_notes: {
         Args: { p: Database["public"]["Tables"]["properties"]["Row"] }
         Returns: string
@@ -5776,6 +5813,7 @@ export type Database = {
       }
       invoke_edge_function: { Args: { function_name: string }; Returns: number }
       is_active_user: { Args: never; Returns: boolean }
+      is_full_manager: { Args: never; Returns: boolean }
       is_head_tech: { Args: never; Returns: boolean }
       is_localized_text: { Args: { p_value: Json }; Returns: boolean }
       is_manager: { Args: never; Returns: boolean }
@@ -6865,6 +6903,10 @@ export type Database = {
         }
         Returns: number
       }
+      reset_guest_chat_reading: {
+        Args: { p_host: string; p_queue: boolean }
+        Returns: undefined
+      }
       resolution_plan: { Args: { p_id: string }; Returns: Json }
       resolution_plan_baseline: {
         Args: { p_host: string; p_property: number; p_themes: string[] }
@@ -7482,6 +7524,42 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_guest_chats: {
+        Args: { p_enabled: boolean }
+        Returns: {
+          auto_kinds: string[]
+          daily_auto_cap: number
+          daily_model_cap: number
+          history_budget_micro_usd: number
+          history_daily_cap: number
+          history_depth_months: number
+          history_enabled: boolean
+          history_follow: boolean
+          history_include_private: boolean
+          host_id: string
+          kind: Database["public"]["Enums"]["guest_signal_kind"]
+          message_daily_budget_micro_usd: number
+          message_month_budget_micro_usd: number
+          messages_enabled: boolean
+          messages_enabled_at: string | null
+          min_confidence: number
+          model_enabled: boolean
+          model_since: string | null
+          notice_published_at: string | null
+          sync_enabled: boolean
+          tasks_enabled: boolean
+          texts_enabled: boolean
+          texts_enabled_at: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "signal_settings"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -8265,7 +8343,13 @@ export type Database = {
     }
     Enums: {
       app_language: "en" | "ru" | "cs"
-      app_role: "cleaner" | "tech" | "head_tech" | "manager" | "admin"
+      app_role:
+        | "cleaner"
+        | "tech"
+        | "head_tech"
+        | "reception"
+        | "manager"
+        | "admin"
       assignment_mode: "auto" | "claim"
       chat_thread_kind: "task" | "problem" | "direct"
       guest_signal_kind: "review" | "message"
@@ -8545,7 +8629,14 @@ export const Constants = {
   public: {
     Enums: {
       app_language: ["en", "ru", "cs"],
-      app_role: ["cleaner", "tech", "head_tech", "manager", "admin"],
+      app_role: [
+        "cleaner",
+        "tech",
+        "head_tech",
+        "reception",
+        "manager",
+        "admin",
+      ],
       assignment_mode: ["auto", "claim"],
       chat_thread_kind: ["task", "problem", "direct"],
       guest_signal_kind: ["review", "message"],

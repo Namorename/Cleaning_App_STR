@@ -660,6 +660,12 @@
       "reason": "copies a card with its steps of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
     },
+    "edit_problem_text": {
+      "status": "planned",
+      "scope": "tasks:update",
+      "reason": "the office corrects any task (problem) title and description, a cleaner's report included; a new title drops the translations",
+      "defined_in": "20261119140000_problem_edit_text.sql"
+    },
     "effective_cleaner_notes": {
       "status": "internal",
       "reason": "forbidden: door/access codes (computed cleaner note of a listing carries key-box and access codes)",
@@ -840,6 +846,11 @@
       "reason": "auth/RLS helper: caller is an active profile",
       "defined_in": "20260824190100_profiles.sql"
     },
+    "is_full_manager": {
+      "status": "internal",
+      "reason": "auth/RLS helper: caller is an active manager or admin: the boards, the team and the company switches, which the reception does not reach",
+      "defined_in": "20261119143000_reception_rights.sql"
+    },
     "is_head_tech": {
       "status": "internal",
       "reason": "auth/RLS helper: caller is the active head technician",
@@ -852,8 +863,8 @@
     },
     "is_manager": {
       "status": "internal",
-      "reason": "auth/RLS helper: caller is an active manager or admin",
-      "defined_in": "20260924175000_deactivated_cannot_escalate.sql"
+      "reason": "auth/RLS helper: caller is the office: an active manager, admin or reception",
+      "defined_in": "20261119143000_reception_rights.sql"
     },
     "is_service_booking": {
       "status": "internal",
@@ -1477,6 +1488,11 @@
       "reason": "model spending fence of classify-guest-signals: books model calls under the daily ceiling, service_role only",
       "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
+    "reset_guest_chat_reading": {
+      "status": "internal",
+      "reason": "helper of set_guest_chats: empties a company's chat reading state and queue in raw; execute revoked from every role",
+      "defined_in": "20261119141000_guest_chats_switch.sql"
+    },
     "resolution_plan": {
       "status": "internal",
       "reason": "the panel read of one plan; the public resource comes with stage 6 of the plan",
@@ -1648,6 +1664,11 @@
       "scope": "cleanings:update",
       "reason": "a manager's hours for one booking's cleaning, held against the generator while it keeps its day; the API already reads them in time_from/time_to",
       "defined_in": "20261027120000_manual_cleaning_time.sql"
+    },
+    "set_guest_chats": {
+      "status": "internal",
+      "reason": "the admin turns the company's guest chats on or off whole (switch, tasks, reading state, jobs); a company lever kept in the panel, as update_signal_settings",
+      "defined_in": "20261119141000_guest_chats_switch.sql"
     },
     "set_kb_article_status": {
       "status": "planned",

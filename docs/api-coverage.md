@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 320 | 386 |
+| Функции | 20 | 47 | 323 | 390 |
 | Таблицы и представления | 9 | 21 | 30 | 60 |
-| Всего | 29 | 67 | 350 | 446 |
+| Всего | 29 | 68 | 353 | 450 |
 
 ## Функции
 
@@ -41,7 +41,7 @@
 | `report_problem` | `tasks:create` | `createTask` |
 | `save_task` | `cleanings:assign` | `assignCleaning` |
 
-### Запланировано (право зарезервировано) — 46
+### Запланировано (право зарезервировано) — 47
 
 | Имя | Право | Что это |
 | --- | --- | --- |
@@ -62,6 +62,7 @@
 | `clear_cleaning_time` | `cleanings:update` | gives a booking's cleaning its booking's hours back, both marks off (undo of set_cleaning_time) |
 | `complete_cleaning` | `cleanings:update` | a manager closes a cleaning as done, naming who did it |
 | `copy_property_checklist` | `checklists:write` | replaces a listing's checklist with a copy of another listing's |
+| `edit_problem_text` | `tasks:update` | the office corrects any task (problem) title and description, a cleaner's report included; a new title drops the translations |
 | `mark_signal_false_positive` | `guest_signals:decide` | the manager calls a task made from a guest signal a false positive: archives it (or deletes it while nobody worked on it) and records the verdict |
 | `mark_thread_read` | `chat:write` | moves the caller's read marker of a thread (a write, so not under chat:read) |
 | `name_cleaning_worker` | `cleanings:update` | a manager names the worker of a finished cleaning afterwards |
@@ -92,7 +93,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 320
+### Внутреннее — 323
 
 | Имя | Причина |
 | --- | --- |
@@ -211,9 +212,10 @@
 | `interrupt_cleaning` | a cleaner interrupts her own cleaning under way on the phone, with a reason; a person's own move, never an integration's (owner, 2026-11-18) |
 | `invoke_edge_function` | scheduler plumbing: pg_cron calls an Edge Function with the service key read from Vault, service_role only |
 | `is_active_user` | auth/RLS helper: caller is an active profile |
+| `is_full_manager` | auth/RLS helper: caller is an active manager or admin: the boards, the team and the company switches, which the reception does not reach |
 | `is_head_tech` | auth/RLS helper: caller is the active head technician |
 | `is_localized_text` | validation helper of translated names (x_i18n) used by write RPCs |
-| `is_manager` | auth/RLS helper: caller is an active manager or admin |
+| `is_manager` | auth/RLS helper: caller is the office: an active manager, admin or reception |
 | `is_service_booking` | PostgREST computed field: the "#" service-booking flag derived from the guest name (guest names are forbidden); the flag may ride on bookings:read, the function is not called |
 | `issue_theme_of_finding` | internal helper of the nightly refresh |
 | `issue_theme_of_text` | internal helper of the nightly refresh: the dictionary |
@@ -327,6 +329,7 @@
 | `reserve_guest_message_reading` | Guest chats (docs/guest-chats.md), behind a switch: one model call booked under the day's and month's ceilings; the job's own. |
 | `reserve_signal_history` | the reading of past reviews: the job writes it, no client calls it |
 | `reserve_signal_model_calls` | model spending fence of classify-guest-signals: books model calls under the daily ceiling, service_role only |
+| `reset_guest_chat_reading` | helper of set_guest_chats: empties a company's chat reading state and queue in raw; execute revoked from every role |
 | `resolution_plan` | the panel read of one plan; the public resource comes with stage 6 of the plan |
 | `resolution_plan_baseline` | building block of the launch; execute revoked from clients |
 | `resolution_plan_effect` | the panel read of what followed a finished plan; the public resource comes with stage 6 of the plan |
@@ -344,6 +347,7 @@
 | `save_manager_comment` | writes or edits a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `save_manager_step` | adds a step to a card or changes its words of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `save_resolution_plan` | the manager saves a draft in the panel; the public resource comes with stage 6 of the plan |
+| `set_guest_chats` | the admin turns the company's guest chats on or off whole (switch, tasks, reading state, jobs); a company lever kept in the panel, as update_signal_settings |
 | `set_manager_board_archived` | archives or returns a board of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 |
 | `set_manager_card_assignee` | assigns a card of a manager board to a manager or admin in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `set_manager_card_state` | archives, soft-deletes or returns a card of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
