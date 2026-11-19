@@ -2,6 +2,7 @@
 
 import {
   Briefcase,
+  ConciergeBell,
   HardHat,
   ShieldCheck,
   SprayCan,
@@ -25,6 +26,7 @@ const ROLE_ICONS: Record<string, LucideIcon> = {
   cleaner: SprayCan,
   tech: Wrench,
   head_tech: HardHat,
+  reception: ConciergeBell,
   manager: Briefcase,
   admin: ShieldCheck,
 };

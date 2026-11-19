@@ -1,9 +1,18 @@
 'use client';
 
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ErrorState, LoadingState } from '@/components/states';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   useChatsOn,
   useSetGuestChats,
@@ -25,9 +34,11 @@ interface GuestTaskSourcesProps {
  * - Reviews: their tasks alone (`tasks_enabled` of the reviews' row) — off, no review is offered as
  *   a task and none is made; ratings and «Качество объектов» go on.
  * - Chats: the whole source (set_guest_chats) — off, no conversation is read at all, for tasks or
- *   for «Качество объектов», and the model costs nothing; what was found stays hidden until on.
+ *   for «Качество объектов», and the model costs nothing; what was found stays hidden until on, and
+ *   what guests write meanwhile is never read. So switching chats off asks first.
  *
- * Each saves itself when pressed and names only itself, as the company's other switches.
+ * Each saves itself when pressed and names only itself, as the company's other switches; a new
+ * press clears the other switch's failure, so the line under them is always the last one's.
  */
 export function GuestTaskSources({ isAdmin }: GuestTaskSourcesProps) {
   const { t } = useTranslation();
@@ -36,6 +47,7 @@ export function GuestTaskSources({ isAdmin }: GuestTaskSourcesProps) {
   const chats = useChatsOn();
   const reviews = useUpdateSettings();
   const chatSwitch = useSetGuestChats();
+  const [isAskingChatsOff, setAskingChatsOff] = useState(false);
 
   if (settings.isPending || chats.isPending) {
     return <LoadingState>{t('panel.settings.workflow.loading')}</LoadingState>;
@@ -52,6 +64,14 @@ export function GuestTaskSources({ isAdmin }: GuestTaskSourcesProps) {
     : chatSwitch.isError
       ? serverErrorText(chatSwitch.error)
       : null;
+  const setReviews = (next: boolean) => {
+    chatSwitch.reset();
+    reviews.mutate({ tasksEnabled: next });
+  };
+  const setChats = (next: boolean) => {
+    reviews.reset();
+    chatSwitch.mutate(next);
+  };
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-4 border-t pt-4">
@@ -68,7 +88,7 @@ export function GuestTaskSources({ isAdmin }: GuestTaskSourcesProps) {
         hint={t('panel.settings.guestTasks.reviewsHint')}
         checked={settings.data.tasks_enabled}
         disabled={!isAdmin || isBusy}
-        onChange={(next) => reviews.mutate({ tasksEnabled: next })}
+        onChange={setReviews}
       />
       <Toggle
         id="guest-tasks-chats"
@@ -76,7 +96,7 @@ export function GuestTaskSources({ isAdmin }: GuestTaskSourcesProps) {
         hint={t('panel.settings.guestTasks.chatsHint')}
         checked={chats.data === true}
         disabled={!isAdmin || isBusy}
-        onChange={(next) => chatSwitch.mutate(next)}
+        onChange={(next) => (next ? setChats(true) : setAskingChatsOff(true))}
       />
 
       {failure === null ? null : (
@@ -87,6 +107,36 @@ export function GuestTaskSources({ isAdmin }: GuestTaskSourcesProps) {
           )}
         </div>
       )}
+
+      <Dialog open={isAskingChatsOff} onOpenChange={setAskingChatsOff}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('panel.settings.guestTasks.chatsOffTitle')}</DialogTitle>
+            <DialogDescription>{t('panel.settings.guestTasks.chatsOffBody')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              onClick={() => setAskingChatsOff(false)}
+            >
+              {t('panel.cancel')}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="h-11"
+              onClick={() => {
+                setAskingChatsOff(false);
+                setChats(false);
+              }}
+            >
+              {t('panel.settings.guestTasks.chatsOffConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

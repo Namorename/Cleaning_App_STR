@@ -54,7 +54,8 @@ function redirectKeepingCookies(url: URL, from: NextResponse): NextResponse {
 /**
  * Runs before every page: keeps the Supabase session fresh and sends anyone
  * who is not a manager to the sign-in page — every page but the open ones.
- * The head technician reaches the knowledge base and his settings alone.
+ * The head technician reaches the knowledge base and his settings alone; the
+ * reception every page but «Команда» (owner, 2026-11-19), which says so again.
  *
  * The guard here is convenience, not security — row level security decides
  * what the browser may read either way. The redirect keeps a cleaner who
@@ -109,8 +110,8 @@ export async function proxy(request: NextRequest) {
     return redirectKeepingCookies(url, response);
   }
 
-  // Signed in on the sign-in page, or the head technician on a page that is
-  // not his (the owner's decision of 2026-10-16): to where the access lands.
+  // Signed in on the sign-in page, or the head technician or the reception on a
+  // page that is not theirs (2026-10-16, 2026-11-19): to where the access lands.
   if (access !== null && (isPublic || !isPathOpenTo(access, pathname))) {
     const url = request.nextUrl.clone();
     url.pathname = homeOf(access);

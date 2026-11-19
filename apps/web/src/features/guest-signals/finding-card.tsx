@@ -287,8 +287,11 @@ function Decide({ finding, words }: { finding: Finding; words: string | null }) 
   // a line — no field half the card away from its label.
   return (
     <div className="flex flex-col gap-4">
-      <form onSubmit={create} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Label className="flex flex-col items-stretch gap-1.5 sm:col-span-2">
+      <form
+        onSubmit={create}
+        className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3"
+      >
+        <Label className="flex flex-col items-stretch gap-1.5 col-span-full">
           {t('panel.guests.decide.title')}
           <Input
             value={title}
@@ -328,7 +331,7 @@ function Decide({ finding, words }: { finding: Finding; words: string | null }) 
           </NativeSelect>
         </Label>
         {assigneeId === '' ? null : (
-          <Label className="flex flex-col items-stretch gap-1.5 sm:col-span-2">
+          <Label className="flex flex-col items-stretch gap-1.5 col-span-full">
             {t('panel.guests.decide.date')}
             <Input
               type="date"
@@ -338,7 +341,7 @@ function Decide({ finding, words }: { finding: Finding; words: string | null }) 
             />
           </Label>
         )}
-        <Label className="flex flex-col items-stretch gap-1.5 sm:col-span-2">
+        <Label className="flex flex-col items-stretch gap-1.5 col-span-full">
           {t('panel.guests.decide.description')}
           <Textarea
             value={description}
@@ -347,7 +350,7 @@ function Decide({ finding, words }: { finding: Finding; words: string | null }) 
             className="bg-background"
           />
         </Label>
-        <Button type="submit" disabled={approve.isPending} className="h-10 sm:col-span-2">
+        <Button type="submit" disabled={approve.isPending} className="h-10 col-span-full">
           {assigneeId === ''
             ? t('panel.guests.decide.createOpen')
             : t('panel.guests.decide.createAssigned')}

@@ -217,6 +217,25 @@ select pg_temp.check('2.8 the edits wrote no journal line',
 select pg_temp.check('2.9 the title the cleaner sees is the office''s',
   (select title from public.problems where id = pg_temp.task(1)), 'Tap leaks in the kitchen');
 
+-- The technician reads the description from his repair: assign_problem copies it into the notes.
+insert into public.properties (id, host_id, name, timezone)
+values (9905001, pg_temp.host(), 'Reception flat', 'Europe/Prague');
+insert into public.problems (id, host_id, reported_by, title, description, status, property_id)
+values (pg_temp.task(4), pg_temp.host(), pg_temp.anna(), 'Door', 'Lock sticks', 'open', 9905001);
+insert into public.tasks (id, host_id, property_id, type, scheduled_date, notes, problem_id)
+values (pg_temp.task(14), pg_temp.host(), 9905001, 'maintenance', current_date, 'Lock sticks', pg_temp.task(4));
+select pg_temp.as_user(pg_temp.rita());
+select public.edit_problem_text(pg_temp.task(4), 'Door', 'Lock sticks, use oil');
+select pg_temp.as_server();
+select pg_temp.check('2.10 a new description reaches the live repair the technician reads',
+  (select notes from public.tasks where id = pg_temp.task(14)), 'Lock sticks, use oil');
+update public.tasks set notes = 'Call first' where id = pg_temp.task(14);
+select pg_temp.as_user(pg_temp.rita());
+select public.edit_problem_text(pg_temp.task(4), 'Door', 'Lock sticks badly');
+select pg_temp.as_server();
+select pg_temp.check('2.11 but not notes written otherwise',
+  (select notes from public.tasks where id = pg_temp.task(14)), 'Call first');
+
 -- ===========================================================================
 -- 3. No manager board for the reception
 -- ===========================================================================

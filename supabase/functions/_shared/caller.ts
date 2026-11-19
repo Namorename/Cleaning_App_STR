@@ -38,7 +38,7 @@ export function isScheduler(token: string | null, serviceKey: string): boolean {
 }
 
 /** What the panel's roles are called in `app_metadata`. */
-const ALLOWED_ROLES: readonly string[] = ["manager", "admin", "reception"];
+const ALLOWED_ROLES: readonly string[] = ["manager", "admin"];
 
 export interface SyncCallerInput {
   readonly token: string | null;

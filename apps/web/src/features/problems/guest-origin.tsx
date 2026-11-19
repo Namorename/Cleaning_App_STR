@@ -52,7 +52,12 @@ export function OriginLines({ origin, className }: OriginLinesProps) {
   const { t } = useTranslation();
   const language = useLanguage();
   return (
-    <ul className={cn('grid gap-x-6 gap-y-1.5 sm:grid-cols-2', className)}>
+    <ul
+      className={cn(
+        'grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-x-6 gap-y-1.5',
+        className,
+      )}
+    >
       {guestOriginLines(origin, t, language).map((line) => {
         const Icon = LINE_ICON[line.key];
         return (

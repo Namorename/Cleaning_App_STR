@@ -53,6 +53,18 @@ describe('«Задания»', () => {
     render(<ProblemsSection viewer={{ id: 'u', isAdmin: false }} />);
     expect(screen.getByText(`manager board ${BOARD}`)).toBeInTheDocument();
   });
+
+  // The reception has no manager boards (owner, 2026-11-19).
+  test.each(['', `board=${BOARD}`, 'board=mine'])(
+    "without boards, %j is the technicians' board, with no switcher",
+    (address) => {
+      search.value = address;
+      render(<ProblemsSection viewer={{ id: 'u', isAdmin: false }} hasBoards={false} />);
+      expect(screen.getByText('tech board')).toBeInTheDocument();
+      expect(screen.queryByRole('navigation', { name: 'switcher' })).not.toBeInTheDocument();
+      expect(screen.queryByText(/manager board/)).not.toBeInTheDocument();
+    },
+  );
 });
 
 test('a link in a card opens in a new tab without handing it this page', () => {

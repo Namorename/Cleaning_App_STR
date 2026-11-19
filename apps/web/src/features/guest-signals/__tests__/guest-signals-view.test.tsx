@@ -1057,7 +1057,9 @@ describe('the sources of tasks (owner, 2026-11-19)', () => {
     render(<GuestSignalsView isAdmin={false} />);
     expect(screen.queryByRole('article')).toBeNull();
     expect(
-      screen.getByText('Задания из этого источника выключены: «Настройки → Компания».'),
+      screen.getByText(
+        'Задания из этого источника выключены. Включает их админ: «Настройки → Компания».',
+      ),
     ).toBeInTheDocument();
   });
 

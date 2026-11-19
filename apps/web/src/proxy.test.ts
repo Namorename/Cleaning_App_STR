@@ -120,6 +120,38 @@ describe('the head technician', () => {
 });
 
 /**
+ * The owner's request of 2026-11-19: the reception reaches every page but «Команда», which also
+ * turns her away itself.
+ */
+describe('the reception', () => {
+  beforeEach(() => {
+    auth.user = { app_metadata: { role: 'reception' } };
+  });
+
+  test.each(['/dashboard', '/tasks?tab=closed', '/problems', '/guests', '/knowledge', '/settings'])(
+    'passes through to %s',
+    async (path) => {
+      expect(await redirectOf(path)).toBeNull();
+    },
+  );
+
+  test.each(['/team', '/team/', '/team/123', '/team?tab=all'])(
+    'goes from %s to the dashboard',
+    async (path) => {
+      const target = await redirectOf(path);
+
+      // A trailing slash stays on the target, as Next keeps it.
+      expect(target?.pathname).toMatch(/^\/dashboard\/?$/);
+      expect(target?.search).toBe('');
+    },
+  );
+
+  test('goes from the sign-in page to the dashboard', async () => {
+    expect((await redirectOf('/login?next=%2Fteam'))?.pathname).toBe('/dashboard');
+  });
+});
+
+/**
  * Decision 17 (docs/f11-plan.md): the privacy policy is a public page on the
  * panel's domain. App Store Connect links to it, so a visitor who never signed
  * in must read it, and so must a manager — without being sent to the

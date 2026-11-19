@@ -57,6 +57,10 @@ begin
       using errcode = 'insufficient_privilege', hint = 'serverErrors.signalGateAdminOnly';
   end if;
 
+  -- One switch at a time across companies: the reading jobs are shared, and two switches at once
+  -- must not leave them off while a company reads chats.
+  perform pg_advisory_xact_lock(hashtextextended('set_guest_chats', 0));
+
   insert into public.signal_settings (host_id, kind) values (v_host, 'message') on conflict do nothing;
   select * into v_row from public.signal_settings
   where host_id = v_host and kind = 'message'
@@ -74,7 +78,8 @@ begin
         updated_by          = (select auth.uid())
     where host_id = v_host and kind = 'message'
     returning * into v_row;
-    perform public.reset_guest_chat_reading(v_host, false);
+    -- A queue row a reading wrote while chats were going off is not read now.
+    perform public.reset_guest_chat_reading(v_host, true);
     perform cron.alter_job(j.jobid, active => true)
     from cron.job j
     where j.jobname in ('read-guest-messages', 'read-guest-messages-0440') and not j.active;

@@ -38,7 +38,15 @@ import { useSyncListings } from './use-apartments';
  * for one: an open card takes the list's place, and «Все объекты» brings the
  * list back, so the page never scrolls sideways (decision 14).
  */
-export function ApartmentsView() {
+interface ApartmentsViewProps {
+  /**
+   * «Обновить из Hostaway» by hand: a manager's and an admin's. The reception reads the same
+   * registry, kept fresh by the nightly sync; sync-listings refuses her (20261119143000).
+   */
+  canSync?: boolean;
+}
+
+export function ApartmentsView({ canSync = true }: ApartmentsViewProps) {
   const { t } = useTranslation();
   const sync = useSyncListings();
   const [address, setAddress] = useAddressState(readApartmentsAddress, writeApartmentsAddress);
@@ -73,16 +81,18 @@ export function ApartmentsView() {
         <PageHeader
           title={t('panel.nav.apartments')}
           actions={
-            <Button
-              type="button"
-              className="h-11"
-              disabled={sync.isPending}
-              onClick={() => sync.mutate()}
-            >
-              {sync.isPending
-                ? t('panel.apartments.sync.running')
-                : t('panel.apartments.sync.start')}
-            </Button>
+            canSync ? (
+              <Button
+                type="button"
+                className="h-11"
+                disabled={sync.isPending}
+                onClick={() => sync.mutate()}
+              >
+                {sync.isPending
+                  ? t('panel.apartments.sync.running')
+                  : t('panel.apartments.sync.start')}
+              </Button>
+            ) : undefined
           }
         />
 

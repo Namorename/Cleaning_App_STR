@@ -32,7 +32,7 @@ export interface ClosingLine {
   readonly note: string | null;
 }
 
-const ROLES = ['cleaner', 'tech', 'head_tech', 'manager', 'admin'] as const;
+const ROLES = ['cleaner', 'tech', 'head_tech', 'reception', 'manager', 'admin'] as const;
 const K = 'tasks.closing';
 
 function nameOf(person: CleaningPerson | null | undefined, t: Translate): string {

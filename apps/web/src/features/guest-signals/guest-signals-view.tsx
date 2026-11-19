@@ -96,16 +96,18 @@ export function GuestSignalsView({ isAdmin, hasSettings = true }: GuestSignalsVi
   const count = useCandidateCount();
   const chats = useChatsOn();
   const chatsOn = chats.data === true;
+  const [source, setSource] = useState<SignalSource>('all');
   // «Найдено» offers only what can still become a task: a source switched off in
-  // «Настройки → Компания» leaves the list (owner, 2026-11-19).
-  const reviewTasksOn = useSignalSettings().data?.tasks_enabled ?? true;
+  // «Настройки → Компания» leaves the list (owner, 2026-11-19). It waits for the switches, so no
+  // card flashes by; switches that cannot be read count the reviews, as the menu does.
+  const signalSettings = useSignalSettings();
+  const reviewTasksOn = signalSettings.data?.tasks_enabled ?? true;
   const kindsFor = (tab: FindingTab) =>
     tab === 'found'
       ? kindsOf(source, chatsOn).filter((kind) =>
           candidateKinds(reviewTasksOn, chatsOn).includes(kind),
         )
       : kindsOf(source, chatsOn);
-  const [source, setSource] = useState<SignalSource>('all');
 
   return (
     <div className="flex flex-col gap-4">
@@ -124,7 +126,11 @@ export function GuestSignalsView({ isAdmin, hasSettings = true }: GuestSignalsVi
             {tab === key ? (
               <div className="flex flex-col gap-3">
                 {chatsOn ? <SourcePicker value={source} onChange={setSource} /> : null}
-                <FindingList tab={key} kinds={kindsFor(key)} />
+                {key === 'found' && signalSettings.isPending ? (
+                  <LoadingState />
+                ) : (
+                  <FindingList tab={key} kinds={kindsFor(key)} />
+                )}
               </div>
             ) : null}
           </TabsContent>

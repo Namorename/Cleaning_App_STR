@@ -74,7 +74,10 @@
         "reviews": "Úkoly z recenzí",
         "reviewsHint": "Vypnuto: recenze nenavrhují ani nevytvářejí úkoly. Hodnocení a Kvalita objektů se aktualizují dál.",
         "chats": "Úkoly z chatů",
-        "chatsHint": "Vypnuto: konverzace s hosty se nečtou vůbec, ani pro úkoly, ani pro Kvalitu objektů. Co bylo nalezeno dřív, je skryté a vrátí se po zapnutí."
+        "chatsHint": "Vypnuto: konverzace s hosty se nečtou vůbec, ani pro úkoly, ani pro Kvalitu objektů. Zprávy, které mezitím přijdou, se nepřečtou ani po zapnutí; co bylo nalezeno dřív, je skryté a vrátí se.",
+        "chatsOffTitle": "Vypnout úkoly z chatů?",
+        "chatsOffBody": "Konverzace s hosty se přestanou číst úplně. Zprávy, které přijdou během vypnutí, se nepřečtou ani po zapnutí.",
+        "chatsOffConfirm": "Vypnout"
       },
       "video": {
         "title": "Video",
@@ -871,7 +874,7 @@
         "linked": "Nic nepřipojeno.",
         "dropped": "Nic neodloženo.",
         "all": "Zatím nejsou načtené žádné recenze.",
-        "sourceOff": "Úkoly z tohoto zdroje jsou vypnuté: Nastavení → Společnost."
+        "sourceOff": "Úkoly z tohoto zdroje jsou vypnuté. Zapíná je administrátor: Nastavení → Společnost."
       },
       "card": {
         "urgent": "Naléhavé",

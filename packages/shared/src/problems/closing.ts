@@ -34,7 +34,7 @@ export interface ClosingRow {
 
 export type Translate = (key: string, options?: Record<string, string>) => string;
 
-const ROLES = ['cleaner', 'tech', 'head_tech', 'manager', 'admin'] as const;
+const ROLES = ['cleaner', 'tech', 'head_tech', 'reception', 'manager', 'admin'] as const;
 
 /** Closed: resolved, cancelled, or put in the archive. */
 export function isTaskClosed(row: Pick<ClosingRow, 'status' | 'archived_at'>): boolean {

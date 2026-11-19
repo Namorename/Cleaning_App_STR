@@ -5,8 +5,9 @@
 `20261119142000_reception_role`, `20261119143000_reception_rights`. Откат —
 `docs/one-off-writes/panel-edits-reception-rollback.sql`; проба —
 `docs/rollout/probe_panel_edits_reception.sql`; репетиция —
-`docs/rollout/rehearsal-panel-edits-reception-1119.mjs` (GREEN 19.11: откат даёт md5 облака по всем
-функциям и политикам, значение `reception` остаётся; повторный push даёт «после»).
+`docs/rollout/rehearsal-panel-edits-reception-1119.mjs` (GREEN 19.11, две фазы: откат в транзакции и
+откат через `db query --local -f` — тот же канал, что в облаке, один оператор; оба дают md5 облака
+по всем функциям и политикам, значение `reception` остаётся; повторный push даёт «после»).
 
 **Слова на выкат пока нет.**
 
@@ -17,12 +18,16 @@
 1. Чтение состояния: голова облака `20261119090000`; проба = `BEFORE` репетиции.
 2. Четыре миграции одним push под заставой: `HEAD_WANT=20261119090000`, sha256 каждого файла, сухой
    прогон называет ровно эти четыре. Проба = `AFTER`.
-3. Edge-функции: `manage-staff`, `guest-message-text`, `guest-review-text`, `sync-listings` и
-   `send-push` (обе импортируют `_shared/caller.ts`), `api` и `mcp` (перечисление ролей в OpenAPI и
-   каталоге).
+3. Edge-функции: `manage-staff`, `guest-message-text`, `guest-review-text`, `api` и `mcp`
+   (перечисление ролей в OpenAPI и каталоге). `_shared/` не менялся.
 4. `main` — перемотка (ff-only) на ветку, push; Vercel Ready, `/login` 200.
 5. OTA preview, затем field — экспорт `ota-export.cmd` в дереве `cleanings-cancel-overdue-1105`,
    `bundle-check` против №25 (`~/dev-tools/str-ops/day-1119/dist-ota25`), натив против `7030a46` пуст.
+
+## Первая учётка Reception
+
+Только после того, как OTA вышел в field: до него телефоны не знают роли и покажут ей экраны
+горничной.
 
 ## Старые телефоны и старая панель
 

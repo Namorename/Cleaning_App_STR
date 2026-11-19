@@ -74,7 +74,10 @@
         "reviews": "Tasks from reviews",
         "reviewsHint": "Off: reviews neither suggest nor create tasks. Ratings and Property quality keep updating.",
         "chats": "Tasks from chats",
-        "chatsHint": "Off: guest conversations are not read at all, for tasks or for Property quality. What was found before is hidden and comes back when this is on."
+        "chatsHint": "Off: guest conversations are not read at all, for tasks or for Property quality. Messages that arrive meanwhile are not read after it is on again; what was found before is hidden and comes back.",
+        "chatsOffTitle": "Switch off tasks from chats?",
+        "chatsOffBody": "Guest conversations will no longer be read at all. Messages that arrive while chats are off are not read after they are on again.",
+        "chatsOffConfirm": "Switch off"
       },
       "video": {
         "title": "Video",
@@ -869,7 +872,7 @@
         "linked": "Nothing linked.",
         "dropped": "Nothing set aside.",
         "all": "No reviews loaded yet.",
-        "sourceOff": "Tasks from this source are switched off: Settings → Company."
+        "sourceOff": "Tasks from this source are switched off. An admin turns them on: Settings → Company."
       },
       "card": {
         "urgent": "Urgent",

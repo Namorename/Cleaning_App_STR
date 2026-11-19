@@ -26,12 +26,13 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_before  public.problems;
   v_problem public.problems;
   v_title   text := btrim(coalesce(p_title, ''));
 begin
   -- The office of this company, the row locked: refuses anybody else (serverErrors.managerOnly)
   -- and a task of another company or none (serverErrors.problemNotFound).
-  v_problem := public.problem_for_manager(p_id);
+  v_before := public.problem_for_manager(p_id);
   perform public.validate_problem_text(v_title, p_description);
 
   update public.problems p
@@ -39,8 +40,18 @@ begin
       title_i18n  = case when v_title = p.title then p.title_i18n end,
       description = case when p_description is null then p.description
                          else nullif(btrim(p_description), '') end
-  where p.id = v_problem.id
+  where p.id = v_before.id
   returning * into v_problem;
+
+  -- The technician reads the description from his repair: assign_problem copies it into the job's
+  -- notes. A new description reaches the live repair, unless its notes were written otherwise.
+  if v_problem.description is distinct from v_before.description then
+    update public.tasks t
+    set notes = v_problem.description
+    where t.problem_id = v_problem.id
+      and t.status not in ('done', 'cancelled', 'expired')
+      and t.notes is not distinct from v_before.description;
+  end if;
 
   return v_problem;
 end;

@@ -122,6 +122,16 @@ describe('Sidebar', () => {
     expect(within(nav).queryByRole('group', { name: 'Работа' })).not.toBeInTheDocument();
   });
 
+  // The owner's request of 2026-11-19: the reception runs the company, «Команда» aside.
+  test('shows the reception every section but «Команда»', () => {
+    render(<Sidebar email="reception.test@example.com" access="reception" />);
+    const nav = screen.getByRole('navigation', { name: 'Разделы' });
+
+    expect(linkTexts(nav)).not.toContain('Команда');
+    expect(linkTexts(nav)).toContain('Задания');
+    expect(linkTexts(nav)).toContain('Настройки');
+  });
+
   test('draws each section’s icon from the shared map, out of the screen reader’s way', () => {
     render(<Sidebar email="manager.test@example.com" />);
     const pictures: Record<string, string> = { ...ICONS, ...PANEL_ICONS };
