@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DetailSection } from '@/components/detail-section';
 import { PageBackLink, PageHeader } from '@/components/page-header';
 import { Person } from '@/components/person';
 import { StatusBadge } from '@/components/status-badge';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChatSheet } from '@/features/chat/chat-sheet';
 import { UnreadBadge } from '@/features/chat/unread-mark';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
@@ -202,36 +203,41 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        {/* The report reads top down by weight (owner, 2026-11-19: the description was lost
+            among grey lines): where and who in the head, then what is wrong, its photos,
+            the guest it came from, and the theme last — a lever, not the story. */}
         <Card>
-          <CardHeader>
-            <CardTitle>{problemPlace(problem) ?? t('problems.noProperty')}</CardTitle>
+          <CardHeader className="border-b">
+            <CardTitle className="text-lg font-semibold">
+              {problemPlace(problem) ?? t('problems.noProperty')}
+            </CardTitle>
+            <CardDescription>
+              <ReportMeta problem={problem} />
+            </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3 text-sm">
-            <ReportMeta problem={problem} />
+          <CardContent className="flex flex-col gap-6 text-sm">
+            <DetailSection title={t('panel.problems.detail.description')}>
+              <ReportDescription text={problem.description} />
+            </DetailSection>
+            <DetailSection title={t('panel.problems.detail.photos')}>
+              <ReportPhotos problemId={problem.id} />
+            </DetailSection>
             <GuestOriginBlock problem={problem} />
             {problem.source === 'message' ? (
               <GuestMessageBlock ask={{ problemId: problem.id }} />
             ) : null}
             <ProblemThemeBlock problemId={problem.id} />
-            <section className="flex flex-col gap-1">
-              <h2 className="font-medium">{t('panel.problems.detail.description')}</h2>
-              <p className="whitespace-pre-wrap text-muted-foreground">
-                {problem.description ?? t('panel.problems.detail.noDescription')}
-              </p>
-            </section>
-            <section className="flex flex-col gap-1">
-              <h2 className="font-medium">{t('panel.problems.detail.photos')}</h2>
-              <ReportPhotos problemId={problem.id} />
-            </section>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>{t('panel.problems.detail.fixTask')}</CardTitle>
+          <CardHeader className="border-b">
+            <CardTitle className="text-lg font-semibold">
+              {t('panel.problems.detail.fixTask')}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4 text-sm">
+          <CardContent className="flex flex-col gap-5 text-sm">
             {fixTask === null && isClosed ? (
               <>
                 <ProblemClosing problem={problem} className="gap-1 font-medium" />
@@ -246,10 +252,9 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
               <AssignForm key={fixTask?.id ?? 'new'} problem={problem} fixTask={fixTask} />
             )}
             {fixTask !== null ? (
-              <section className="flex flex-col gap-2">
-                <h2 className="font-medium">{t('panel.problems.detail.steps')}</h2>
+              <DetailSection title={t('panel.problems.detail.steps')}>
                 <FixTaskSteps taskId={fixTask.id} />
-              </section>
+              </DetailSection>
             ) : null}
           </CardContent>
         </Card>
@@ -299,37 +304,45 @@ function signalSourceLine(
   return parts.length === 0 ? null : parts.join(' · ');
 }
 
+/**
+ * Who reported it and when, on one line under the place; under them, in the same quiet voice, how
+ * it came and how it ended. The story itself is the description below.
+ */
 function ReportMeta({ problem }: { problem: Problem }) {
   const { t } = useTranslation();
   const language = useLanguage();
   const sourceLine = signalSourceLine(problem, t);
 
   return (
-    <dl className="flex flex-col gap-1 text-muted-foreground">
-      <dd className="inline-flex items-center gap-1">
-        {t('panel.problems.detail.reporterLabel')}
-        <Person
-          name={problem.reporter?.full_name}
-          role={problem.reporter?.role}
-          fallback={t('panel.problems.unknownPerson')}
-        />
-      </dd>
-      <dd>
-        {t('panel.problems.detail.reportedAt', {
-          date: formatDateTime(problem.created_at, language),
-        })}
-      </dd>
-      {problem.task_id !== null ? <dd>{t('panel.problems.detail.fromTask')}</dd> : null}
-      {sourceLine === null ? null : <dd>{sourceLine}</dd>}
+    <div className="flex flex-col gap-1">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="inline-flex items-center gap-1">
+          {t('panel.problems.detail.reporterLabel')}
+          <Person
+            name={problem.reporter?.full_name}
+            role={problem.reporter?.role}
+            fallback={t('panel.problems.unknownPerson')}
+            className="text-foreground"
+          />
+        </span>
+        <span aria-hidden="true">·</span>
+        <span>
+          {t('panel.problems.detail.reportedAt', {
+            date: formatDateTime(problem.created_at, language),
+          })}
+        </span>
+      </p>
+      {problem.task_id !== null ? <p>{t('panel.problems.detail.fromTask')}</p> : null}
+      {sourceLine === null ? null : <p>{sourceLine}</p>}
       {problem.resolved_at !== null ? (
-        <dd>
+        <p>
           {t('panel.problems.detail.resolvedAt', {
             date: formatDateTime(problem.resolved_at, language),
           })}
-        </dd>
+        </p>
       ) : null}
       {problem.cancelled_at !== null ? (
-        <dd>
+        <p>
           {t('panel.problems.detail.cancelledAt', {
             date: formatDateTime(problem.cancelled_at, language),
           })}
@@ -338,16 +351,34 @@ function ReportMeta({ problem }: { problem: Problem }) {
               {t('panel.problems.detail.cancelReason')}: {problem.cancel_reason}
             </span>
           ) : null}
-        </dd>
+        </p>
       ) : null}
       {problem.archived_at !== null ? (
-        <dd className="text-destructive">
+        <p className="text-destructive">
           {t('panel.problems.detail.archivedAt', {
             date: formatDateTime(problem.archived_at, language),
           })}
-        </dd>
+        </p>
       ) : null}
-    </dl>
+    </div>
+  );
+}
+
+/**
+ * What is wrong, in the reporter's words: the page's main text, in the full colour and a size up,
+ * on its own ground so it is found at a glance. None — said quietly, never an empty box.
+ */
+function ReportDescription({ text }: { text: string | null }) {
+  const { t } = useTranslation();
+  if (text === null) {
+    return (
+      <p className="text-muted-foreground italic">{t('panel.problems.detail.noDescription')}</p>
+    );
+  }
+  return (
+    <p className="rounded-lg bg-muted/60 px-3.5 py-3 text-base leading-relaxed break-words whitespace-pre-wrap text-foreground">
+      {text}
+    </p>
   );
 }
 

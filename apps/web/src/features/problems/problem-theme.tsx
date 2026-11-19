@@ -33,8 +33,12 @@ export function ProblemThemeBlock({ problemId }: { problemId: string }) {
 
   const current = read.data ?? null;
   return (
-    <section className="flex flex-col gap-1.5">
-      <label htmlFor="problem-theme" className="font-medium">
+    <section className="flex flex-col gap-2">
+      {/* A section's quiet label, as the page's others (DetailSection), still the select's own. */}
+      <label
+        htmlFor="problem-theme"
+        className="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+      >
         {t('panel.problems.detail.theme.title')}
       </label>
       <NativeSelect

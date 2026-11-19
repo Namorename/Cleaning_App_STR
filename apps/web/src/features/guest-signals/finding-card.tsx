@@ -1,8 +1,10 @@
 'use client';
 
+import { MapPin } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DetailSection } from '@/components/detail-section';
 import { ErrorState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +17,7 @@ import { OriginLines } from '@/features/problems/guest-origin';
 import { SourceBadge } from '@/features/problems/source-badge';
 import { useStaff } from '@/features/problems/use-problems';
 import { formatDateTime, todayIso } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 import { PROBLEM_LEVELS, storedUrgency, type Language, type ProblemLevel } from '@str-ops/shared';
 
 import {
@@ -52,57 +55,81 @@ export function FindingCard({ finding, language }: FindingCardProps) {
   const isOpenToDecide = ['candidate', 'dropped', 'already_fixed'].includes(finding.status);
   const isChat = isFromMessage(finding);
 
+  const canDecide = isOpenToDecide && isTaskKind(finding.kind);
+
+  // Two sides where the width allows (owner, 2026-11-19: one long column where everything blended):
+  // what the guest's signal says on the left, read top down; the decision on its own ground on the
+  // right. Narrower, the decision follows under a line.
   return (
     <article
       aria-label={what}
-      className="flex flex-col gap-3 rounded-lg border p-4"
+      className="overflow-hidden rounded-xl border bg-card text-sm shadow-xs"
       data-urgency={finding.urgency}
     >
-      <header className="flex flex-wrap items-center gap-2">
-        {finding.urgency === 'high' ? (
-          <Badge variant="destructive">{t('panel.guests.card.urgent')}</Badge>
-        ) : null}
-        <SourceBadge source={isChat ? 'message' : 'review'} />
-        <h3 className="font-medium">{what}</h3>
-        <span className="text-sm text-muted-foreground">
-          {placePathOf(finding.place) ?? t('panel.guests.card.noPlace')}
-        </span>
-        <FoundAge finding={finding} language={language} />
+      <header className="flex flex-col gap-1.5 border-b px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {finding.urgency === 'high' ? (
+            <Badge variant="destructive">{t('panel.guests.card.urgent')}</Badge>
+          ) : null}
+          <SourceBadge source={isChat ? 'message' : 'review'} />
+          <span className="ml-auto">
+            <FoundAge finding={finding} language={language} />
+          </span>
+        </div>
+        <h3 className="text-base font-semibold">{what}</h3>
+        <p className="flex items-start gap-1.5 text-muted-foreground">
+          <MapPin aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <span className="min-w-0 break-words">
+            {placePathOf(finding.place) ?? t('panel.guests.card.noPlace')}
+          </span>
+        </p>
       </header>
 
-      <p className="text-sm">
-        {words === null ? (
-          <span className="text-muted-foreground">{t('panel.guests.card.noWords')}</span>
-        ) : (
-          <span>«{words}»</span>
-        )}{' '}
-        <span className="text-xs text-muted-foreground">
-          {isModelReading(finding)
-            ? t('panel.guests.card.byModel')
-            : t('panel.guests.card.byRules')}
-          {finding.confidence === null ? '' : ` · ${finding.confidence.toFixed(2)}`}
-        </span>
-      </p>
+      <div className={cn('grid', canDecide && 'lg:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)]')}>
+        <div className="flex min-w-0 flex-col gap-5 p-4">
+          <FindingWords finding={finding} words={words} />
+          <SignalFacts finding={finding} />
+          {isChat ? <GuestMessageBlock ask={{ findingId: finding.id }} headingLevel={4} /> : null}
+          {finding.evidence === null ? null : (
+            <blockquote className="border-l-2 border-primary/40 pl-3 italic">
+              {finding.evidence}{' '}
+              <span className="text-xs text-muted-foreground not-italic">
+                {t(`panel.guests.card.source.${finding.evidence_source ?? 'public'}`)}
+              </span>
+            </blockquote>
+          )}
+          {review === null || isChat ? null : <FullReview review={review} />}
+          <PlaceProblems findingId={finding.id} language={language} />
+        </div>
 
-      <SignalFacts finding={finding} />
-      {isChat ? (
-        <GuestMessageBlock ask={{ findingId: finding.id }} className="text-sm" />
-      ) : null}
-      {finding.evidence === null ? null : (
-        <blockquote className="border-l-2 pl-3 text-sm italic">
-          {finding.evidence}{' '}
-          <span className="not-italic text-xs text-muted-foreground">
-            {t(`panel.guests.card.source.${finding.evidence_source ?? 'public'}`)}
-          </span>
-        </blockquote>
-      )}
-      {review === null || isChat ? null : <FullReview review={review} />}
-      <PlaceProblems findingId={finding.id} language={language} />
-
-      {isOpenToDecide && isTaskKind(finding.kind) ? (
-        <Decide finding={finding} words={words} />
-      ) : null}
+        {canDecide ? (
+          <div className="border-t bg-muted/40 p-4 lg:border-t-0 lg:border-l">
+            <Decide finding={finding} words={words} />
+          </div>
+        ) : null}
+      </div>
     </article>
+  );
+}
+
+/**
+ * The finding in words — the model's own, or a word that it has none — and, quieter beside it, who
+ * read it and how sure it was.
+ */
+function FindingWords({ finding, words }: { finding: Finding; words: string | null }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col gap-1">
+      {words === null ? (
+        <p className="text-muted-foreground">{t('panel.guests.card.noWords')}</p>
+      ) : (
+        <p className="text-base leading-relaxed text-foreground">«{words}»</p>
+      )}
+      <p className="text-xs text-muted-foreground">
+        {isModelReading(finding) ? t('panel.guests.card.byModel') : t('panel.guests.card.byRules')}
+        {finding.confidence === null ? '' : ` · ${finding.confidence.toFixed(2)}`}
+      </p>
+    </div>
   );
 }
 
@@ -143,13 +170,13 @@ function SignalFacts({ finding }: { finding: Finding }) {
     .map(([key, value]) => `${t(`panel.guests.category.${key}`)} ${value}`)
     .join(', ');
   return (
-    <div className="flex flex-col gap-0.5 text-sm text-muted-foreground">
+    <DetailSection title={t('problems.origin.title')} level={4}>
       <OriginLines origin={origin} />
-      {categories === '' ? null : <p>{categories}</p>}
+      {categories === '' ? null : <p className="text-muted-foreground">{categories}</p>}
       {signal.stay_phase === null ? null : (
-        <p>{t(`panel.guests.card.phase.${signal.stay_phase}`)}</p>
+        <p className="text-muted-foreground">{t(`panel.guests.card.phase.${signal.stay_phase}`)}</p>
       )}
-    </div>
+    </DetailSection>
   );
 }
 
@@ -201,11 +228,8 @@ function PlaceProblems({ findingId, language }: { findingId: string; language: L
     return null;
   }
   return (
-    <section aria-label={t('panel.guests.card.onPlace')} className="text-sm">
-      <h4 className="text-xs font-semibold text-muted-foreground">
-        {t('panel.guests.card.onPlace')}
-      </h4>
-      <ul className="mt-1 flex flex-col gap-1">
+    <DetailSection title={t('panel.guests.card.onPlace')} level={4}>
+      <ul className="flex flex-col gap-1">
         {rows.map((row) => (
           <li key={row.id}>
             {row.is_open ? '●' : '✓'} «{row.title_i18n?.[language] ?? row.title}»{' '}
@@ -216,7 +240,7 @@ function PlaceProblems({ findingId, language }: { findingId: string; language: L
           </li>
         ))}
       </ul>
-    </section>
+    </DetailSection>
   );
 }
 
@@ -259,23 +283,27 @@ function Decide({ finding, words }: { finding: Finding; words: string | null }) 
     });
   };
 
+  // One column on its own ground: what the task will be, then the two other ways out, each under
+  // a line — no field half the card away from its label.
   return (
-    <div className="flex flex-col gap-3 border-t pt-3">
-      <form onSubmit={create} className="grid grid-cols-1 gap-2 md:grid-cols-2">
-        <Label className="flex flex-col items-start gap-1 md:col-span-2">
+    <div className="flex flex-col gap-4">
+      <form onSubmit={create} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Label className="flex flex-col items-stretch gap-1.5 sm:col-span-2">
           {t('panel.guests.decide.title')}
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={200}
             required
+            className="bg-background"
           />
         </Label>
-        <Label className="flex flex-col items-start gap-1">
+        <Label className="flex flex-col items-stretch gap-1.5">
           {t('panel.guests.decide.priority')}
           <NativeSelect
             value={priority}
             onChange={(e) => setPriority(e.target.value as ProblemLevel)}
+            className="w-full bg-background"
           >
             {PROBLEM_LEVELS.map((p) => (
               <option key={p} value={p}>
@@ -284,9 +312,13 @@ function Decide({ finding, words }: { finding: Finding; words: string | null }) 
             ))}
           </NativeSelect>
         </Label>
-        <Label className="flex flex-col items-start gap-1">
+        <Label className="flex flex-col items-stretch gap-1.5">
           {t('panel.guests.decide.assignee')}
-          <NativeSelect value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
+          <NativeSelect
+            value={assigneeId}
+            onChange={(e) => setAssigneeId(e.target.value)}
+            className="w-full bg-background"
+          >
             <option value="">{t('panel.guests.decide.toOpen')}</option>
             {(staff.data ?? []).map((person) => (
               <option key={person.id} value={person.id}>
@@ -296,33 +328,41 @@ function Decide({ finding, words }: { finding: Finding; words: string | null }) 
           </NativeSelect>
         </Label>
         {assigneeId === '' ? null : (
-          <Label className="flex flex-col items-start gap-1">
+          <Label className="flex flex-col items-stretch gap-1.5 sm:col-span-2">
             {t('panel.guests.decide.date')}
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="bg-background"
+            />
           </Label>
         )}
-        <Label className="flex flex-col items-start gap-1 md:col-span-2">
+        <Label className="flex flex-col items-stretch gap-1.5 sm:col-span-2">
           {t('panel.guests.decide.description')}
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             maxLength={4000}
+            className="bg-background"
           />
         </Label>
-        <div className="md:col-span-2">
-          <Button type="submit" disabled={approve.isPending}>
-            {assigneeId === ''
-              ? t('panel.guests.decide.createOpen')
-              : t('panel.guests.decide.createAssigned')}
-          </Button>
-        </div>
+        <Button type="submit" disabled={approve.isPending} className="h-10 sm:col-span-2">
+          {assigneeId === ''
+            ? t('panel.guests.decide.createOpen')
+            : t('panel.guests.decide.createAssigned')}
+        </Button>
       </form>
 
       {open.length + fixed.length === 0 ? null : (
-        <div className="flex flex-wrap items-end gap-2">
-          <Label className="flex flex-col items-start gap-1">
+        <div className="flex flex-wrap items-end gap-2 border-t pt-4">
+          <Label className="flex min-w-0 flex-1 flex-col items-stretch gap-1.5">
             {t('panel.guests.decide.linkTo')}
-            <NativeSelect value={linkId} onChange={(e) => setLinkId(e.target.value)}>
+            <NativeSelect
+              value={linkId}
+              onChange={(e) => setLinkId(e.target.value)}
+              className="w-full bg-background"
+            >
               <option value="">—</option>
               {[...open, ...fixed].map((row) => (
                 <option key={row.id} value={row.id}>
@@ -343,10 +383,14 @@ function Decide({ finding, words }: { finding: Finding; words: string | null }) 
         </div>
       )}
 
-      <div className="flex flex-wrap items-end gap-2">
-        <Label className="flex flex-col items-start gap-1">
+      <div className="flex flex-wrap items-end gap-2 border-t pt-4">
+        <Label className="flex min-w-0 flex-1 flex-col items-stretch gap-1.5">
           {t('panel.guests.decide.rejectReason')}
-          <NativeSelect value={reason} onChange={(e) => setReason(e.target.value as RejectReason)}>
+          <NativeSelect
+            value={reason}
+            onChange={(e) => setReason(e.target.value as RejectReason)}
+            className="w-full bg-background"
+          >
             {REJECT_REASONS.map((r) => (
               <option key={r} value={r}>
                 {t(`panel.guests.reason.${r}`)}

@@ -10,6 +10,7 @@ import {
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DetailSection } from '@/components/detail-section';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
@@ -19,6 +20,8 @@ import { useGuestMessage } from './use-guest-message';
 interface GuestMessageBlockProps {
   ask: GuestMessageAsk;
   className?: string;
+  /** h2 on the task's page; h4 inside a card of «Гости», which is headed by an h3. */
+  headingLevel?: 2 | 4;
 }
 
 /**
@@ -28,17 +31,17 @@ interface GuestMessageBlockProps {
  * note says so. Each state has its own words: loading, the messages, the term over, Hostaway down,
  * no rights, the limit.
  */
-export function GuestMessageBlock({ ask, className }: GuestMessageBlockProps) {
+export function GuestMessageBlock({ ask, className, headingLevel = 2 }: GuestMessageBlockProps) {
   const { t } = useTranslation();
   const [isAsked, setAsked] = useState(false);
   const read = useGuestMessage(ask, isAsked);
 
   return (
-    <section
-      aria-label={t('problems.guestMessage.title')}
-      className={cn('flex flex-col gap-1', className)}
+    <DetailSection
+      title={t('problems.guestMessage.title')}
+      level={headingLevel}
+      className={className}
     >
-      <h2 className="font-medium">{t('problems.guestMessage.title')}</h2>
       {!isAsked ? (
         <div>
           <Button type="button" variant="outline" size="sm" onClick={() => setAsked(true)}>
@@ -58,7 +61,7 @@ export function GuestMessageBlock({ ask, className }: GuestMessageBlockProps) {
       ) : (
         <Messages messages={read.data} />
       )}
-    </section>
+    </DetailSection>
   );
 }
 
