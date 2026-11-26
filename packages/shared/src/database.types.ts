@@ -314,6 +314,42 @@ export type Database = {
         }
         Relationships: []
       }
+      board_tab_orders: {
+        Row: {
+          host_id: string
+          profile_id: string
+          tab_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          host_id?: string
+          profile_id?: string
+          tab_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          host_id?: string
+          profile_id?: string
+          tab_ids?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_tab_orders_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_tab_orders_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           author_id: string | null
@@ -5405,6 +5441,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      board_tab_ids_valid: { Args: { p_ids: string[] }; Returns: boolean }
       can_read_task_media: { Args: { p_path: string }; Returns: boolean }
       can_upload_task_media: { Args: { p_path: string }; Returns: boolean }
       cancel_cleaning: {
@@ -7616,6 +7653,7 @@ export type Database = {
         Returns: boolean
       }
       revoke_api_key: { Args: { p_id: string }; Returns: Json }
+      save_board_tab_order: { Args: { p_tab_ids: string[] }; Returns: string[] }
       save_kb_article: {
         Args: {
           p_body: string

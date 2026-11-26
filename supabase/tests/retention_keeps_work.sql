@@ -159,6 +159,12 @@ values ('fa900045-0000-4000-8000-000000000001', 'fa900000-0000-4000-8000-0000000
         now() - interval '199 days');
 update public.problems set due_on = current_date + 30 where id = 'fa900020-0000-4000-8000-000000000001';
 
+-- A person's own order of the board tabs (20261126160000), saved 200 days ago and naming the
+-- board: it is the person's, not any purge's.
+insert into public.board_tab_orders (profile_id, host_id, tab_ids, updated_at)
+values ('fa900002-0000-4000-8000-000000000002', 'fa900000-0000-4000-8000-00000000000a',
+        array['fa900040-0000-4000-8000-000000000001', 'mine', 'tech'], now() - interval '200 days');
+
 -- A task closed 200 days ago with what the office added at its closing (20261126100000): the
 -- batch, its file and the closing's comment. The file is the sweep's; the batch and the words stay.
 insert into public.problems (id, host_id, property_id, reported_by, title, status)
@@ -236,7 +242,7 @@ insert into work_tables values
   ('resolution_plans'), ('resolution_plan_steps'), ('supply_requests'), ('supply_request_items'),
   ('manager_boards'), ('manager_board_cards'), ('manager_board_steps'), ('manager_board_entries'),
   ('manager_board_columns'), ('manager_board_transfers'),
-  ('problem_additions');
+  ('problem_additions'), ('board_tab_orders');
 
 create function pg_temp.fingerprint(p_table text) returns text language plpgsql as $fn$
 declare

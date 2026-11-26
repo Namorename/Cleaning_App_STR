@@ -3318,7 +3318,13 @@
     "transferConfirm": "Hand over",
     "transferDone": "Board handed to {{name}}",
     "columnMoveTargetPick": "Choose a column",
-    "shelvedNoteReadOnly": "The card is archived or deleted."
+    "shelvedNoteReadOnly": "The card is archived or deleted.",
+    "tabOrderHint": "Drag the board tabs to reorder them. With the keyboard: Space picks a tab up, the arrows move it, Space puts it down, Esc cancels.",
+    "tabPicked": "“{{name}}” picked up: place {{position}} of {{total}}. The arrows move it, Space puts it down, Esc cancels.",
+    "tabMoved": "“{{name}}”: place {{position}} of {{total}}",
+    "tabDropped": "“{{name}}” put down: place {{position}} of {{total}}",
+    "tabCancelled": "“{{name}}” stays where it was",
+    "tabOrderSaveError": "The order of the boards was not saved — the previous one is back."
   },
   "serverErrors": {
     "checklistCopySameProperty": "Source and target are the same apartment",
@@ -3555,7 +3561,8 @@
     "boardCardNotShelved": "The card is on the board — only an archived or deleted card can be deleted permanently",
     "problemNotArchived": "The task is not archived — only an archived task can be deleted permanently",
     "problemDueInvalid": "The due date is from yesterday to a year ahead",
-    "problemDueOfficeOnly": "Only the office sets the due date"
+    "problemDueOfficeOnly": "Only the office sets the due date",
+    "boardTabOrderInvalid": "That order is not a list of boards. Reload the page."
   },
   "push": {
     "cleaning_new": {

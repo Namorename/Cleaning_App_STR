@@ -15,6 +15,7 @@ import * as calendar from '../calendar/api';
 import * as chat from '../chat/api';
 import * as guestSignals from '../guest-signals/api';
 import { EMPTY_REVIEW_FILTERS } from '../guest-signals/review-filters';
+import * as boardTabOrder from '../boards/tab-order-api';
 import * as knowledge from '../knowledge/api';
 import * as problemAdditions from '../problems/additions-api';
 import * as problems from '../problems/api';
@@ -106,6 +107,8 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => boards.fetchOfficePeople(client),
   // A board's own columns (20261126120000), the deleted ones too.
   (client) => boards.fetchBoardColumns(client, [ANY_ID]),
+  // A person's own order of the board tabs (20261126160000).
+  (client) => boardTabOrder.fetchBoardTabOrder(client),
   (client) => apartments.fetchRegistry(client),
   (client) => apartments.fetchProperty(client, ANY_PROPERTY),
   (client) => apartments.fetchOpenCleanings(client),

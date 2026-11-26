@@ -497,6 +497,11 @@
       "reason": "auth/RLS helper: role of the active caller from profiles",
       "defined_in": "20260824190100_profiles.sql"
     },
+    "board_tab_ids_valid": {
+      "status": "internal",
+      "reason": "a check of a person's own panel layout: the list of board tabs she saves",
+      "defined_in": "20261126160000_board_tab_order.sql"
+    },
     "can_read_task_media": {
       "status": "internal",
       "reason": "Storage policy helper of the task-media bucket (read)",
@@ -1745,6 +1750,11 @@
       "reason": "forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API.",
       "defined_in": "20261028100000_public_api_v1.sql"
     },
+    "save_board_tab_order": {
+      "status": "internal",
+      "reason": "a person's own order of the board tabs in the panel: her layout, not the company's data",
+      "defined_in": "20261126160000_board_tab_order.sql"
+    },
     "save_kb_article": {
       "status": "planned",
       "scope": "knowledge:write",
@@ -2295,6 +2305,11 @@
       "status": "internal",
       "reason": "API plumbing: the database's copy of the scope registry.",
       "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "board_tab_orders": {
+      "status": "internal",
+      "reason": "a person's own order of the board tabs in the panel, read and written only by herself",
+      "defined_in": "20261126160000_board_tab_order.sql"
     },
     "chat_messages": {
       "status": "planned",

@@ -3376,7 +3376,13 @@
     "transferConfirm": "Передать",
     "transferDone": "Доска передана: {{name}}",
     "columnMoveTargetPick": "Выберите колонку",
-    "shelvedNoteReadOnly": "Карточка в архиве или удалена."
+    "shelvedNoteReadOnly": "Карточка в архиве или удалена.",
+    "tabOrderHint": "Вкладки досок можно перетащить. С клавиатуры: пробел — взять вкладку, стрелки — переместить, пробел — поставить, Esc — отменить.",
+    "tabPicked": "«{{name}}» взята: место {{position}} из {{total}}. Стрелки перемещают, пробел ставит, Esc отменяет.",
+    "tabMoved": "«{{name}}»: место {{position}} из {{total}}",
+    "tabDropped": "«{{name}}» поставлена: место {{position}} из {{total}}",
+    "tabCancelled": "«{{name}}» осталась на месте",
+    "tabOrderSaveError": "Порядок досок не сохранился — вернули прежний."
   },
   "serverErrors": {
     "checklistCopySameProperty": "Источник и получатель — один и тот же апартамент",
@@ -3625,7 +3631,8 @@
     "boardCardNotShelved": "Карточка на доске — навсегда удаляется только карточка из архива или удалённых",
     "problemNotArchived": "Задание не в архиве — навсегда удаляется только задание из архива",
     "problemDueInvalid": "Дата выполнения — от вчерашнего дня до года вперёд",
-    "problemDueOfficeOnly": "Дату выполнения ставит только офис"
+    "problemDueOfficeOnly": "Дату выполнения ставит только офис",
+    "boardTabOrderInvalid": "Этот порядок не похож на список досок. Обновите страницу."
   },
   "push": {
     "cleaning_new": {

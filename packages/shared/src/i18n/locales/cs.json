@@ -3376,7 +3376,13 @@
     "transferConfirm": "Předat",
     "transferDone": "Nástěnka předána: {{name}}",
     "columnMoveTargetPick": "Vyberte sloupec",
-    "shelvedNoteReadOnly": "Karta je v archivu nebo smazaná."
+    "shelvedNoteReadOnly": "Karta je v archivu nebo smazaná.",
+    "tabOrderHint": "Záložky nástěnek lze přetáhnout. Z klávesnice: mezerník záložku zvedne, šipky ji posunou, mezerník ji položí, Esc zruší.",
+    "tabPicked": "„{{name}}“ zvednuta: místo {{position}} z {{total}}. Šipky ji posunou, mezerník ji položí, Esc zruší.",
+    "tabMoved": "„{{name}}“: místo {{position}} z {{total}}",
+    "tabDropped": "„{{name}}“ položena: místo {{position}} z {{total}}",
+    "tabCancelled": "„{{name}}“ zůstává na svém místě",
+    "tabOrderSaveError": "Pořadí nástěnek se neuložilo — vrátilo se předchozí."
   },
   "serverErrors": {
     "checklistCopySameProperty": "Zdroj a cíl jsou tentýž apartmán",
@@ -3625,7 +3631,8 @@
     "boardCardNotShelved": "Karta je na nástěnce — natrvalo lze smazat jen kartu z archivu nebo ze smazaných",
     "problemNotArchived": "Úkol není v archivu — natrvalo lze smazat jen úkol z archivu",
     "problemDueInvalid": "Termín je od včerejška do jednoho roku dopředu",
-    "problemDueOfficeOnly": "Termín nastavuje jen kancelář"
+    "problemDueOfficeOnly": "Termín nastavuje jen kancelář",
+    "boardTabOrderInvalid": "Toto pořadí není seznam nástěnek. Obnovte stránku."
   },
   "push": {
     "cleaning_new": {

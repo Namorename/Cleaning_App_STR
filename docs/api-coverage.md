@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 24 | 47 | 353 | 424 |
-| Таблицы и представления | 13 | 21 | 29 | 63 |
-| Всего | 37 | 68 | 382 | 487 |
+| Функции | 24 | 47 | 355 | 426 |
+| Таблицы и представления | 13 | 21 | 30 | 64 |
+| Всего | 37 | 68 | 385 | 490 |
 
 ## Функции
 
@@ -97,7 +97,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 353
+### Внутреннее — 355
 
 | Имя | Причина |
 | --- | --- |
@@ -148,6 +148,7 @@
 | `apply_guest_message_reading` | Guest chats (docs/guest-chats.md), behind a switch: read-guest-messages stores one conversation's keys, labels and cards; texts never reach the database, and the API serves no guest signal yet (guest_signals:read is planned). |
 | `apply_signal_findings` | classify-guest-signals job: stores and decides one review's reading (rules or model), service_role only |
 | `auth_role` | auth/RLS helper: role of the active caller from profiles |
+| `board_tab_ids_valid` | a check of a person's own panel layout: the list of board tabs she saves |
 | `can_read_task_media` | Storage policy helper of the task-media bucket (read) |
 | `can_upload_task_media` | Storage policy helper of the task-media bucket (upload onto a waiting row) |
 | `cancel_cleaning` | the office cancels a cleaning in the panel or on the phone (soft cancel, any status); not in API v1 by the owner's word of 2026-11-18 |
@@ -373,6 +374,7 @@
 | `review_load_state` | PMS sync (sync-guest-signals): which parts of the reviews read are still missing, flags only, service_role only |
 | `review_text_allowed` | privacy rule: whether a review may keep a text (stay from the texts' line - the guest notice's day or the day texts first went on - hidden, archive, 18 months); execute revoked from every role |
 | `revoke_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
+| `save_board_tab_order` | a person's own order of the board tabs in the panel: her layout, not the company's data |
 | `save_manager_board` | creates or renames a board of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 |
 | `save_manager_board_column` | adds or renames a column of a manager board in the panel and on the manager's phone (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
 | `save_manager_comment` | writes or edits a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
@@ -501,7 +503,7 @@
 | `workflow_steps` | `checklists:read` | steps of a process template |
 | `workflow_templates` | `checklists:read` | process templates a cleaning follows |
 
-### Внутреннее — 29
+### Внутреннее — 30
 
 | Имя | Причина |
 | --- | --- |
@@ -511,6 +513,7 @@
 | `api_rate_windows` | API plumbing: rate limit windows. |
 | `api_request_log` | API plumbing: the request log. |
 | `api_scopes` | API plumbing: the database's copy of the scope registry. |
+| `board_tab_orders` | a person's own order of the board tabs in the panel, read and written only by herself |
 | `expired_tasks_review` | A view for the panel's review of expired cleanings; GET /v1/cleanings?status=expired serves the same rows. |
 | `issue_facts` | episodes without guest text; the public API will serve aggregates only, from stage 6 |
 | `issue_theme_words` | the dictionary for staff texts |

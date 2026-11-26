@@ -145,7 +145,10 @@ insert into wanted values
   ('oauth_tokens',         ''),
   -- Which pushes a person switched off: she reads her own row for the settings
   -- screen and writes it through set_push_preference.
-  ('push_preferences',     'SELECT');
+  ('push_preferences',     'SELECT'),
+  -- A person's own order of the board tabs (20261126160000): she reads and writes her own row
+  -- and no other — RLS on auth.uid(); no DELETE (an empty order is the default one).
+  ('board_tab_orders',     'INSERT,SELECT,UPDATE');
 
 create temp table actual as
 select grantee, table_name as relation,
