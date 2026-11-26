@@ -222,6 +222,8 @@ select pg_temp.check('4a the reporter reads the batch and both files',
 select pg_temp.check('4b and may open the file',
   public.can_read_task_media((select storage_path from public.task_media where id = pg_temp.mid(2))),
   true);
+select pg_temp.check('4b2 and who added it, by name, without reading anybody''s profile',
+  (select author_name from public.problem_additions where id = pg_temp.aid(1)), 'Boss');
 select pg_temp.check('4c the readers of today, by problem_id, never meet the office''s files',
   (select count(*) from public.task_media where problem_id = pg_temp.pid(1)), 0::bigint);
 select pg_temp.as_person(5);
@@ -396,13 +398,13 @@ select pg_temp.check('8o the technician may not close with words',
 
 select pg_temp.as_person(1);
 select pg_temp.check('9a a closed task takes no more files',
-  pg_temp.refusal($q$select pg_temp.photo(11, 40, 4)$q$), 'serverErrors.problemNotOpen');
+  pg_temp.refusal($q$select pg_temp.photo(11, 40, 4)$q$), 'serverErrors.additionTaskClosed');
 select public.send_message(pg_temp.cid(9), 'После закрытия', null, pg_temp.pid(4));
 select pg_temp.check('9b the office''s comment in a closed task says so',
   pg_temp.event(4, 'comment_added') ->> 'at', 'closed');
 select public.archive_problem(pg_temp.pid(2));
 select pg_temp.check('9c an archived task takes no more files',
-  pg_temp.refusal($q$select pg_temp.photo(12, 41, 2)$q$), 'serverErrors.problemNotOpen');
+  pg_temp.refusal($q$select pg_temp.photo(12, 41, 2)$q$), 'serverErrors.additionTaskClosed');
 
 -- ---------- 10. the retention sweep ----------
 

@@ -44,6 +44,14 @@ export {
   type Translate,
 } from './problems/closing';
 export {
+  ADDITION_MAX_FILES,
+  ADDITION_SELECT,
+  ADDITION_STAGES,
+  isShownAdditionFile,
+  type AdditionFileRow,
+  type AdditionStage,
+} from './problems/additions';
+export {
   GUEST_NAME_STATES,
   formatGuestDate,
   guestOriginLines,

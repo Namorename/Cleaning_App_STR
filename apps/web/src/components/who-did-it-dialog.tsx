@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 
 /** The select's value for «Никто, менеджер сам». */
-const ALONE = '';
+export const ALONE = '';
 
 /** Somebody who may have done the work, as the select names her. */
 export interface WhoDidItPerson {
@@ -67,6 +67,53 @@ export interface WhoDidItWords {
   abort: string;
 }
 
+interface WhoDidItFieldProps {
+  words: Pick<WhoDidItWords, 'who' | 'alone' | 'switchedOff' | 'hint'>;
+  people: readonly WhoDidItPerson[];
+  /** The chosen person's id; ALONE for «Никто, менеджер сам». */
+  choice: string;
+  onChoice: (choice: string) => void;
+  isDisabled?: boolean;
+}
+
+/**
+ * «Кто выполнил»: «Никто, менеджер сам», the people at work, then those switched off; the hint
+ * under it once somebody is named. The field of the dialogs that close a job by hand.
+ */
+export function WhoDidItField({ words, people, choice, onChoice, isDisabled }: WhoDidItFieldProps) {
+  const active = people.filter((person) => person.isActive);
+  const switchedOff = people.filter((person) => !person.isActive);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor="who-did-it">{words.who}</Label>
+      <NativeSelect
+        id="who-did-it"
+        value={choice}
+        disabled={isDisabled}
+        onChange={(event) => onChoice(event.target.value)}
+        className="h-11 px-3"
+      >
+        <option value={ALONE}>{words.alone}</option>
+        {active.map((person) => (
+          <option key={person.id} value={person.id}>
+            {person.name}
+          </option>
+        ))}
+        {switchedOff.length === 0 ? null : (
+          <optgroup label={words.switchedOff}>
+            {switchedOff.map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.name}
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </NativeSelect>
+      {choice === ALONE ? null : <p className="text-sm text-muted-foreground">{words.hint}</p>}
+    </div>
+  );
+}
+
 interface WhoDidItDialogProps {
   open: boolean;
   words: WhoDidItWords;
@@ -102,9 +149,6 @@ export function WhoDidItDialog({
     }
   }
 
-  const active = people.filter((person) => person.isActive);
-  const switchedOff = people.filter((person) => !person.isActive);
-
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
       <DialogContent>
@@ -112,32 +156,7 @@ export function WhoDidItDialog({
           <DialogTitle>{words.title}</DialogTitle>
           <DialogDescription>{words.description}</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="who-did-it">{words.who}</Label>
-          <NativeSelect
-            id="who-did-it"
-            value={choice}
-            onChange={(event) => setChoice(event.target.value)}
-            className="h-11 px-3"
-          >
-            <option value={ALONE}>{words.alone}</option>
-            {active.map((person) => (
-              <option key={person.id} value={person.id}>
-                {person.name}
-              </option>
-            ))}
-            {switchedOff.length === 0 ? null : (
-              <optgroup label={words.switchedOff}>
-                {switchedOff.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </NativeSelect>
-          {choice === ALONE ? null : <p className="text-sm text-muted-foreground">{words.hint}</p>}
-        </div>
+        <WhoDidItField words={words} people={people} choice={choice} onChoice={setChoice} />
         <DialogFooter>
           <Button type="button" variant="outline" className="h-11" onClick={onClose}>
             {words.abort}

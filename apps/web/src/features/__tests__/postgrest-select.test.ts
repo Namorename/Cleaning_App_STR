@@ -16,6 +16,7 @@ import * as chat from '../chat/api';
 import * as guestSignals from '../guest-signals/api';
 import { EMPTY_REVIEW_FILTERS } from '../guest-signals/review-filters';
 import * as knowledge from '../knowledge/api';
+import * as problemAdditions from '../problems/additions-api';
 import * as problems from '../problems/api';
 import * as problemCatalog from '../problems/catalog';
 import * as settings from '../settings/api';
@@ -128,6 +129,8 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   // «Новое задание» of a company that reports by catalogue: the switch and the list.
   (client) => problemCatalog.fetchReportMode(client),
   (client) => problemCatalog.fetchReportCategories(client),
+  // What the office added to a task: its batches, files and the closing's comment (20261126100000).
+  (client) => problemAdditions.fetchAdditions(client, ANY_ID),
   (client) => tasks.fetchCleaners(client),
   (client) => guestSignals.fetchFindings(client, ['candidate']),
   // Chats on: the cards of messages beside the reviews', their count, the switch (20261110120000).

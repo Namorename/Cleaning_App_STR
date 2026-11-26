@@ -30,6 +30,7 @@ import {
   type ReportProblemVariables,
   type ResolveProblemVariables,
 } from './api';
+import { fetchAdditions, publishOfficeFiles } from './additions-api';
 import { fetchReportCatalog, reportCatalogOf, type ReportCatalog } from './catalog';
 import { problemCatalogKeys, problemKeys } from './keys';
 
@@ -80,6 +81,25 @@ export function useProblemPhotos(problemId: string) {
   return useQuery({
     queryKey: problemKeys.photos(problemId),
     queryFn: () => fetchProblemPhotos(client, problemId),
+  });
+}
+
+/** What the office added to the task: its batches, files and the closing's comment. */
+export function useAdditions(problemId: string) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: problemKeys.additions(problemId),
+    queryFn: () => fetchAdditions(client, problemId),
+  });
+}
+
+/** «Добавить»: the batch shows on the task; the task is read again with it. */
+export function usePublishOfficeFiles(problemId: string) {
+  const client = useSupabase();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (additionId: string) => publishOfficeFiles(client, additionId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: problemKeys.additions(problemId) }),
   });
 }
 

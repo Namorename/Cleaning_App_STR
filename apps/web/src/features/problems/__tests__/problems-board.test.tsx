@@ -98,6 +98,12 @@ vi.mock('../use-problems', () => ({
 // The marks come from one company-wide answer; here it is a pair of sets the
 // test fills by hand.
 const unread = { tasks: new Set<string>(), problems: new Set<string>() };
+// The office's files ask for the company's video limits and the client (use-office-files.ts).
+vi.mock('@/features/settings/use-settings', () => ({
+  useHostSettings: () => ({ data: { video_max_sec: 120, video_max_mb: 100 } }),
+}));
+vi.mock('@/lib/supabase/use-client', () => ({ useSupabase: () => ({}) }));
+
 vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
 
 afterEach(() => {
@@ -580,7 +586,7 @@ describe('ProblemsBoard card menu', () => {
     expect(mutations.resolve).not.toHaveBeenCalled();
     await userEvent.click(within(question).getByRole('button', { name: 'Да, выполнено' }));
     expect(mutations.resolve).toHaveBeenCalledWith(
-      { problemId: OPEN_ID, completedBy: null },
+      { problemId: OPEN_ID, completedBy: null, closing: null },
       expect.anything(),
     );
   }, 20000);

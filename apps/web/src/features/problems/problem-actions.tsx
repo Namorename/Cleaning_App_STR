@@ -167,8 +167,8 @@ export function ProblemActions({ problem, onDeleted }: ProblemActionsProps) {
         open={pending === 'resolve'}
         problem={problem}
         isBusy={isBusy}
-        onConfirm={(completedBy) =>
-          resolve.mutate({ problemId: problem.id, completedBy }, { onSettled: close })
+        onConfirm={(choice) =>
+          resolve.mutate({ problemId: problem.id, ...choice }, { onSettled: close })
         }
         onClose={close}
       />

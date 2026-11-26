@@ -46,6 +46,7 @@ const queries = {
   staff: vi.fn(),
   workers: vi.fn(),
   origin: vi.fn(),
+  additions: vi.fn(),
 };
 const mutations = {
   assign: vi.fn(),
@@ -57,6 +58,7 @@ const mutations = {
   falsePositive: vi.fn(),
   nameWorker: vi.fn(),
   edit: vi.fn(),
+  publish: vi.fn(),
 };
 /** Where the page sends the manager after a delete. */
 const router = { replace: vi.fn() };
@@ -96,6 +98,8 @@ const falsePositiveOutcome = () => ({
 vi.mock('../use-problems', () => ({
   useProblem: () => queries.problem(),
   useProblemPhotos: () => queries.photos(),
+  useAdditions: () => queries.additions(),
+  usePublishOfficeFiles: () => ({ ...idle, mutate: mutations.publish }),
   useFixTaskSteps: () => queries.steps(),
   useStaff: () => queries.staff(),
   useWorkers: () => queries.workers(),
@@ -116,6 +120,12 @@ vi.mock('../use-problems', () => ({
 
 // The conversation has its own tests; here it only has to open, say what it
 // is about and close.
+// The office's files ask for the company's video limits and the client (use-office-files.ts).
+vi.mock('@/features/settings/use-settings', () => ({
+  useHostSettings: () => ({ data: { video_max_sec: 120, video_max_mb: 100 } }),
+}));
+vi.mock('@/lib/supabase/use-client', () => ({ useSupabase: () => ({}) }));
+
 vi.mock('../problem-theme', () => ({ ProblemThemeBlock: () => null }));
 
 // Where a task from a guest came from: the server's answer is the test's to give, and whether the
@@ -196,6 +206,7 @@ beforeEach(() => {
   refusal.falsePositive = false;
   queries.problem.mockReturnValue(loaded(assigned));
   queries.origin.mockReturnValue({ data: undefined, isPending: true, isError: false });
+  queries.additions.mockReturnValue({ data: [], isPending: false, isError: false, error: null });
   queries.photos.mockReturnValue(
     loaded([
       {
@@ -512,7 +523,7 @@ describe('ProblemDetail', () => {
     expect(within(asked).getByLabelText('Кто выполнил')).toHaveValue('');
     await userEvent.click(within(asked).getByRole('button', { name: 'Да, выполнено' }));
     expect(mutations.resolve).toHaveBeenCalledWith(
-      { problemId: PROBLEM_ID, completedBy: null },
+      { problemId: PROBLEM_ID, completedBy: null, closing: null },
       expect.anything(),
     );
 
@@ -545,7 +556,7 @@ describe('ProblemDetail', () => {
     await userEvent.click(within(asked).getByRole('button', { name: 'Да, выполнено' }));
 
     expect(mutations.resolve).toHaveBeenCalledWith(
-      { problemId: PROBLEM_ID, completedBy: TECH_ID },
+      { problemId: PROBLEM_ID, completedBy: TECH_ID, closing: null },
       expect.anything(),
     );
   }, 20000);

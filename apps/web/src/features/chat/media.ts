@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { stripImageMetadata, type Database } from '@str-ops/shared';
+import type { Database } from '@str-ops/shared';
 
-import { MEDIA_BUCKET } from '@/lib/media';
+import { uploadToAssignedPath, withoutMetadata } from '@/lib/media-upload';
 
 import { chatMessageMediaSchema, type ChatMessageMedia } from './schema';
 
@@ -46,34 +46,6 @@ async function registerPhoto(
   return chatMessageMediaSchema.parse(data);
 }
 
-interface StorageFailure {
-  message?: unknown;
-  statusCode?: unknown;
-}
-
-/** The object is there already — an earlier attempt got through after all. */
-function isAlreadyUploaded(error: unknown): boolean {
-  const { message, statusCode } = (error ?? {}) as StorageFailure;
-  return statusCode === '409' || (typeof message === 'string' && /already exists/i.test(message));
-}
-
-/**
- * Put the file onto the path the server assigned.
- *
- * The bucket policy admits the path only while its row is waiting for a file,
- * so a duplicate is refused by storage — and read here as success, because
- * that is what it is when the chain is replayed.
- */
-async function uploadPhotoFile(client: Client, storagePath: string, file: File): Promise<void> {
-  const { error } = await client.storage.from(MEDIA_BUCKET).upload(storagePath, file, {
-    contentType: file.type,
-    upsert: false,
-  });
-  if (error !== null && error !== undefined && !isAlreadyUploaded(error)) {
-    throw error;
-  }
-}
-
 /** Tell the server the file has arrived; it looks in the bucket before agreeing. */
 async function confirmPhoto(client: Client, mediaId: string): Promise<ChatMessageMedia> {
   const { data, error } = await client.rpc('confirm_task_media', { p_id: mediaId });
@@ -81,29 +53,6 @@ async function confirmPhoto(client: Client, mediaId: string): Promise<ChatMessag
     throw error;
   }
   return chatMessageMediaSchema.parse(data);
-}
-
-/**
- * The picked file without what the camera wrote into it — where, when, on
- * which phone (owner's word, 2026-09-28). A photo from a manager's phone
- * arrives in the file dialog exactly as the phone saved it, GPS included.
- *
- * Done before the row is written: the row declares the size of what is
- * uploaded. The same file always strips to the same bytes, so a retry of the
- * chain declares and sends what the first attempt did. A file with nothing
- * to remove is sent as it is. A file that cannot be read as the picture it
- * says it is throws, and is not sent at all.
- */
-async function withoutMetadata(file: File): Promise<File> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const clean = stripImageMetadata(bytes, file.type);
-  if (clean === bytes) {
-    return file;
-  }
-  return new File([clean.slice().buffer], file.name, {
-    type: file.type,
-    lastModified: file.lastModified,
-  });
 }
 
 /**
@@ -121,7 +70,7 @@ export async function attachMessagePhoto(
 ): Promise<ChatMessageMedia> {
   const file = await withoutMetadata(variables.file);
   const row = await registerPhoto(client, { ...variables, file });
-  await uploadPhotoFile(client, row.storage_path, file);
+  await uploadToAssignedPath(client, row.storage_path, file);
   return confirmPhoto(client, variables.mediaId);
 }
 

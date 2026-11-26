@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 
 import { cardMove } from './board-moves';
+import type { ResolveChoice } from './resolve-dialog';
 import { liveFixTask, type BoardStatus, type Problem } from './schema';
 import { useReopenProblem, useResolveProblem, useUnassignProblem } from './use-problems';
 
@@ -40,7 +41,7 @@ export interface BoardMoves {
   refuse: () => void;
   closePending: () => void;
   /** Who did the work; null: nobody, the manager did it alone. */
-  confirmResolve: (completedBy: string | null) => void;
+  confirmResolve: (choice: ResolveChoice) => void;
   confirmUnassign: () => void;
 }
 
@@ -100,10 +101,10 @@ export function useBoardMoves(): BoardMoves {
     closePending: () => setPending(null),
     // The dialog closes once the server has answered: a refusal is shown in
     // the line under the board, which the open dialog would cover.
-    confirmResolve: (completedBy) => {
+    confirmResolve: (choice) => {
       if (pending?.kind === 'resolve') {
         resolve.mutate(
-          { problemId: pending.problem.id, completedBy },
+          { problemId: pending.problem.id, ...choice },
           { onSettled: closeIf(pending) },
         );
       }

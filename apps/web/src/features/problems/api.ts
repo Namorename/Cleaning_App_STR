@@ -277,22 +277,47 @@ export async function unassignProblem(
   }
 }
 
+/**
+ * What the manager sends with a closing (20261126100000): the batch its files went into, and the
+ * comment with the id of its message. Left out, the closing is exactly the one of before.
+ */
+export interface ClosingAddition {
+  additionId: string;
+  /** The comment, trimmed; null without one. */
+  comment: string | null;
+  /** The id of the comment's message in the task's chat, minted with the form. */
+  commentId: string;
+}
+
 export interface ResolveProblemVariables {
   problemId: string;
   /** Who did the work; null: nobody, the manager did it alone. */
   completedBy: string | null;
+  closing?: ClosingAddition | null;
 }
 
-/** Close as fixed by hand, naming who did the work or saying nobody did. No push goes out. */
+/**
+ * Close as fixed by hand, naming who did the work or saying nobody did. No push goes out for the
+ * closing itself; a comment is a message of the task's chat, as any other.
+ */
 export async function resolveProblem(
   client: Client,
-  { problemId, completedBy }: ResolveProblemVariables,
+  { problemId, completedBy, closing = null }: ResolveProblemVariables,
 ): Promise<Problem> {
+  const extra =
+    closing === null
+      ? {}
+      : {
+          p_addition_id: closing.additionId,
+          ...(closing.comment === null
+            ? {}
+            : { p_comment_id: closing.commentId, p_comment: closing.comment }),
+        };
   const { data, error } = await client.rpc(
     'resolve_problem',
     completedBy === null
-      ? { p_id: problemId, p_alone: true }
-      : { p_id: problemId, p_completed_by: completedBy },
+      ? { p_id: problemId, p_alone: true, ...extra }
+      : { p_id: problemId, p_completed_by: completedBy, ...extra },
   );
   if (error) {
     throw error;

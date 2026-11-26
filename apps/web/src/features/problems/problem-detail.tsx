@@ -40,6 +40,7 @@ import { GuestMessageBlock } from './guest-message';
 import { GuestOriginBlock } from './guest-origin';
 import { formatClock } from './format';
 import { ProblemActions } from './problem-actions';
+import { ClosingAddition, OfficeAdditionsSection } from './problem-additions';
 import { ProblemClosing, ProblemWorkerMark } from './problem-closing';
 import { ProblemPhotos } from './problem-photos';
 import { ProblemThemeBlock } from './problem-theme';
@@ -235,6 +236,11 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
             <DetailSection title={t('panel.problems.detail.photos')}>
               <ReportPhotos problemId={problem.id} />
             </DetailSection>
+            <OfficeAdditionsSection
+              problemId={problem.id}
+              canAdd={!isClosed}
+              isClosed={isProblemClosed(problem)}
+            />
             <GuestOriginBlock problem={problem} />
             {problem.source === 'message' ? (
               <GuestMessageBlock ask={{ problemId: problem.id }} />
@@ -253,6 +259,7 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
             {fixTask === null && isClosed ? (
               <>
                 <ProblemClosing problem={problem} className="gap-1 font-medium" />
+                <ClosingAddition problemId={problem.id} />
                 <ProblemWorkerMark problem={problem} />
               </>
             ) : fixTask === null ? (

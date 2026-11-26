@@ -1712,6 +1712,7 @@ export type Database = {
       problem_additions: {
         Row: {
           author_id: string | null
+          author_name: string | null
           created_at: string
           host_id: string
           id: string
@@ -1722,6 +1723,7 @@ export type Database = {
         }
         Insert: {
           author_id?: string | null
+          author_name?: string | null
           created_at?: string
           host_id: string
           id: string
@@ -1732,6 +1734,7 @@ export type Database = {
         }
         Update: {
           author_id?: string | null
+          author_name?: string | null
           created_at?: string
           host_id?: string
           id?: string
@@ -6668,6 +6671,7 @@ export type Database = {
         Args: { p_addition_id: string }
         Returns: {
           author_id: string | null
+          author_name: string | null
           created_at: string
           host_id: string
           id: string
@@ -6687,6 +6691,7 @@ export type Database = {
         Args: { p_addition_id: string; p_message_id?: string; p_stage: string }
         Returns: {
           author_id: string | null
+          author_name: string | null
           created_at: string
           host_id: string
           id: string

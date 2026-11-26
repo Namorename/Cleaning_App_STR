@@ -108,6 +108,12 @@ vi.mock('@/features/tasks/use-tasks', () => ({ useProperties: () => ({ data: lis
 // The marks come from one company-wide answer; here it is a pair of sets the
 // test fills by hand. The board's own marks are tested on the board.
 const unread = { tasks: new Set<string>(), problems: new Set<string>() };
+// The office's files ask for the company's video limits and the client (use-office-files.ts).
+vi.mock('@/features/settings/use-settings', () => ({
+  useHostSettings: () => ({ data: { video_max_sec: 120, video_max_mb: 100 } }),
+}));
+vi.mock('@/lib/supabase/use-client', () => ({ useSupabase: () => ({}) }));
+
 vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
 
 // The router reads the address jsdom holds; the view writes it through

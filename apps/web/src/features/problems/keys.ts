@@ -4,6 +4,8 @@ export const problemKeys = {
   list: () => ['problems', 'list'] as const,
   detail: (problemId: string) => ['problems', 'detail', problemId] as const,
   photos: (problemId: string) => ['problems', 'photos', problemId] as const,
+  /** What the office added to the task (20261126100000). */
+  additions: (problemId: string) => ['problems', 'additions', problemId] as const,
   theme: (problemId: string) => ['problems', 'theme', problemId] as const,
   /** Where a task from a guest came from (problem_guest_origin): read when the page asks. */
   origin: (problemId: string) => ['problems', 'origin', problemId] as const,

@@ -63,6 +63,9 @@ create table public.problem_additions (
   problem_id   uuid not null references public.problems (id) on delete cascade,
   -- Who sent it: the name is read from the staff directory, as everywhere in the office.
   author_id    uuid references public.profiles (id) on delete set null,
+  -- The name AS IT WAS, as chat_messages keeps it: a cleaner or a technician reads no
+  -- profile but her own, and the batch says who added it to whoever reads the task.
+  author_name  text,
   -- 'open': added to a task at work; 'closing': sent with its closing. Known when
   -- published; null while the files are on their way.
   stage        text constraint problem_additions_stage check (stage in ('open', 'closing')),
@@ -203,11 +206,13 @@ begin
   v_problem := public.problem_for_manager(p_problem_id);
   if v_problem.status in ('resolved', 'cancelled') or v_problem.archived_at is not null then
     raise exception 'Problem is % and takes no more files', v_problem.status
-      using errcode = 'check_violation', hint = 'serverErrors.problemNotOpen';
+      using errcode = 'check_violation', hint = 'serverErrors.additionTaskClosed';
   end if;
 
-  insert into public.problem_additions (id, host_id, problem_id, author_id)
-  values (p_addition_id, v_problem.host_id, v_problem.id, (select auth.uid()))
+  insert into public.problem_additions (id, host_id, problem_id, author_id, author_name)
+  select p_addition_id, v_problem.host_id, v_problem.id, pr.id, pr.full_name
+  from public.profiles pr
+  where pr.id = (select auth.uid())
   on conflict (id) do nothing;
 
   select a.* into v_addition
@@ -433,7 +438,7 @@ begin
   end if;
   if v_problem.status in ('resolved', 'cancelled') or v_problem.archived_at is not null then
     raise exception 'Problem is % and takes no more files', v_problem.status
-      using errcode = 'check_violation', hint = 'serverErrors.problemNotOpen';
+      using errcode = 'check_violation', hint = 'serverErrors.additionTaskClosed';
   end if;
 
   return public.publish_problem_addition(p_addition_id, 'open');
@@ -477,8 +482,10 @@ begin
       using errcode = 'invalid_parameter_value', hint = 'serverErrors.closingAdditionInvalid';
   end if;
 
-  insert into public.problem_additions (id, host_id, problem_id, author_id)
-  values (p_addition_id, p_problem.host_id, p_problem.id, (select auth.uid()))
+  insert into public.problem_additions (id, host_id, problem_id, author_id, author_name)
+  select p_addition_id, p_problem.host_id, p_problem.id, pr.id, pr.full_name
+  from public.profiles pr
+  where pr.id = (select auth.uid())
   on conflict (id) do nothing;
 
   select a.* into v_addition
