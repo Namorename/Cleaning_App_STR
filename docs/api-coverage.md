@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 47 | 323 | 390 |
-| Таблицы и представления | 9 | 21 | 30 | 60 |
-| Всего | 29 | 68 | 353 | 450 |
+| Функции | 20 | 47 | 329 | 396 |
+| Таблицы и представления | 9 | 21 | 31 | 61 |
+| Всего | 29 | 68 | 360 | 457 |
 
 ## Функции
 
@@ -72,7 +72,7 @@
 | `reject_signal_finding` | `guest_signals:decide` | the manager's no, with a reason; a task the finding made is called off while nobody has been sent |
 | `reopen_problem` | `tasks:resolve` | puts a closed task (problem) back on the board (undo of resolve) |
 | `resolve_checklist_property` | `checklists:read` | the listing whose checklist applies (own or parent) |
-| `resolve_problem` | `tasks:resolve` | closes a task (problem) as fixed |
+| `resolve_problem` | `tasks:resolve` | closes a task (problem) as fixed; its closing comment and files (p_addition_id, p_comment_id, p_comment, 20261126100000) stay out of the API by the owner word of 2026-11-26 |
 | `resolve_workflow_template` | `checklists:read` | the process template a cleaning on this listing follows |
 | `restore_kb_revision` | `knowledge:write` | brings an earlier version of an article (text and translations) back as its newest; history is not rewritten |
 | `review_supply_request` | `supplies:write` | moves a supply request along new/accepted/ordered/fulfilled or rejects it |
@@ -93,10 +93,11 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 323
+### Внутреннее — 329
 
 | Имя | Причина |
 | --- | --- |
+| `add_office_media` | API v1 adds nothing for this (owner 2026-11-26): panel and office phone upload pipeline: registers one file of the office batch on an open task (row before file); listTaskMedia reads the report files only (problem_id), never these |
 | `add_problem_media` | phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media (photo of a reported task) |
 | `add_task_media` | phone-only flow of the cleaner at work (task steps): photo/video of a step, row before file |
 | `analytics_checkout_rows` | analytics building block; execute revoked from clients, called only inside analytics_* readers |
@@ -221,6 +222,7 @@
 | `issue_theme_of_text` | internal helper of the nightly refresh: the dictionary |
 | `issue_theme_refined` | internal helper of the nightly refresh |
 | `journal_cleaning_time` | trigger function: journals a manager's hours of a booking's cleaning in task_events (time_set, time_auto, time_dropped) |
+| `journal_office_comment` | trigger function: writes comment_added into problem_events for an office message in a task thread, without its text |
 | `journal_problem_change` | trigger function: writes problem_events for a task (problem) |
 | `journal_repair_change` | trigger function: writes problem_events for repairs |
 | `journal_task_change` | trigger function: writes task_events for cleanings |
@@ -263,7 +265,9 @@
 | `open_cleanings_by_listing` | panel registry counter of open cleanings per listing; derivable from GET /v1/cleanings |
 | `open_task_step` | phone-only flow of the cleaner at work (task steps): stamps the first opening of a step |
 | `order_manager_steps` | puts the steps in a new order of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
+| `problem_addition_max_files` | limit constant of the office batch (10 files) |
 | `problem_category_for_report` | lookup helper of report_problem/update_problem: the caller's company's category, archived or not; execute revoked from clients |
+| `problem_closing_addition` | helper of resolve_problem: the closing comment and files, revoked from clients |
 | `problem_description_max_length` | validation limit constant of report_problem/update_problem |
 | `problem_for_dispatch` | lock-and-check helper of assign_problem/unassign_problem; execute revoked from clients |
 | `problem_for_manager` | lock-and-check helper of the manager problem RPCs; execute revoked from clients |
@@ -278,6 +282,8 @@
 | `property_open_cleanings` | panel confirmation figure before set_property_status; derivable from GET /v1/cleanings |
 | `property_problems` | panel listing-card read of reports; the same rows come from GET /v1/tasks filtered by property |
 | `property_resolution_plans` | the panel read of a place's plans; the public resource comes with stage 6 of the plan |
+| `publish_office_media` | API v1 adds nothing for this (owner 2026-11-26): panel and office phone: shows the office batch on an open task and writes its journal line |
+| `publish_problem_addition` | helper of publish_office_media and resolve_problem, revoked from clients |
 | `purge_guest_message_links` | Guest chats (docs/guest-chats.md), behind a switch: the nightly ageing of conversation keys and links; a scheduled job. |
 | `purge_push_history` | scheduler job: nightly purge of the push queue and tickets |
 | `purge_signal_data` | scheduler job: nightly retention purge (purge-signal-data) of review texts and keys, irreversible; service_role only |
@@ -452,7 +458,7 @@
 | `kb_article_targets` | `knowledge:read` | the places an article shows on (a building or chosen places) |
 | `kb_article_translations` | `knowledge:read` | an article in the other languages, each optional; free text, mask codes as api_mask_codes does (F27) |
 | `kb_articles` | `knowledge:read` | knowledge base articles: original text, status, scope; free text, mask codes as api_mask_codes does (F27) |
-| `problem_events` | `analytics:read` | history journal of a task (problem) and its repairs, written by triggers |
+| `problem_events` | `analytics:read` | history journal of a task (problem) and its repairs, written by triggers; media_added and comment_added (20261126100000) carry numbers and ids only |
 | `property_cleaners` | `staff:write` | which cleaners work a listing and in which mode |
 | `signal_findings` | `guest_signals:read` | what the rules or the model found in a guest signal and what was decided about it |
 | `supply_catalog_items` | `supplies:read` | supply catalogue shown on the phone |
@@ -463,7 +469,7 @@
 | `workflow_steps` | `checklists:read` | steps of a process template |
 | `workflow_templates` | `checklists:read` | process templates a cleaning follows |
 
-### Внутреннее — 30
+### Внутреннее — 31
 
 | Имя | Причина |
 | --- | --- |
@@ -484,6 +490,7 @@
 | `oauth_clients` | MCP sign-in: dynamically registered OAuth clients. |
 | `oauth_codes` | MCP sign-in: authorization codes, as digests. |
 | `oauth_tokens` | MCP sign-in: access and refresh tokens of connections, as digests. |
+| `problem_additions` | API v1 adds nothing for this (owner 2026-11-26): the office batches of photos and videos on a task and the closing comment link; the files are task_media rows owned by the batch, which listTaskMedia does not return (it reads the report files by problem_id) |
 | `problem_categories` | CLIENT:Wagnerstays reporting aid (owner 2026-11-14): the catalogue a cleaner picks a task's category from on the phone, and the office from the panel's New task form (owner 2026-11-20), when hosts.problem_report_mode is catalog; both file through report_problem p_category_id, which API v1 does not take: by the owner's word of 2026-11-20 the API adds nothing and creates typed tasks only; loaded by a one-off script, no editor yet; a task's category reaches the API with Task when the catalogue gets an editor |
 | `problem_themes` | the theme of a problem, beside it |
 | `property_internal_notes` | office-only note of a listing ("never leaves the manager panel"); free text that may hold access details |

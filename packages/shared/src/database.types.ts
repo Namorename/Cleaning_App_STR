@@ -1709,6 +1709,68 @@ export type Database = {
           },
         ]
       }
+      problem_additions: {
+        Row: {
+          author_id: string | null
+          created_at: string
+          host_id: string
+          id: string
+          message_id: string | null
+          problem_id: string
+          published_at: string | null
+          stage: string | null
+        }
+        Insert: {
+          author_id?: string | null
+          created_at?: string
+          host_id: string
+          id: string
+          message_id?: string | null
+          problem_id: string
+          published_at?: string | null
+          stage?: string | null
+        }
+        Update: {
+          author_id?: string | null
+          created_at?: string
+          host_id?: string
+          id?: string
+          message_id?: string | null
+          problem_id?: string
+          published_at?: string | null
+          stage?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "problem_additions_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_additions_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_additions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_additions_problem_id_fkey"
+            columns: ["problem_id"]
+            isOneToOne: false
+            referencedRelation: "problems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       problem_categories: {
         Row: {
           archived_at: string | null
@@ -3400,6 +3462,7 @@ export type Database = {
       }
       task_media: {
         Row: {
+          addition_id: string | null
           byte_size: number
           created_at: string
           created_by: string | null
@@ -3422,6 +3485,7 @@ export type Database = {
           width: number | null
         }
         Insert: {
+          addition_id?: string | null
           byte_size: number
           created_at?: string
           created_by?: string | null
@@ -3444,6 +3508,7 @@ export type Database = {
           width?: number | null
         }
         Update: {
+          addition_id?: string | null
           byte_size?: number
           created_at?: string
           created_by?: string | null
@@ -3466,6 +3531,13 @@ export type Database = {
           width?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "task_media_addition_id_fkey"
+            columns: ["addition_id"]
+            isOneToOne: false
+            referencedRelation: "problem_additions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "task_media_created_by_fkey"
             columns: ["created_by"]
@@ -4133,6 +4205,51 @@ export type Database = {
           p_width?: number
         }
         Returns: {
+          addition_id: string | null
+          byte_size: number
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          device_taken_at: string | null
+          duration_sec: number | null
+          height: number | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["media_kind"]
+          message_id: string | null
+          mime_type: string
+          problem_id: string | null
+          purged_at: string | null
+          source: Database["public"]["Enums"]["media_source"]
+          step_id: string | null
+          storage_path: string
+          task_id: string | null
+          uploaded_at: string | null
+          width: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_media"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      add_office_media: {
+        Args: {
+          p_addition_id: string
+          p_byte_size: number
+          p_device_taken_at?: string
+          p_duration_sec?: number
+          p_height?: number
+          p_id: string
+          p_kind: Database["public"]["Enums"]["media_kind"]
+          p_mime_type: string
+          p_problem_id: string
+          p_source?: Database["public"]["Enums"]["media_source"]
+          p_width?: number
+        }
+        Returns: {
+          addition_id: string | null
           byte_size: number
           created_at: string
           created_by: string | null
@@ -4173,6 +4290,7 @@ export type Database = {
           p_width?: number
         }
         Returns: {
+          addition_id: string | null
           byte_size: number
           created_at: string
           created_by: string | null
@@ -4263,6 +4381,7 @@ export type Database = {
           p_width?: number
         }
         Returns: {
+          addition_id: string | null
           byte_size: number
           created_at: string
           created_by: string | null
@@ -5155,6 +5274,7 @@ export type Database = {
       chat_media_written_meanwhile: {
         Args: { p_id: string; p_message_id: string }
         Returns: {
+          addition_id: string | null
           byte_size: number
           created_at: string
           created_by: string | null
@@ -5420,6 +5540,7 @@ export type Database = {
       confirm_task_media: {
         Args: { p_id: string }
         Returns: {
+          addition_id: string | null
           byte_size: number
           created_at: string
           created_by: string | null
@@ -6339,6 +6460,7 @@ export type Database = {
         Args: { p_card_id: string; p_ids: string[] }
         Returns: undefined
       }
+      problem_addition_max_files: { Args: never; Returns: number }
       problem_category_for_report: {
         Args: { p_category_id: string }
         Returns: {
@@ -6362,6 +6484,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      problem_closing_addition: {
+        Args: {
+          p_addition_id: string
+          p_comment: string
+          p_comment_id: string
+          p_problem: Database["public"]["Tables"]["problems"]["Row"]
+        }
+        Returns: undefined
       }
       problem_description_max_length: { Args: never; Returns: number }
       problem_for_dispatch: {
@@ -6533,6 +6664,44 @@ export type Database = {
         Args: { p_property_id: number }
         Returns: Json
       }
+      publish_office_media: {
+        Args: { p_addition_id: string }
+        Returns: {
+          author_id: string | null
+          created_at: string
+          host_id: string
+          id: string
+          message_id: string | null
+          problem_id: string
+          published_at: string | null
+          stage: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problem_additions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      publish_problem_addition: {
+        Args: { p_addition_id: string; p_message_id?: string; p_stage: string }
+        Returns: {
+          author_id: string | null
+          created_at: string
+          host_id: string
+          id: string
+          message_id: string | null
+          problem_id: string
+          published_at: string | null
+          stage: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problem_additions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       purge_guest_message_links: { Args: never; Returns: Json }
       purge_push_history: { Args: never; Returns: undefined }
       purge_signal_data: { Args: never; Returns: Json }
@@ -6702,6 +6871,7 @@ export type Database = {
       remove_task_media: {
         Args: { p_id: string }
         Returns: {
+          addition_id: string | null
           byte_size: number
           created_at: string
           created_by: string | null
@@ -6931,7 +7101,14 @@ export type Database = {
         Returns: number
       }
       resolve_problem: {
-        Args: { p_alone?: boolean; p_completed_by?: string; p_id: string }
+        Args: {
+          p_addition_id?: string
+          p_alone?: boolean
+          p_comment?: string
+          p_comment_id?: string
+          p_completed_by?: string
+          p_id: string
+        }
         Returns: {
           archived_at: string | null
           cancel_reason: string | null
@@ -7960,6 +8137,7 @@ export type Database = {
       task_media_to_purge: {
         Args: { p_limit?: number }
         Returns: {
+          addition_id: string | null
           byte_size: number
           created_at: string
           created_by: string | null
@@ -7992,6 +8170,7 @@ export type Database = {
       task_media_written_meanwhile: {
         Args: { p_id: string; p_problem_id: string; p_step_id: string }
         Returns: {
+          addition_id: string | null
           byte_size: number
           created_at: string
           created_by: string | null
@@ -8381,6 +8560,8 @@ export type Database = {
         | "reopened"
         | "archived"
         | "unarchived"
+        | "media_added"
+        | "comment_added"
       problem_priority: "low" | "normal" | "high"
       problem_source: "staff" | "review" | "message" | "plan"
       problem_status:
@@ -8669,6 +8850,8 @@ export const Constants = {
         "reopened",
         "archived",
         "unarchived",
+        "media_added",
+        "comment_added",
       ],
       problem_priority: ["low", "normal", "high"],
       problem_source: ["staff", "review", "message", "plan"],

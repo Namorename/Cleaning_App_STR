@@ -7,6 +7,11 @@
       "reason": "registers a photo slot on a chat message (row before file)",
       "defined_in": "20260926101000_media_rpc_one_owner.sql"
     },
+    "add_office_media": {
+      "status": "internal",
+      "reason": "API v1 adds nothing for this (owner 2026-11-26): panel and office phone upload pipeline: registers one file of the office batch on an open task (row before file); listTaskMedia reads the report files only (problem_id), never these",
+      "defined_in": "20261126100000_problem_additions.sql"
+    },
     "add_problem_media": {
       "status": "internal",
       "reason": "phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media (photo of a reported task)",
@@ -891,6 +896,11 @@
       "reason": "trigger function: journals a manager's hours of a booking's cleaning in task_events (time_set, time_auto, time_dropped)",
       "defined_in": "20261027120000_manual_cleaning_time.sql"
     },
+    "journal_office_comment": {
+      "status": "internal",
+      "reason": "trigger function: writes comment_added into problem_events for an office message in a task thread, without its text",
+      "defined_in": "20261126100000_problem_additions.sql"
+    },
     "journal_problem_change": {
       "status": "internal",
       "reason": "trigger function: writes problem_events for a task (problem)",
@@ -1131,10 +1141,20 @@
       "reason": "puts the steps in a new order of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
     },
+    "problem_addition_max_files": {
+      "status": "internal",
+      "reason": "limit constant of the office batch (10 files)",
+      "defined_in": "20261126100000_problem_additions.sql"
+    },
     "problem_category_for_report": {
       "status": "internal",
       "reason": "lookup helper of report_problem/update_problem: the caller's company's category, archived or not; execute revoked from clients",
       "defined_in": "20261115100000_problem_categories.sql"
+    },
+    "problem_closing_addition": {
+      "status": "internal",
+      "reason": "helper of resolve_problem: the closing comment and files, revoked from clients",
+      "defined_in": "20261126100000_problem_additions.sql"
     },
     "problem_description_max_length": {
       "status": "internal",
@@ -1211,6 +1231,16 @@
       "status": "internal",
       "reason": "the panel read of a place's plans; the public resource comes with stage 6 of the plan",
       "defined_in": "20261110220000_resolution_plans.sql"
+    },
+    "publish_office_media": {
+      "status": "internal",
+      "reason": "API v1 adds nothing for this (owner 2026-11-26): panel and office phone: shows the office batch on an open task and writes its journal line",
+      "defined_in": "20261126100000_problem_additions.sql"
+    },
+    "publish_problem_addition": {
+      "status": "internal",
+      "reason": "helper of publish_office_media and resolve_problem, revoked from clients",
+      "defined_in": "20261126100000_problem_additions.sql"
     },
     "purge_guest_message_links": {
       "status": "internal",
@@ -1527,8 +1557,8 @@
     "resolve_problem": {
       "status": "planned",
       "scope": "tasks:resolve",
-      "reason": "closes a task (problem) as fixed",
-      "defined_in": "20260908130000_problems.sql"
+      "reason": "closes a task (problem) as fixed; its closing comment and files (p_addition_id, p_comment_id, p_comment, 20261126100000) stay out of the API by the owner word of 2026-11-26",
+      "defined_in": "20261126100000_problem_additions.sql"
     },
     "resolve_report_property": {
       "status": "internal",
@@ -2240,6 +2270,11 @@
       "reason": "MCP sign-in: access and refresh tokens of connections, as digests.",
       "defined_in": "20261109120000_mcp_oauth.sql"
     },
+    "problem_additions": {
+      "status": "internal",
+      "reason": "API v1 adds nothing for this (owner 2026-11-26): the office batches of photos and videos on a task and the closing comment link; the files are task_media rows owned by the batch, which listTaskMedia does not return (it reads the report files by problem_id)",
+      "defined_in": "20261126100000_problem_additions.sql"
+    },
     "problem_categories": {
       "status": "internal",
       "reason": "CLIENT:Wagnerstays reporting aid (owner 2026-11-14): the catalogue a cleaner picks a task's category from on the phone, and the office from the panel's New task form (owner 2026-11-20), when hosts.problem_report_mode is catalog; both file through report_problem p_category_id, which API v1 does not take: by the owner's word of 2026-11-20 the API adds nothing and creates typed tasks only; loaded by a one-off script, no editor yet; a task's category reaches the API with Task when the catalogue gets an editor",
@@ -2248,7 +2283,7 @@
     "problem_events": {
       "status": "planned",
       "scope": "analytics:read",
-      "reason": "history journal of a task (problem) and its repairs, written by triggers",
+      "reason": "history journal of a task (problem) and its repairs, written by triggers; media_added and comment_added (20261126100000) carry numbers and ids only",
       "defined_in": "20261003140000_problem_events.sql"
     },
     "problem_themes": {

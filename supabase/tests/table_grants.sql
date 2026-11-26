@@ -88,6 +88,9 @@ insert into wanted values
   -- The history of a task (20261003140000): triggers write it, the manager
   -- and the head technician read it, nobody edits it.
   ('problem_events',       'SELECT'),
+  -- What the office adds to a task (20261126100000): written through the media RPCs and
+  -- resolve_problem, read by whoever reads the task.
+  ('problem_additions',    'SELECT'),
   -- The history of a cleaning (20261015100000): triggers write it, the
   -- manager reads it, nobody edits it.
   ('task_events',          'SELECT'),

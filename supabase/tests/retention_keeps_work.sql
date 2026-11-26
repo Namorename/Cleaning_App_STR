@@ -137,6 +137,38 @@ values ('fa900043-0000-4000-8000-000000000001', 'fa900000-0000-4000-8000-0000000
         'fa900041-0000-4000-8000-000000000001', 'moved', null, '{"from": "open", "to": "resolved"}',
         'fa900002-0000-4000-8000-000000000002', now() - interval '200 days');
 
+-- A task closed 200 days ago with what the office added at its closing (20261126100000): the
+-- batch, its file and the closing's comment. The file is the sweep's; the batch and the words stay.
+insert into public.problems (id, host_id, property_id, reported_by, title, status)
+values ('fa900020-0000-4000-8000-000000000002', 'fa900000-0000-4000-8000-00000000000a', 900090001,
+        'fa900001-0000-4000-8000-000000000001', 'Synthetic closed tap', 'open');
+update public.problems set status = 'resolved', resolved_at = now() - interval '200 days'
+where id = 'fa900020-0000-4000-8000-000000000002';
+insert into public.chat_threads (id, host_id, kind, problem_id, last_message_at, last_author_id, message_count)
+values ('fa900012-0000-4000-8000-000000000002', 'fa900000-0000-4000-8000-00000000000a', 'problem',
+        'fa900020-0000-4000-8000-000000000002', now() - interval '200 days',
+        'fa900002-0000-4000-8000-000000000002', 1);
+insert into public.chat_messages (id, host_id, thread_id, author_id, author_role, body, created_at)
+values ('fa900013-0000-4000-8000-000000000002', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900012-0000-4000-8000-000000000002', 'fa900002-0000-4000-8000-000000000002', 'manager',
+        'Synthetic closing comment', now() - interval '200 days');
+insert into public.problem_additions (id, host_id, problem_id, author_id, stage, message_id,
+                                      created_at, published_at)
+values ('fa900050-0000-4000-8000-000000000001', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900020-0000-4000-8000-000000000002', 'fa900002-0000-4000-8000-000000000002', 'closing',
+        'fa900013-0000-4000-8000-000000000002', now() - interval '200 days', now() - interval '200 days');
+insert into public.task_media (id, host_id, addition_id, kind, storage_path, mime_type, byte_size,
+                               created_by, created_at, uploaded_at)
+values ('fa900014-0000-4000-8000-000000000002', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900050-0000-4000-8000-000000000001', 'photo',
+        'fa900000-0000-4000-8000-00000000000a/problems/fa900020-0000-4000-8000-000000000002/office/synthetic.jpg',
+        'image/jpeg', 1000, 'fa900002-0000-4000-8000-000000000002', now() - interval '200 days',
+        now() - interval '200 days');
+insert into public.problem_events (host_id, problem_id, kind, actor_id, created_at, params)
+values ('fa900000-0000-4000-8000-00000000000a', 'fa900020-0000-4000-8000-000000000002', 'media_added',
+        'fa900002-0000-4000-8000-000000000002', now() - interval '200 days',
+        '{"count": 1, "photos": 1, "videos": 0, "at": "closing", "addition": "fa900050-0000-4000-8000-000000000001"}');
+
 select pg_temp.check('0 the fixtures have their journals and closing history',
   (select count(*) from public.task_events where task_id = 'fa900010-0000-4000-8000-000000000001') > 0
   and (select count(*) from public.task_closings where task_id = 'fa900010-0000-4000-8000-000000000001') = 1
@@ -152,7 +184,8 @@ insert into work_tables values
   ('tasks'), ('task_steps'), ('task_events'), ('task_closings'), ('closing_marks'),
   ('problems'), ('problem_events'), ('problem_themes'), ('chat_threads'), ('chat_messages'),
   ('resolution_plans'), ('resolution_plan_steps'), ('supply_requests'), ('supply_request_items'),
-  ('manager_boards'), ('manager_board_cards'), ('manager_board_steps'), ('manager_board_entries');
+  ('manager_boards'), ('manager_board_cards'), ('manager_board_steps'), ('manager_board_entries'),
+  ('problem_additions');
 
 create function pg_temp.fingerprint(p_table text) returns text language plpgsql as $fn$
 declare
@@ -215,6 +248,15 @@ select pg_temp.check('4 the cleaning still points at its booking',
 
 select pg_temp.check('5 the media row is marked purged and stays',
   (select purged_at is not null from public.task_media where id = 'fa900014-0000-4000-8000-000000000001'), true);
+
+select pg_temp.check('5a the file the office added at a closing is marked purged and stays',
+  (select purged_at is not null from public.task_media where id = 'fa900014-0000-4000-8000-000000000002'), true);
+
+select pg_temp.check('5b the batch still names its file and the closing''s comment',
+  (select count(*) from public.task_media m
+   join public.problem_additions a on a.id = m.addition_id
+   join public.chat_messages cm on cm.id = a.message_id
+   where a.id = 'fa900050-0000-4000-8000-000000000001'), 1::bigint);
 
 select pg_temp.check('6 every row of the work is unchanged: ' || w.name,
   pg_temp.fingerprint(w.name), b.print)
