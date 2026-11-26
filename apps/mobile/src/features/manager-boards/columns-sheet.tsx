@@ -344,20 +344,43 @@ interface DeleteColumnProps {
   onDone: () => void;
 }
 
+/** A refusal as supabase-js hands it over: its parameters, as JSON, in `details`. */
+interface RaisedDetails {
+  details?: unknown;
+}
+
+/** The count a `boardColumnHasCards` refusal carries in its details; 0 when it says none. */
+function refusedCount(error: unknown): number {
+  const { details } = (typeof error === 'object' && error !== null ? error : {}) as RaisedDetails;
+  if (typeof details !== 'string') {
+    return 0;
+  }
+  try {
+    const count: unknown = (JSON.parse(details) as { count?: unknown } | null)?.count;
+    return typeof count === 'number' && Number.isFinite(count) ? count : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /**
  * «Удалить колонку «…»?»: what it holds — its cards on the board, in the archive and deleted — and,
  * when it holds any, the column they move to, without which nothing is sent. The phone counts the
- * cards it read; the server counts them all, and a refusal that found some asks for the column too.
+ * cards it read; the server counts them all, and once it refused for cards the phone had not read,
+ * its count stands and the column is asked for on every try after.
  */
 function DeleteColumn({ column, columns, cards, onDone }: DeleteColumnProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const remove = useDeleteColumn();
   const [target, setTarget] = useState<string | null>(null);
+  // The server's count once it refused for cards; null before any such answer.
+  const [serverCount, setServerCount] = useState<number | null>(null);
   const live = liveColumns(columns);
   const name = columnLabel(column, t);
-  const count = cards.filter((card) => columnIdOf(card, live) === column.id).length;
-  const needsTarget = count > 0 || serverErrorKey(remove.error) === HAS_CARDS;
+  const readCount = cards.filter((card) => columnIdOf(card, live) === column.id).length;
+  const count = Math.max(readCount, serverCount ?? 0);
+  const needsTarget = count > 0 || serverCount !== null;
   const isBlocked = needsTarget && target === null;
 
   const submit = () => {
@@ -366,7 +389,14 @@ function DeleteColumn({ column, columns, cards, onDone }: DeleteColumnProps) {
     }
     remove.mutate(
       { columnId: column.id, moveTo: needsTarget ? target : null },
-      { onSuccess: onDone },
+      {
+        onSuccess: onDone,
+        onError: (error) => {
+          if (serverErrorKey(error) === HAS_CARDS) {
+            setServerCount(refusedCount(error));
+          }
+        },
+      },
     );
   };
 

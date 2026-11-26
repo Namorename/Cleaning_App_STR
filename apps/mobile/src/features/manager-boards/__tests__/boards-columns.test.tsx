@@ -155,7 +155,8 @@ const mockState: {
   viewer: BoardViewer;
   boards: Board[];
   cards: BoardCard[];
-  columns: ColumnRow[];
+  /** Undefined: never read — the first open after the update, without signal. */
+  columns: ColumnRow[] | undefined;
   detail: CardDetail | null;
   mine: MyCard[];
 } = {
@@ -166,6 +167,20 @@ const mockState: {
   detail: null,
   mine: [],
 };
+
+/** The columns' read: what was read, or a failure with nothing read before it. */
+function mockColumnsRead() {
+  return mockState.columns === undefined
+    ? {
+        isPending: false,
+        isError: true,
+        isRefetching: false,
+        error: new TypeError('Network request failed'),
+        data: undefined,
+        refetch: jest.fn(),
+      }
+    : mockRead(mockState.columns);
+}
 
 const mockSpies = { saveCard: jest.fn(), move: jest.fn(), shelve: jest.fn() };
 
@@ -197,7 +212,7 @@ jest.mock('../use-boards', () => ({
   useViewer: () => mockState.viewer,
   useBoards: () => mockRead(mockState.boards),
   useBoardCards: () => mockRead(mockState.cards),
-  useBoardColumns: () => mockRead(mockState.columns),
+  useBoardColumns: () => mockColumnsRead(),
   useCard: () => mockRead(mockState.detail),
   useMyCards: () => mockRead(mockState.mine),
   useSaveCard: () => mockMutation(mockSpies.saveCard),
@@ -254,6 +269,36 @@ describe('the board: its own columns', () => {
       expect.objectContaining({ boardId: BOARD, columnId: WAITING }),
     );
     expect(mockSpies.saveCard.mock.calls[0][0]).not.toHaveProperty('column');
+  });
+
+  test('columns never read, no signal: the cards read before show by stage, under a banner', async () => {
+    mockState.columns = undefined;
+    const view = await render(<BoardsTab />);
+    expect(screen.getByText(/^Не удалось обновить доску/)).toBeOnTheScreen();
+    for (const name of ['Открыто 1', 'Назначено 0', 'В работе 1', 'Выполнено 1']) {
+      expect(screen.getByRole('tab', { name })).toBeOnTheScreen();
+    }
+    expect(screen.getByText('Ремонт ванной')).toBeOnTheScreen();
+    // No card is made in a stage: only in a column, once the columns are read.
+    expect(screen.queryByLabelText(/^Новая карточка в колонке/)).toBeNull();
+    await fireEvent.press(screen.getByRole('tab', { name: 'В работе 1' }));
+    expect(screen.getByText('Звонок юристу')).toBeOnTheScreen();
+
+    // The columns come: the stage chosen is its first column now, and the quick add is back.
+    mockState.columns = COLUMNS;
+    await view.rerender(<BoardsTab />);
+    expect(screen.getByRole('tab', { name: 'Ждёт ответа 1' })).toBeSelected();
+    expect(screen.getByText('Звонок юристу')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Новая карточка в колонке «Ждёт ответа»')).toBeOnTheScreen();
+    expect(screen.queryByText(/^Не удалось обновить доску/)).toBeNull();
+  });
+
+  test('columns never read: the card names its stage and is not moved from it', async () => {
+    mockState.columns = undefined;
+    await render(<CardScreen cardId={DETAIL.id} />);
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    expect(screen.getByText('В работе')).toBeOnTheScreen();
+    expect(screen.queryByText(/^Все шаги отмечены/)).toBeNull();
   });
 
   test('a board and a card cached by the build before still read, the card by its stage', async () => {

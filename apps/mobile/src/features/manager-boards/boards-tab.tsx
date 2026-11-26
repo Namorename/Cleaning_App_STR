@@ -19,6 +19,7 @@ import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { Button } from '@/components/button';
 import { ChoiceChips } from '@/components/choice-chips';
 import { EmptyState } from '@/components/empty-state';
+import { ErrorBanner } from '@/components/error-banner';
 import { ErrorState } from '@/components/error-state';
 import { FailureText } from '@/components/failure-text';
 import { IconButton } from '@/components/icon-button';
@@ -34,7 +35,7 @@ import { serverErrorText } from '@/lib/server-error';
 
 import { BoardCardRow } from './board-card-row';
 import { ActionsSheet, ArchivedBoardsSheet, BoardNameSheet, FiltersSheet } from './board-sheets';
-import { columnIdOf, columnLabel } from './columns';
+import { ARCHIVE_PANE, boardLanes, columnLabel, laneIdOf, paneOf } from './columns';
 import { ColumnsSheet } from './columns-sheet';
 import { MyCardsBody } from './my-cards-body';
 import {
@@ -58,9 +59,6 @@ import {
   useSetCardShelf,
   useViewer,
 } from './use-boards';
-
-/** The pane of the archived and deleted cards, beside the board's columns (their ids). */
-const ARCHIVE = 'archive';
 
 /** The switcher's value of «Назначено мне», in place of a board's id. */
 const MY_CARDS = 'mine';
@@ -227,17 +225,6 @@ interface BoardBodyProps {
 
 type BoardSheet = 'filters' | 'menu' | 'settings' | 'columns' | 'transfer';
 
-/**
- * The pane shown: the column chosen while it is live, else the board's first live column; the
- * archive when chosen; none while no column is read yet.
- */
-function paneOf(chosen: string | null, live: readonly ColumnRow[]): string | null {
-  if (chosen === ARCHIVE) {
-    return ARCHIVE;
-  }
-  return (live.find((column) => column.id === chosen) ?? live[0])?.id ?? null;
-}
-
 /** One board under the switcher; exported for its tests (an archived board, read by everybody). */
 export function BoardBody({ board, viewer, onTransferred }: BoardBodyProps) {
   const { t } = useTranslation();
@@ -258,10 +245,13 @@ export function BoardBody({ board, viewer, onTransferred }: BoardBodyProps) {
   const mayRestore = board.archived_at !== null && (viewer.isAdmin || board.owner_id === viewer.id);
 
   const all = cards.data ?? [];
-  const live = liveColumns(columns.data ?? []);
-  const pane = paneOf(chosenPane, live);
-  const paneColumn = live.find((column) => column.id === pane) ?? null;
-  const inColumn = (card: BoardCard, columnId: string) => columnIdOf(card, live) === columnId;
+  // Until the board's columns are read — its first open after the update, without signal — its
+  // cards stand by their stage in the four panes of before; a card is made in a column only.
+  const live = columns.data === undefined ? null : liveColumns(columns.data);
+  const lanes = boardLanes(live, t);
+  const pane = paneOf(chosenPane, lanes);
+  const paneColumn = lanes.find((lane) => lane.id === pane)?.column ?? null;
+  const inLane = (card: BoardCard, laneId: string) => laneIdOf(card, live) === laneId;
   const matching = all.filter((card) => matchesCardFilters(card, filters, today));
   const onBoard = matching.filter((card) => shelfOf(card) === 'active');
   const offBoard = matching.filter((card) => shelfOf(card) !== 'active');
@@ -270,27 +260,23 @@ export function BoardBody({ board, viewer, onTransferred }: BoardBodyProps) {
     today,
   );
   const panes = [
-    ...live.map((column) => ({
-      value: column.id,
-      label: `${columnLabel(column, t)} ${onBoard.filter((card) => inColumn(card, column.id)).length}`,
+    ...lanes.map((lane) => ({
+      value: lane.id,
+      label: `${lane.label} ${onBoard.filter((card) => inLane(card, lane.id)).length}`,
     })),
-    { value: ARCHIVE, label: `${t('boards.viewArchive')} ${offBoard.length}` },
+    { value: ARCHIVE_PANE, label: `${t('boards.viewArchive')} ${offBoard.length}` },
   ];
   const shown =
-    pane === ARCHIVE
+    pane === ARCHIVE_PANE
       ? offBoard
-      : paneColumn === null
+      : pane === null
         ? []
         : orderCards(
-            onBoard.filter((card) => inColumn(card, paneColumn.id)),
+            onBoard.filter((card) => inLane(card, pane)),
             order,
           );
   const failure = [shelve, archiveBoard].find((mutation) => mutation.isError);
-  const readFailure = cards.isError
-    ? cards.error
-    : columns.data === undefined && columns.isError
-      ? columns.error
-      : null;
+  const columnsFailure = live === null && columns.isError ? columns.error : null;
   const open = (cardId: string) =>
     router.push({ pathname: '/board-card/[id]', params: { id: cardId } });
 
@@ -359,6 +345,9 @@ export function BoardBody({ board, viewer, onTransferred }: BoardBodyProps) {
         accessibilityLabel={t('boards.column')}
         semantics="tabs"
       />
+      {columnsFailure === null ? null : (
+        <ErrorBanner title={t('boards.staleNote')} error={columnsFailure} />
+      )}
       {canWork && paneColumn !== null ? <QuickAdd boardId={board.id} column={paneColumn} /> : null}
       {failure === undefined ? null : <FailureText error={failure.error} />}
     </View>
@@ -382,7 +371,7 @@ export function BoardBody({ board, viewer, onTransferred }: BoardBodyProps) {
           />
         }
         renderItem={({ item }) =>
-          pane === ARCHIVE ? (
+          pane === ARCHIVE_PANE ? (
             <ShelvedRow
               card={item}
               canRestore={canWork}
@@ -395,13 +384,13 @@ export function BoardBody({ board, viewer, onTransferred }: BoardBodyProps) {
           )
         }
         ListEmptyComponent={
-          cards.isPending || columns.isPending ? (
+          cards.isPending ? (
             <LoadingState label={t('boards.loading')} />
-          ) : readFailure !== null ? (
-            <ErrorState error={readFailure} title={t('boards.loadError')} />
+          ) : cards.isError ? (
+            <ErrorState error={cards.error} title={t('boards.loadError')} />
           ) : (
             <Text tone="secondary" align="center">
-              {pane === ARCHIVE
+              {pane === ARCHIVE_PANE
                 ? t('boards.archiveEmpty')
                 : hasCardFilters(filters)
                   ? t('boards.columnEmptyFiltered')

@@ -13,7 +13,15 @@ import {
   setColumnDone,
   transferBoard,
 } from '../api';
-import { columnIdOf, columnLabel, columnLabelById } from '../columns';
+import {
+  ARCHIVE_PANE,
+  boardLanes,
+  columnIdOf,
+  columnLabel,
+  columnLabelById,
+  laneIdOf,
+  paneOf,
+} from '../columns';
 import { entrySentence } from '../format';
 import {
   boardCardSchema,
@@ -245,6 +253,24 @@ const column = (n: number, overrides: Partial<ColumnRow> = {}): ColumnRow =>
 const PRESETS = [column(1), column(2), column(3), column(4)];
 
 describe('the columns of a board (20261126120000)', () => {
+  test('the panes: the live columns, or the four stages while none is read; the archive aside', () => {
+    const stages = boardLanes(null, t);
+    expect(stages.map((lane) => [lane.id, lane.label, lane.column])).toEqual([
+      ['open', 'Открыто', null],
+      ['assigned', 'Назначено', null],
+      ['in_progress', 'В работе', null],
+      ['resolved', 'Выполнено', null],
+    ]);
+    const lanes = boardLanes(PRESETS, t);
+    expect(lanes.map((lane) => lane.id)).toEqual(['col-1', 'col-2', 'col-3', 'col-4']);
+    expect(laneIdOf({ column_id: 'col-3', column_key: 'in_progress' }, null)).toBe('in_progress');
+    expect(laneIdOf({ column_id: 'col-3', column_key: 'in_progress' }, PRESETS)).toBe('col-3');
+    expect(paneOf('in_progress', lanes)).toBe('col-3');
+    expect(paneOf('col-gone', lanes)).toBe('col-1');
+    expect(paneOf(ARCHIVE_PANE, lanes)).toBe(ARCHIVE_PANE);
+    expect(paneOf(null, [])).toBeNull();
+  });
+
   test('a preset column reads in the reader’s words; a renamed one by its own name', () => {
     expect(columnLabel(column(1), t)).toBe('Открыто');
     expect(columnLabel(column(1, { title: 'Входящие' }), t)).toBe('Входящие');
@@ -264,6 +290,25 @@ describe('the columns of a board (20261126120000)', () => {
     expect(columnIdOf({ column_id: null, column_key: 'assigned' }, custom)).toBe('col-5');
     expect(columnIdOf({ column_id: null, column_key: 'in_progress' }, custom)).toBe('col-5');
     expect(columnIdOf({ column_id: null, column_key: 'resolved' }, custom)).toBe('col-4');
+  });
+
+  test('by its key, never in a finishing column unless done, nor out of one when done (the server’s rule)', () => {
+    // «Открыто», then a finishing «Готово» right after it: an `in_progress` card is not finished.
+    const short = [
+      column(1),
+      column(7, { title: 'Готово', position: 2, legacy_key: 'resolved', is_done: true }),
+    ];
+    expect(columnIdOf({ column_id: null, column_key: 'in_progress' }, short)).toBe('col-1');
+    expect(columnIdOf({ column_id: null, column_key: 'resolved' }, short)).toBe('col-7');
+    // No finishing column at all: a `resolved` card stands in the nearest stage there is.
+    const noDone = [column(1), column(2), column(3, { is_done: false })];
+    expect(columnIdOf({ column_id: null, column_key: 'resolved' }, noDone)).toBe('col-3');
+    // Only finishing columns: an open card stands in the first of them.
+    const allDone = [
+      column(8, { position: 1, legacy_key: 'resolved', is_done: true }),
+      column(9, { position: 2, legacy_key: 'resolved', is_done: true }),
+    ];
+    expect(columnIdOf({ column_id: null, column_key: 'open' }, allDone)).toBe('col-8');
   });
 
   test('a card whose column went meanwhile stands by its stage; an unknown stage nowhere', () => {

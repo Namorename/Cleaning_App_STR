@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { BoardNameSheet, boardSaveOf } from '../board-sheets';
 import { BoardsTab } from '../boards-tab';
 import { ColumnsSheet } from '../columns-sheet';
 import {
@@ -256,6 +257,83 @@ describe('who sees a board', () => {
   });
 });
 
+describe('«Настройки доски» send only what she changed (review H1)', () => {
+  const settings = (shared: boolean, isVisible: boolean, title = 'Проекты') => (
+    <BoardNameSheet
+      isVisible={isVisible}
+      board={{ id: BOARD, title, shared, owner_id: OWNER }}
+      viewer={{ id: OWNER, isAdmin: false }}
+      onClose={jest.fn()}
+      onSaved={jest.fn()}
+    />
+  );
+
+  test('a board made private meanwhile: opened, renamed, saved — who sees it is not sent', async () => {
+    const view = await render(settings(true, false));
+    await view.rerender(settings(false, false));
+    await view.rerender(settings(false, true));
+    expect(screen.getByRole('radio', { name: 'Видна только мне' })).toBeChecked();
+    await fireEvent.changeText(screen.getByLabelText('Название доски'), 'Проекты 2027');
+    await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(mockSpies.saveBoard).toHaveBeenCalledWith({ boardId: BOARD, title: 'Проекты 2027' });
+  });
+
+  test('a sheet opened before shows, and saves, the board as it is now', async () => {
+    mockState.boards = [board(BOARD, 'Проекты', OWNER, true), board(SECOND, 'Закупки', READER)];
+    const view = await render(<BoardsTab />);
+    await openMenuItem('Настройки доски');
+    expect(screen.getByRole('radio', { name: 'Видна другим менеджерам' })).toBeChecked();
+    await fireEvent.press(screen.getByRole('radio', { name: 'Видна только мне' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Закрыть' }));
+    // Meanwhile, elsewhere: the board renamed and made its owner's alone.
+    mockState.boards = [board(BOARD, 'Склад', OWNER, false), board(SECOND, 'Закупки', READER)];
+    await view.rerender(<BoardsTab />);
+    await openMenuItem('Настройки доски');
+    expect(screen.getByLabelText('Название доски').props.value).toBe('Склад');
+    expect(screen.getByRole('radio', { name: 'Видна только мне' })).toBeChecked();
+    await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(mockSpies.saveBoard).toHaveBeenCalledWith({ boardId: BOARD, title: 'Склад' });
+  });
+
+  test('the visibility she picks is sent; picked back to what it is, it is not', async () => {
+    const view = await render(settings(false, true));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Видна другим менеджерам' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(mockSpies.saveBoard).toHaveBeenLastCalledWith({
+      boardId: BOARD,
+      title: 'Проекты',
+      shared: true,
+    });
+    await view.rerender(settings(false, false));
+    await view.rerender(settings(false, true));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Видна другим менеджерам' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Видна только мне' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(mockSpies.saveBoard).toHaveBeenLastCalledWith({ boardId: BOARD, title: 'Проекты' });
+  });
+
+  test('what a save carries', () => {
+    const untouched = { title: null, visibility: null };
+    const current = { title: 'Проекты', shared: true };
+    expect(boardSaveOf(BOARD, current, untouched)).toEqual({ boardId: BOARD, title: 'Проекты' });
+    expect(boardSaveOf(BOARD, current, { title: 'Новое', visibility: 'shared' })).toEqual({
+      boardId: BOARD,
+      title: 'Новое',
+    });
+    expect(boardSaveOf(BOARD, current, { title: null, visibility: 'private' })).toEqual({
+      boardId: BOARD,
+      title: 'Проекты',
+      shared: false,
+    });
+    // A new board always says who sees it: its maker alone unless she chose otherwise.
+    expect(boardSaveOf(BOARD, undefined, { title: 'Ремонт', visibility: null })).toEqual({
+      boardId: BOARD,
+      title: 'Ремонт',
+      shared: false,
+    });
+  });
+});
+
 describe('the board menu', () => {
   test('its owner: the settings, the columns, the transfer and the archive', async () => {
     await render(<BoardsTab />);
@@ -396,7 +474,7 @@ describe('the columns sheet', () => {
     expect(mockSpies.deleteColumn).toHaveBeenCalledWith({ columnId: OPEN, moveTo: DONE });
   });
 
-  test('cards the phone had not read: the server’s refusal asks where they go', async () => {
+  test('cards the phone had not read: the server’s refusal asks where they go, and keeps asking', async () => {
     mockState.refused.set(mockSpies.deleteColumn, {
       message: 'Column holds cards',
       hint: 'serverErrors.boardColumnHasCards',
@@ -405,11 +483,21 @@ describe('the columns sheet', () => {
     await render(sheet(COLUMNS, []));
     await fireEvent.press(screen.getByRole('button', { name: 'Ждёт ответа' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Удалить колонку' }));
+    expect(screen.getByText('В колонке нет карточек.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Удалить колонку' }));
+    expect(mockSpies.deleteColumn).toHaveBeenLastCalledWith({ columnId: WAITING, moveTo: null });
     expect(
       screen.getByText('В колонке есть карточки (3): выберите, куда их перенести'),
     ).toBeOnTheScreen();
-    expect(screen.getByRole('radio', { name: 'Открыто' })).toBeOnTheScreen();
+    expect(
+      screen.getByText(/^Карточек в колонке \(вместе с архивными и удалёнными\): 3\./),
+    ).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Удалить колонку' })).toBeDisabled();
+    await fireEvent.press(screen.getByRole('radio', { name: 'Открыто' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Удалить колонку' }));
+    expect(mockSpies.deleteColumn).toHaveBeenLastCalledWith({ columnId: WAITING, moveTo: OPEN });
+    // Refused again: the choice stays asked for, the column chosen kept.
+    expect(screen.getByRole('radio', { name: 'Открыто' })).toBeChecked();
   });
 
   test('the last column stays: no delete, and a word why', async () => {

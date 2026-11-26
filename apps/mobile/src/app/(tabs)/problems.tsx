@@ -12,8 +12,12 @@ import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { ProblemList } from '@/features/problems/problem-list';
 import { groupProblems, queueProblems } from '@/features/problems/schema';
 import { useMyProblems } from '@/features/problems/use-problems';
+import { useNow } from '@/hooks/use-now';
 
 const NO_IDS: readonly string[] = [];
+
+/** How often the technician's queue looks at the clock: a day's turn shows within a minute. */
+const QUEUE_TICK_MS = 60_000;
 
 /**
  * Her reports, with «Создать задание» pinned under them, above the tab bar:
@@ -68,13 +72,17 @@ interface MyProblemsProps {
 function MyProblems({ canReport, isQueue }: MyProblemsProps) {
   const { t } = useTranslation();
   const { data, isPending, error, refetch, isRefetching } = useMyProblems();
+  // The moment the queue is read at, refreshed on a timer: a task planned for tomorrow leaves
+  // «Запланировано» when the day comes, with the screen left open. A cleaner's list has no clock.
+  const now = useNow(QUEUE_TICK_MS);
+  const queueNow = isQueue ? now : null;
 
   const sections = useMemo(() => {
     if (data === undefined) {
       return undefined;
     }
-    return isQueue ? queueProblems(data, new Date()) : groupProblems(data);
-  }, [data, isQueue]);
+    return queueNow === null ? groupProblems(data) : queueProblems(data, queueNow);
+  }, [data, queueNow]);
 
   // The marks are asked for exactly the reports on this screen.
   const problemIds = useMemo(

@@ -196,10 +196,38 @@ interface BoardNameSheetProps {
 
 type Visibility = 'private' | 'shared';
 
+/** What she changed on the sheet; null where she changed nothing and the board's own value shows. */
+interface BoardDraft {
+  title: string | null;
+  visibility: Visibility | null;
+}
+
+const UNTOUCHED: BoardDraft = { title: null, visibility: null };
+
+/**
+ * What a save sends. A new board says who sees it — its maker alone unless she chose otherwise. A
+ * board that exists says it only when she changed it from what the board is now: a rename alone
+ * never carries it, so a sheet read before the board was made private elsewhere cannot share it
+ * again (20261126120000).
+ */
+export function boardSaveOf(
+  boardId: string,
+  board: Pick<Board, 'title' | 'shared'> | undefined,
+  draft: BoardDraft,
+): { boardId: string; title: string; shared?: boolean } {
+  if (board === undefined) {
+    return { boardId, title: draft.title ?? '', shared: draft.visibility === 'shared' };
+  }
+  const title = draft.title ?? board.title;
+  const shared = draft.visibility === null ? board.shared : draft.visibility === 'shared';
+  return shared === board.shared ? { boardId, title } : { boardId, title, shared };
+}
+
 /**
  * «Новая доска» and «Настройки доски»: the name, who sees the board (20261126120000) — a new one its
  * maker alone unless she says otherwise — and the button. A new board's id is minted once per
- * opening: a repeat after a lost answer is the same board.
+ * opening: a repeat after a lost answer is the same board. «Настройки доски» starts from the board
+ * as it is now every time it opens, and keeps only what she changes.
  */
 export function BoardNameSheet({
   isVisible,
@@ -211,11 +239,20 @@ export function BoardNameSheet({
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const save = useSaveBoard();
-  const [boardId, setBoardId] = useState(() => board?.id ?? newId());
-  const [title, setTitle] = useState(board?.title ?? '');
-  const [visibility, setVisibility] = useState<Visibility>(
-    board?.shared === true ? 'shared' : 'private',
-  );
+  const [newBoardId, setNewBoardId] = useState(newId);
+  const [draft, setDraft] = useState<BoardDraft>(UNTOUCHED);
+  const [wasVisible, setWasVisible] = useState(isVisible);
+  if (isVisible !== wasVisible) {
+    setWasVisible(isVisible);
+    if (isVisible && board !== undefined) {
+      // Opened again: the board as it is now, whatever was left here or changed elsewhere since.
+      setDraft(UNTOUCHED);
+    }
+  }
+  const boardId = board?.id ?? newBoardId;
+  const title = draft.title ?? board?.title ?? '';
+  const visibility: Visibility =
+    draft.visibility ?? (board?.shared === true ? 'shared' : 'private');
   const failure = save.isError ? serverErrorText(save.error) : null;
   const isOthers = board !== undefined && viewer !== undefined && board.owner_id !== viewer.id;
 
@@ -225,9 +262,7 @@ export function BoardNameSheet({
     }
     save.reset();
     if (board !== undefined) {
-      // Closed unsaved: the next opening shows the board as it is, not the words left here.
-      setTitle(board.title);
-      setVisibility(board.shared ? 'shared' : 'private');
+      setDraft(UNTOUCHED);
     }
     onClose();
   };
@@ -236,19 +271,15 @@ export function BoardNameSheet({
     if (title.trim() === '' || save.isPending) {
       return;
     }
-    save.mutate(
-      { boardId, title, shared: visibility === 'shared' },
-      {
-        onSuccess: () => {
-          onSaved(boardId);
-          if (board === undefined) {
-            setBoardId(newId());
-            setTitle('');
-            setVisibility('private');
-          }
-        },
+    save.mutate(boardSaveOf(boardId, board, draft), {
+      onSuccess: () => {
+        onSaved(boardId);
+        setDraft(UNTOUCHED);
+        if (board === undefined) {
+          setNewBoardId(newId());
+        }
       },
-    );
+    });
   };
 
   return (
@@ -261,7 +292,7 @@ export function BoardNameSheet({
         <TextField
           label={t('boards.boardName')}
           value={title}
-          onChangeText={setTitle}
+          onChangeText={(next) => setDraft((now) => ({ ...now, title: next }))}
           maxLength={BOARD_LIMITS.boardTitle}
           placeholder={t('boards.boardNamePlaceholder')}
           onSubmitEditing={submit}
@@ -279,7 +310,7 @@ export function BoardNameSheet({
             { value: 'shared' as const, label: t('boards.visibilityShared') },
           ]}
           value={visibility}
-          onChange={setVisibility}
+          onChange={(next) => setDraft((now) => ({ ...now, visibility: next }))}
           accessibilityLabel={t('boards.visibility')}
           semantics="radio"
         />
