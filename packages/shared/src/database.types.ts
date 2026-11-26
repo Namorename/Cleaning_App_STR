@@ -1271,6 +1271,7 @@ export type Database = {
           assignee_id: string | null
           board_id: string
           color: string | null
+          column_id: string
           column_key: string
           created_at: string
           created_by: string
@@ -1291,6 +1292,7 @@ export type Database = {
           assignee_id?: string | null
           board_id: string
           color?: string | null
+          column_id: string
           column_key?: string
           created_at?: string
           created_by: string
@@ -1311,6 +1313,7 @@ export type Database = {
           assignee_id?: string | null
           board_id?: string
           color?: string | null
+          column_id?: string
           column_key?: string
           created_at?: string
           created_by?: string
@@ -1348,6 +1351,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "manager_board_cards_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "manager_board_columns"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "manager_board_cards_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -1380,6 +1390,83 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manager_board_columns: {
+        Row: {
+          board_id: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          host_id: string
+          id: string
+          is_done: boolean
+          legacy_key: string
+          position: number
+          preset: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          host_id: string
+          id: string
+          is_done?: boolean
+          legacy_key: string
+          position: number
+          preset?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          host_id?: string
+          id?: string
+          is_done?: boolean
+          legacy_key?: string
+          position?: number
+          preset?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_board_columns_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "manager_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_columns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_columns_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_columns_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
             referencedColumns: ["id"]
           },
         ]
@@ -1510,6 +1597,72 @@ export type Database = {
           },
         ]
       }
+      manager_board_transfers: {
+        Row: {
+          board_id: string
+          by_id: string | null
+          created_at: string
+          from_id: string | null
+          host_id: string
+          id: string
+          to_id: string | null
+        }
+        Insert: {
+          board_id: string
+          by_id?: string | null
+          created_at?: string
+          from_id?: string | null
+          host_id: string
+          id?: string
+          to_id?: string | null
+        }
+        Update: {
+          board_id?: string
+          by_id?: string | null
+          created_at?: string
+          from_id?: string | null
+          host_id?: string
+          id?: string
+          to_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_board_transfers_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "manager_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_transfers_by_id_fkey"
+            columns: ["by_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_transfers_from_id_fkey"
+            columns: ["from_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_transfers_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_board_transfers_to_id_fkey"
+            columns: ["to_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manager_boards: {
         Row: {
           archived_at: string | null
@@ -1518,6 +1671,7 @@ export type Database = {
           host_id: string
           id: string
           owner_id: string
+          shared: boolean
           title: string
           updated_at: string
         }
@@ -1528,6 +1682,7 @@ export type Database = {
           host_id: string
           id: string
           owner_id: string
+          shared?: boolean
           title: string
           updated_at?: string
         }
@@ -1538,6 +1693,7 @@ export type Database = {
           host_id?: string
           id?: string
           owner_id?: string
+          shared?: boolean
           title?: string
           updated_at?: string
         }
@@ -1960,6 +2116,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -1988,6 +2145,7 @@ export type Database = {
           created_at?: string
           critical?: boolean
           description?: string | null
+          due_on?: string | null
           host_id?: string
           id: string
           priority?: Database["public"]["Enums"]["problem_priority"]
@@ -2016,6 +2174,7 @@ export type Database = {
           created_at?: string
           critical?: boolean
           description?: string | null
+          due_on?: string | null
           host_id?: string
           id?: string
           priority?: Database["public"]["Enums"]["problem_priority"]
@@ -5089,6 +5248,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -5152,6 +5312,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -5246,6 +5407,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -5662,6 +5824,10 @@ export type Database = {
         }
       }
       default_host_id: { Args: never; Returns: string }
+      delete_manager_board_column: {
+        Args: { p_id: string; p_move_to?: string }
+        Returns: undefined
+      }
       delete_manager_comment: { Args: { p_id: string }; Returns: undefined }
       delete_manager_step: { Args: { p_id: string }; Returns: undefined }
       delete_resolution_plan: {
@@ -5677,6 +5843,7 @@ export type Database = {
           assignee_id: string | null
           board_id: string
           color: string | null
+          column_id: string
           column_key: string
           created_at: string
           created_by: string
@@ -5714,6 +5881,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -6079,6 +6247,14 @@ export type Database = {
         Returns: undefined
       }
       manager_board_column: { Args: { p_column: string }; Returns: string }
+      manager_board_column_for: {
+        Args: { p_board_id: string; p_key: string }
+        Returns: string
+      }
+      manager_board_columns_readable: {
+        Args: { p_board_id: string }
+        Returns: boolean
+      }
       manager_board_for_cards: {
         Args: { p_board_id: string }
         Returns: {
@@ -6088,6 +6264,7 @@ export type Database = {
           host_id: string
           id: string
           owner_id: string
+          shared: boolean
           title: string
           updated_at: string
         }
@@ -6107,6 +6284,7 @@ export type Database = {
           host_id: string
           id: string
           owner_id: string
+          shared: boolean
           title: string
           updated_at: string
         }
@@ -6117,6 +6295,11 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      manager_board_relabel: {
+        Args: { p_board_id: string }
+        Returns: undefined
+      }
+      manager_board_visible: { Args: { p_board_id: string }; Returns: boolean }
       manager_card_for_edit: {
         Args: { p_card_id: string; p_shelved_ok: boolean }
         Returns: {
@@ -6125,6 +6308,7 @@ export type Database = {
           assignee_id: string | null
           board_id: string
           color: string | null
+          column_id: string
           column_key: string
           created_at: string
           created_by: string
@@ -6146,6 +6330,34 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      manager_card_readable: {
+        Args: { p_assignee_id: string; p_board_id: string }
+        Returns: boolean
+      }
+      manager_column_for_edit: {
+        Args: { p_column_id: string }
+        Returns: {
+          board_id: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          host_id: string
+          id: string
+          is_done: boolean
+          legacy_key: string
+          position: number
+          preset: string | null
+          title: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_columns"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       manager_step_card: {
         Args: { p_step_id: string }
         Returns: {
@@ -6154,6 +6366,7 @@ export type Database = {
           assignee_id: string | null
           board_id: string
           color: string | null
+          column_id: string
           column_key: string
           created_at: string
           created_by: string
@@ -6240,13 +6453,14 @@ export type Database = {
       }
       message_theme_finding: { Args: { p_theme: string }; Returns: string[] }
       move_manager_card: {
-        Args: { p_column: string; p_id: string }
+        Args: { p_column?: string; p_column_id?: string; p_id: string }
         Returns: {
           archived_at: string | null
           archived_by: string | null
           assignee_id: string | null
           board_id: string
           color: string | null
+          column_id: string
           column_key: string
           created_at: string
           created_by: string
@@ -6306,6 +6520,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -6459,6 +6674,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      order_manager_board_columns: {
+        Args: { p_board_id: string; p_ids: string[] }
+        Returns: undefined
+      }
       order_manager_steps: {
         Args: { p_card_id: string; p_ids: string[] }
         Returns: undefined
@@ -6498,6 +6717,7 @@ export type Database = {
         Returns: undefined
       }
       problem_description_max_length: { Args: never; Returns: number }
+      problem_due_check: { Args: { p_due_on: string }; Returns: string }
       problem_for_dispatch: {
         Args: { p_id: string }
         Returns: {
@@ -6514,6 +6734,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -6551,6 +6772,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -6719,6 +6941,15 @@ export type Database = {
           card_id: string
           card_title: string
           is_live: boolean
+        }[]
+      }
+      push_board_titles: {
+        Args: { p_board_ids: string[] }
+        Returns: {
+          board_id: string
+          board_title: string
+          is_live: boolean
+          owner_id: string
         }[]
       }
       push_digest_hour: { Args: never; Returns: number }
@@ -6921,6 +7152,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -6994,6 +7226,7 @@ export type Database = {
           p_category_id?: string
           p_critical?: boolean
           p_description?: string
+          p_due_on?: string
           p_id: string
           p_priority?: Database["public"]["Enums"]["problem_priority"]
           p_property_id?: number
@@ -7014,6 +7247,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -7128,6 +7362,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -7346,7 +7581,7 @@ export type Database = {
         }
       }
       save_manager_board: {
-        Args: { p_id: string; p_title: string }
+        Args: { p_id: string; p_shared?: boolean; p_title: string }
         Returns: {
           archived_at: string | null
           archived_by: string | null
@@ -7354,6 +7589,7 @@ export type Database = {
           host_id: string
           id: string
           owner_id: string
+          shared: boolean
           title: string
           updated_at: string
         }
@@ -7364,11 +7600,36 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      save_manager_board_column: {
+        Args: { p_board_id: string; p_id: string; p_title: string }
+        Returns: {
+          board_id: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          host_id: string
+          id: string
+          is_done: boolean
+          legacy_key: string
+          position: number
+          preset: string | null
+          title: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_columns"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       save_manager_card: {
         Args: {
           p_board_id: string
           p_color: string
           p_column?: string
+          p_column_id?: string
           p_description: string
           p_due_on: string
           p_id: string
@@ -7382,6 +7643,7 @@ export type Database = {
           assignee_id: string | null
           board_id: string
           color: string | null
+          column_id: string
           column_key: string
           created_at: string
           created_by: string
@@ -7783,12 +8045,37 @@ export type Database = {
           host_id: string
           id: string
           owner_id: string
+          shared: boolean
           title: string
           updated_at: string
         }
         SetofOptions: {
           from: "*"
           to: "manager_boards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_manager_board_column_done: {
+        Args: { p_done: boolean; p_id: string }
+        Returns: {
+          board_id: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          host_id: string
+          id: string
+          is_done: boolean
+          legacy_key: string
+          position: number
+          preset: string | null
+          title: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_board_columns"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -7801,6 +8088,7 @@ export type Database = {
           assignee_id: string | null
           board_id: string
           color: string | null
+          column_id: string
           column_key: string
           created_at: string
           created_by: string
@@ -7830,6 +8118,7 @@ export type Database = {
           assignee_id: string | null
           board_id: string
           color: string | null
+          column_id: string
           column_key: string
           created_at: string
           created_by: string
@@ -7868,6 +8157,44 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "manager_board_steps"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_problem_due_date: {
+        Args: { p_due_on: string; p_id: string }
+        Returns: {
+          archived_at: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          category_id: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
+          completed_by_source: string | null
+          created_at: string
+          critical: boolean
+          description: string | null
+          due_on: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string | null
+          resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          title_i18n: Json | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -8256,6 +8583,26 @@ export type Database = {
         }
       }
       task_title_max_length: { Args: never; Returns: number }
+      transfer_manager_board: {
+        Args: { p_id: string; p_to: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          created_at: string
+          host_id: string
+          id: string
+          owner_id: string
+          shared: boolean
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_boards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       unarchive_problem: {
         Args: { p_id: string }
         Returns: {
@@ -8272,6 +8619,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -8309,6 +8657,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -8397,6 +8746,7 @@ export type Database = {
           created_at: string
           critical: boolean
           description: string | null
+          due_on: string | null
           host_id: string
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
@@ -8588,6 +8938,7 @@ export type Database = {
         | "cleaning_interrupted"
         | "booking_cancelled_live"
         | "board_card_assigned"
+        | "board_transferred"
         | "problem_new"
         | "chat_message"
         | "daily_digest"
@@ -8880,6 +9231,7 @@ export const Constants = {
         "cleaning_interrupted",
         "booking_cancelled_live",
         "board_card_assigned",
+        "board_transferred",
         "problem_new",
         "chat_message",
         "daily_digest",

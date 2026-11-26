@@ -137,6 +137,26 @@ values ('fa900043-0000-4000-8000-000000000001', 'fa900000-0000-4000-8000-0000000
         'fa900041-0000-4000-8000-000000000001', 'moved', null, '{"from": "open", "to": "resolved"}',
         'fa900002-0000-4000-8000-000000000002', now() - interval '200 days');
 
+-- Stage 4 of the boards (20261126120000): the board its owner's alone, a column of its own and
+-- a deleted one, a transfer 199 days old; and a task planned ahead (20261126130000). None of it
+-- is any purge's.
+update public.manager_boards set shared = false where id = 'fa900040-0000-4000-8000-000000000001';
+insert into public.manager_board_columns (id, host_id, board_id, title, position, is_done, legacy_key,
+                                          created_by, created_at, updated_at, deleted_at)
+values ('fa900044-0000-4000-8000-000000000001', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900040-0000-4000-8000-000000000001', 'Synthetic column', 5, false, 'in_progress',
+        'fa900002-0000-4000-8000-000000000002', now() - interval '200 days', now() - interval '200 days', null),
+       ('fa900044-0000-4000-8000-000000000002', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900040-0000-4000-8000-000000000001', 'Synthetic deleted column', 6, false, 'in_progress',
+        'fa900002-0000-4000-8000-000000000002', now() - interval '200 days', now() - interval '200 days',
+        now() - interval '199 days');
+insert into public.manager_board_transfers (id, host_id, board_id, from_id, to_id, by_id, created_at)
+values ('fa900045-0000-4000-8000-000000000001', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900040-0000-4000-8000-000000000001', 'fa900002-0000-4000-8000-000000000002',
+        'fa900001-0000-4000-8000-000000000001', 'fa900002-0000-4000-8000-000000000002',
+        now() - interval '199 days');
+update public.problems set due_on = current_date + 30 where id = 'fa900020-0000-4000-8000-000000000001';
+
 -- A task closed 200 days ago with what the office added at its closing (20261126100000): the
 -- batch, its file and the closing's comment. The file is the sweep's; the batch and the words stay.
 insert into public.problems (id, host_id, property_id, reported_by, title, status)
@@ -185,6 +205,7 @@ insert into work_tables values
   ('problems'), ('problem_events'), ('problem_themes'), ('chat_threads'), ('chat_messages'),
   ('resolution_plans'), ('resolution_plan_steps'), ('supply_requests'), ('supply_request_items'),
   ('manager_boards'), ('manager_board_cards'), ('manager_board_steps'), ('manager_board_entries'),
+  ('manager_board_columns'), ('manager_board_transfers'),
   ('problem_additions');
 
 create function pg_temp.fingerprint(p_table text) returns text language plpgsql as $fn$
@@ -268,6 +289,20 @@ select pg_temp.check('7 media rows are unchanged but for purged_at',
 
 select pg_temp.check('8 the task''s hand-set theme stays',
   (select source from public.problem_themes where problem_id = 'fa900020-0000-4000-8000-000000000001'), 'manual');
+
+select pg_temp.check('10 the board stays its owner''s alone, with its columns (a deleted one too) and its transfer',
+  (select b.shared::text || ' ' ||
+          (select count(*) from public.manager_board_columns c where c.board_id = b.id)::text || ' ' ||
+          (select count(*) from public.manager_board_transfers t where t.board_id = b.id)::text
+   from public.manager_boards b where b.id = 'fa900040-0000-4000-8000-000000000001'),
+  'false 6 1');
+
+select pg_temp.check('11 the cards keep their columns',
+  (select bool_and(c.column_id is not null) from public.manager_board_cards c
+   where c.board_id = 'fa900040-0000-4000-8000-000000000001'), true);
+
+select pg_temp.check('12 the task keeps its planned day',
+  (select due_on from public.problems where id = 'fa900020-0000-4000-8000-000000000001'), current_date + 30);
 
 -- No foreign key leads from the raw layer to anything: a raw booking's delete cascades nowhere.
 select pg_temp.check('9 nothing references the raw bookings or listings',

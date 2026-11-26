@@ -640,6 +640,11 @@
       "reason": "tenant default of host_id columns (single-company phase A); internal plumbing",
       "defined_in": "20260905094000_tenant_host_id.sql"
     },
+    "delete_manager_board_column": {
+      "status": "internal",
+      "reason": "deletes a column of a manager board, its cards moved to another column first (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API)",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
     "delete_manager_comment": {
       "status": "internal",
       "reason": "deletes a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
@@ -996,10 +1001,25 @@
       "reason": "run journal of classify-guest-signals into raw.signal_runs, service_role only",
       "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
+    "manager_board_cards_column": {
+      "status": "internal",
+      "reason": "trigger: a manager board card's column and its key agree; no client may call it",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
     "manager_board_column": {
       "status": "internal",
       "reason": "internal helper of the board functions: a known column",
       "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "manager_board_column_for": {
+      "status": "internal",
+      "reason": "internal helper of the board functions: the column one of the four keys lands in; no client may call it",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
+    "manager_board_columns_readable": {
+      "status": "internal",
+      "reason": "read-policy helper: whether the caller reads a manager board's columns; the boards are not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API)",
+      "defined_in": "20261126120000_board_columns.sql"
     },
     "manager_board_for_cards": {
       "status": "internal",
@@ -1011,10 +1031,35 @@
       "reason": "internal helper of the board functions: the board the caller may change",
       "defined_in": "20261118200000_manager_boards.sql"
     },
+    "manager_board_relabel": {
+      "status": "internal",
+      "reason": "internal helper of the column functions: the four keys of a board's columns and cards after a change; no client may call it",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
+    "manager_board_visible": {
+      "status": "internal",
+      "reason": "read-policy helper: whether the caller sees a manager board (shared, his own, or an admin); the boards are not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API)",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
+    "manager_boards_first_columns": {
+      "status": "internal",
+      "reason": "trigger: a new manager board gets the four columns of the technicians' board; no client may call it",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
     "manager_card_for_edit": {
       "status": "internal",
       "reason": "internal helper of the board functions: the card the caller may change (any active manager or admin of the company on a live board since 20261119090000)",
       "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "manager_card_readable": {
+      "status": "internal",
+      "reason": "read-policy helper: whether the caller reads a manager board card (its board is his to see, or it is given to him); the boards are not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API)",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
+    "manager_column_for_edit": {
+      "status": "internal",
+      "reason": "internal helper of the column functions: the column the caller may change, its board locked; no client may call it",
+      "defined_in": "20261126120000_board_columns.sql"
     },
     "manager_step_card": {
       "status": "internal",
@@ -1136,6 +1181,11 @@
       "reason": "finds or opens the chat thread of a cleaning, task or staff member (replayable)",
       "defined_in": "20260918120000_chat.sql"
     },
+    "order_manager_board_columns": {
+      "status": "internal",
+      "reason": "orders the columns of a manager board in the panel and on the manager's phone (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API)",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
     "order_manager_steps": {
       "status": "internal",
       "reason": "puts the steps in a new order of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
@@ -1160,6 +1210,11 @@
       "status": "internal",
       "reason": "validation limit constant of report_problem/update_problem",
       "defined_in": "20260908130000_problems.sql"
+    },
+    "problem_due_check": {
+      "status": "internal",
+      "reason": "internal helper: the day a task is to be done is from yesterday to a year ahead; no client may call it",
+      "defined_in": "20261126130000_problem_due_date.sql"
     },
     "problem_for_dispatch": {
       "status": "internal",
@@ -1267,6 +1322,11 @@
       "reason": "push plumbing: send-push reads the titles of a card-assigned push at the send, service_role only",
       "defined_in": "20261118230000_manager_card_assignee.sql"
     },
+    "push_board_titles": {
+      "status": "internal",
+      "reason": "push plumbing: send-push reads the title and owner of a handed-over board at the send, service_role only",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
     "push_digest_hour": {
       "status": "internal",
       "reason": "push plumbing: constant of the push queue and sender",
@@ -1286,6 +1346,11 @@
       "status": "internal",
       "reason": "push plumbing: constant of the push queue and sender",
       "defined_in": "20260928130000_push_events.sql"
+    },
+    "push_on_board_transferred": {
+      "status": "internal",
+      "reason": "trigger: queues the push of a manager board handed over, to its new owner; no client may call it",
+      "defined_in": "20261126120000_board_columns.sql"
     },
     "push_on_booking_status": {
       "status": "internal",
@@ -1624,6 +1689,11 @@
       "reason": "creates or renames a board of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
       "defined_in": "20261118200000_manager_boards.sql"
     },
+    "save_manager_board_column": {
+      "status": "internal",
+      "reason": "adds or renames a column of a manager board in the panel and on the manager's phone (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API)",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
     "save_manager_card": {
       "status": "internal",
       "reason": "creates a card with its steps or saves its fields of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
@@ -1711,6 +1781,11 @@
       "reason": "archives or returns a board of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18",
       "defined_in": "20261118200000_manager_boards.sql"
     },
+    "set_manager_board_column_done": {
+      "status": "internal",
+      "reason": "marks a column of a manager board finishing or not (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API)",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
     "set_manager_card_assignee": {
       "status": "internal",
       "reason": "assigns a card of a manager board to a manager or admin in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
@@ -1725,6 +1800,11 @@
       "status": "internal",
       "reason": "ticks or unticks a step of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
       "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "set_problem_due_date": {
+      "status": "internal",
+      "reason": "the office plans or clears the day a task (problem) is to be done, in the panel and on the manager's phone; API v1 has no field for it (a task's work has its own scheduled_date, the technician's day, another thing) and the owner asked for none on 2026-11-26: internal until a field is designed",
+      "defined_in": "20261126130000_problem_due_date.sql"
     },
     "set_problem_theme": {
       "status": "internal",
@@ -2044,6 +2124,11 @@
       "reason": "trigger function: stamps updated_at",
       "defined_in": "20260824190000_helpers.sql"
     },
+    "transfer_manager_board": {
+      "status": "internal",
+      "reason": "hands a manager board to another active manager or admin in the panel and on the manager's phone (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API)",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
     "unarchive_problem": {
       "status": "planned",
       "scope": "tasks:update",
@@ -2240,6 +2325,11 @@
       "reason": "cards of the managers' boards; read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18",
       "defined_in": "20261118200000_manager_boards.sql"
     },
+    "manager_board_columns": {
+      "status": "internal",
+      "reason": "the columns of the managers' own boards; read in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API)",
+      "defined_in": "20261126120000_board_columns.sql"
+    },
     "manager_board_entries": {
       "status": "internal",
       "reason": "the journal of a manager board card (comments and system lines); read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18",
@@ -2249,6 +2339,11 @@
       "status": "internal",
       "reason": "the checklist of a manager board card; read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18",
       "defined_in": "20261118200000_manager_boards.sql"
+    },
+    "manager_board_transfers": {
+      "status": "internal",
+      "reason": "who handed a manager board to whom and when, no words; the server alone reads it, no client",
+      "defined_in": "20261126120000_board_columns.sql"
     },
     "manager_boards": {
       "status": "internal",

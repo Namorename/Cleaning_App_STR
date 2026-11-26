@@ -116,7 +116,7 @@ where id in (select pg_temp.uid(n) from generate_series(1, 6) n);
 update public.profiles set is_active = false where id = pg_temp.dora();
 
 select pg_temp.as_user(pg_temp.boss());
-select public.save_manager_board(pg_temp.board(), 'Projects');
+select public.save_manager_board(pg_temp.board(), 'Projects', true);
 select public.save_manager_card(pg_temp.cid(1), pg_temp.board(), 'Bathroom', '', null, null, null, 'open');
 select pg_temp.as_user(pg_temp.ada());
 select public.save_manager_card(pg_temp.cid(2), pg_temp.board(), 'Admin made', '', null, null, null, 'open');

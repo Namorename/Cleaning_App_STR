@@ -108,6 +108,11 @@ insert into wanted values
   ('manager_board_cards',   'SELECT'),
   ('manager_board_steps',   'SELECT'),
   ('manager_board_entries', 'SELECT'),
+  -- A board's own columns (20261126120000): read by whoever sees the board or holds a card on
+  -- it; written by its owner and an admin through the column functions. The transfers of boards:
+  -- the server's alone (transfer_manager_board writes, send-push never reads them).
+  ('manager_board_columns',   'SELECT'),
+  ('manager_board_transfers', ''),
   -- The knowledge base (20261030100000): the managers and the head
   -- technician write through save_kb_article, set_kb_article_status and
   -- restore_kb_revision; the versions are kept by triggers.

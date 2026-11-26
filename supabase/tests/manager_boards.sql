@@ -137,7 +137,10 @@ create or replace function pg_temp.journal(p_card uuid) returns text[] language 
            case when e.kind = 'comment'
                 then 'comment ' || e.body || ' ' || pg_temp.who(e.author_id)
                      || case when e.edited_at is not null then ' edited' else '' end
-                else e.kind || ' ' || e.facts::text || ' ' || pg_temp.who(e.author_id) end
+                -- The keys of the four columns; the columns' ids (20261126120000) are
+                -- manager_board_columns.sql's to check.
+                else e.kind || ' ' || (e.facts - 'from_column' - 'to_column')::text || ' '
+                     || pg_temp.who(e.author_id) end
            order by e.created_at, e.id), '{}')
   from public.manager_board_entries e where e.card_id = p_card $$;
 
@@ -193,7 +196,7 @@ select (select count(*) from public.tasks where host_id = pg_temp.host()) as tas
 select pg_temp.as_user(pg_temp.boss());
 select pg_temp.check('1.1 a manager creates a board; she owns it; the title is trimmed',
   (select b.title || ' ' || pg_temp.who(b.owner_id) || ' ' || (b.archived_at is null)::text
-   from public.save_manager_board(pg_temp.bid(1), '  Owner projects  ') b),
+   from public.save_manager_board(pg_temp.bid(1), '  Owner projects  ', true) b),
   'Owner projects boss true');
 select pg_temp.check('1.2 a repeat of the create answers the same board',
   (select pg_temp.who(b.owner_id) from public.save_manager_board(pg_temp.bid(1), 'Owner projects') b), 'boss');
@@ -215,14 +218,14 @@ select pg_temp.as_user(pg_temp.ina());
 select pg_temp.check('1.7 another manager may not rename it',
   pg_temp.refusal($q$ select public.save_manager_board(pg_temp.bid(1), 'Mine now') $q$), 'serverErrors.boardNotYours');
 select pg_temp.check('1.8 another manager creates a board of her own',
-  (select pg_temp.who(owner_id) from public.save_manager_board(pg_temp.bid(2), 'Ina board')), 'ina');
+  (select pg_temp.who(owner_id) from public.save_manager_board(pg_temp.bid(2), 'Ina board', true)), 'ina');
 
 select pg_temp.as_user(pg_temp.ada());
 select pg_temp.check('1.9 an admin renames anybody''s board, the owner stays',
   (select title || ' ' || pg_temp.who(owner_id) from public.save_manager_board(pg_temp.bid(1), 'Projects 2026')),
   'Projects 2026 boss');
 select pg_temp.check('1.10 an admin creates a board',
-  (select pg_temp.who(owner_id) from public.save_manager_board(pg_temp.bid(3), 'Admin board')), 'ada');
+  (select pg_temp.who(owner_id) from public.save_manager_board(pg_temp.bid(3), 'Admin board', true)), 'ada');
 
 select pg_temp.as_user(pg_temp.olga());
 select pg_temp.check('1.11 another company''s manager does not find the board, even by its id',
@@ -582,7 +585,7 @@ select pg_temp.check('7.4 no client writes a table directly',
 -- A manager switched off (staff_disable) reads nothing and changes nothing.
 select pg_temp.as_user(pg_temp.dora());
 select pg_temp.check('7.5 a manager makes a board of her own',
-  (select pg_temp.who(owner_id) from public.save_manager_board(pg_temp.bid(4), 'Dora board')), 'dora');
+  (select pg_temp.who(owner_id) from public.save_manager_board(pg_temp.bid(4), 'Dora board', true)), 'dora');
 select pg_temp.as_server();
 update public.profiles set is_active = false where id = pg_temp.dora();
 select pg_temp.check('7.6 switched off, she reads nothing',
@@ -695,23 +698,35 @@ select pg_temp.check('9.3 a system line never has words',
   (select count(*) from public.manager_board_entries where kind <> 'comment' and body is not null), 0::bigint);
 -- One trigger only (20261118230000): the line «assignee changed» queues a push to the new assignee,
 -- carrying the card's id and nothing it says (push_on_card_assigned reads no title, body or words).
+-- Since 20261126120000 two more keep the columns, both inside the boards' own tables: a new
+-- board's four columns, and a card's column and key agreeing.
 select pg_temp.check('9.4 the tables have no trigger that could write anywhere else, but the assignment push',
   (select coalesce(string_agg(t.tgname || ' ' || p.proname, ', ' order by t.tgname), '')
    from pg_trigger t join pg_proc p on p.oid = t.tgfoid
    where not t.tgisinternal
      and t.tgrelid in ('public.manager_boards'::regclass, 'public.manager_board_cards'::regclass,
                        'public.manager_board_steps'::regclass, 'public.manager_board_entries'::regclass)),
-  'manager_board_entries_push_assigned push_on_card_assigned');
+  'manager_board_cards_column manager_board_cards_column, '
+  || 'manager_board_entries_push_assigned push_on_card_assigned, '
+  || 'manager_boards_first_columns manager_boards_first_columns');
+select pg_temp.check('9.4a the column keepers write the boards'' columns only',
+  (select bool_and(p.prosrc !~ '(raw\.|task_events|problem_events|push_outbox|audit)')
+   from pg_proc p
+   where p.oid in ('public.manager_board_cards_column()'::regprocedure,
+                   'public.manager_boards_first_columns()'::regprocedure)), true);
 select pg_temp.check('9.4b and that push reads no words of the boards',
   (select p.prosrc ~ '\m(title|body|description)\M' from pg_proc p
    where p.oid = 'public.push_on_card_assigned()'::regprocedure), false);
+-- A move names the two keys and, since 20261126120000, the two columns' ids: never their names.
 select pg_temp.check('9.5 a system line names only columns, dates and counts',
   (select bool_and(case e.kind
-                     when 'moved' then e.facts ?& array['from', 'to']
+                     when 'moved' then e.facts ?& array['from', 'to', 'from_column', 'to_column']
+                                       and (select count(*) from jsonb_object_keys(e.facts)) = 4
                      when 'due_changed' then e.facts ?& array['from', 'to']
+                                             and (select count(*) from jsonb_object_keys(e.facts)) = 2
                      when 'step_done' then e.facts ?& array['done', 'total']
-                   end
-                   and (select count(*) from jsonb_object_keys(e.facts)) = 2)
+                                           and (select count(*) from jsonb_object_keys(e.facts)) = 2
+                   end)
    from public.manager_board_entries e where e.kind <> 'comment'), true);
 
 -- ===========================================================================

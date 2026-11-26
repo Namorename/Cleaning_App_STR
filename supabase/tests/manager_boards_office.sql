@@ -128,7 +128,7 @@ where id in (select pg_temp.uid(n) from generate_series(1, 8) n);
 update public.profiles set is_active = false where id = pg_temp.dora();
 
 select pg_temp.as_user(pg_temp.boss());
-select public.save_manager_board(pg_temp.board(), 'Boss board');
+select public.save_manager_board(pg_temp.board(), 'Boss board', true);
 select public.save_manager_card(pg_temp.cid(1), pg_temp.board(), 'Bathroom', 'plan', null, null, 'blue', 'open', '["Tiles"]');
 select public.save_manager_comment(pg_temp.eid(1), pg_temp.cid(1), 'Boss note');
 select pg_temp.as_server();
