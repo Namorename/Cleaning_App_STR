@@ -149,7 +149,7 @@ function PickTile({ pick, canRemove, onRemove }: PickTileProps) {
   return (
     <li
       className={cn(
-        'relative flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted',
+        'relative flex size-24 shrink-0 items-center justify-center rounded-md border bg-muted',
         pick.status === 'failed' && 'border-destructive ring-2 ring-destructive/40',
       )}
       aria-label={`${kindWord}: ${pick.name}`}
@@ -163,10 +163,10 @@ function PickTile({ pick, canRemove, onRemove }: PickTileProps) {
       ) : (
         // A blob: link of a file not sent yet: next/image has nothing to optimise here.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={pick.previewUrl} alt="" className="size-full object-cover" />
+        <img src={pick.previewUrl} alt="" className="size-full rounded-md object-cover" />
       )}
       {pick.status === 'uploading' ? (
-        <span className="absolute inset-0 flex items-center justify-center bg-background/60">
+        <span className="absolute inset-0 flex items-center justify-center rounded-md bg-background/60">
           <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />
         </span>
       ) : null}

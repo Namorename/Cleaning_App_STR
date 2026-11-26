@@ -178,11 +178,11 @@ export function useOfficeFiles(problemId: string): OfficeFiles {
     [limits],
   );
 
-  const remove = useCallback((id: string) => {
-    setPicks((current) => {
-      const going = current.find((pick) => pick.id === id);
+  const remove = useCallback(
+    (id: string) => {
+      const going = picksRef.current.find((pick) => pick.id === id);
       if (going === undefined || going.status === 'uploading' || going.status === 'done') {
-        return current;
+        return;
       }
       revoke([going]);
       // A file that failed may have its row already: taken back, it no longer counts towards
@@ -193,9 +193,10 @@ export function useOfficeFiles(problemId: string): OfficeFiles {
           () => undefined,
         );
       }
-      return current.filter((pick) => pick.id !== id);
-    });
-  }, [client]);
+      setPicks((current) => current.filter((pick) => pick.id !== id));
+    },
+    [client],
+  );
 
   const setStatus = (id: string, status: OfficeFileStatus, error: unknown = null) =>
     setPicks((current) =>

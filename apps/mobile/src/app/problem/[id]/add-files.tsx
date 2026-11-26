@@ -89,12 +89,14 @@ export default function OfficeFilesRoute() {
     }
   };
 
-  // While the files are on their way the screen stays: no swipe back, no system back.
+  // While the files are on their way the screen stays: no swipe back, no system back. Only the
+  // upload: the request after it leaves the screen itself on success (router.back in onSuccess
+  // runs before the screen re-renders, and a block on isBusy would hold it there).
   const navigation = useNavigation();
-  usePreventRemove(isBusy, () => {});
+  usePreventRemove(isSending, () => {});
   useEffect(() => {
-    navigation.setOptions({ gestureEnabled: !isBusy });
-  }, [navigation, isBusy]);
+    navigation.setOptions({ gestureEnabled: !isSending });
+  }, [navigation, isSending]);
 
   /** Show the batch (at work), or close with it (at the closing), under the batch it was sent in. */
   const finish = (arrived: number, additionId: string = officeFlow(problemId).additionId) => {
