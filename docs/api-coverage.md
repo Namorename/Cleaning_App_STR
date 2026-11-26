@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 47 | 329 | 396 |
-| Таблицы и представления | 9 | 21 | 31 | 61 |
-| Всего | 29 | 68 | 360 | 457 |
+| Функции | 20 | 47 | 346 | 413 |
+| Таблицы и представления | 9 | 21 | 33 | 63 |
+| Всего | 29 | 68 | 379 | 476 |
 
 ## Функции
 
@@ -93,7 +93,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 329
+### Внутреннее — 346
 
 | Имя | Причина |
 | --- | --- |
@@ -172,6 +172,7 @@
 | `decide_signal_finding` | decision rules of the classify job (no task, dropped, duplicate, already fixed, auto); called inside apply_signal_findings, execute revoked from every role |
 | `decline_cleaning` | a cleaner declines her own cleaning on the phone, before starting it; a person's own move, never an integration's (owner, 2026-11-18) |
 | `default_host_id` | tenant default of host_id columns (single-company phase A); internal plumbing |
+| `delete_manager_board_column` | deletes a column of a manager board, its cards moved to another column first (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
 | `delete_manager_comment` | deletes a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `delete_manager_step` | deletes a step of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `delete_resolution_plan` | the manager deletes a draft in the panel; the public resource comes with stage 6 of the plan |
@@ -242,10 +243,18 @@
 | `list_api_keys` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `lock_cleaning_for_time` | helper of set_cleaning_time and clear_cleaning_time: their checks and the row lock; execute revoked from clients |
 | `log_signal_run` | run journal of classify-guest-signals into raw.signal_runs, service_role only |
+| `manager_board_cards_column` | trigger: a manager board card's column and its key agree; no client may call it |
 | `manager_board_column` | internal helper of the board functions: a known column |
+| `manager_board_column_for` | internal helper of the board functions: the column one of the four keys lands in; no client may call it |
+| `manager_board_columns_readable` | read-policy helper: whether the caller reads a manager board's columns; the boards are not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
 | `manager_board_for_cards` | internal helper of the board functions: the live board whose cards any active manager or admin of the company works on; no client may call it |
 | `manager_board_for_edit` | internal helper of the board functions: the board the caller may change |
+| `manager_board_relabel` | internal helper of the column functions: the four keys of a board's columns and cards after a change; no client may call it |
+| `manager_board_visible` | read-policy helper: whether the caller sees a manager board (shared, his own, or an admin); the boards are not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
+| `manager_boards_first_columns` | trigger: a new manager board gets the four columns of the technicians' board; no client may call it |
 | `manager_card_for_edit` | internal helper of the board functions: the card the caller may change (any active manager or admin of the company on a live board since 20261119090000) |
+| `manager_card_readable` | read-policy helper: whether the caller reads a manager board card (its board is his to see, or it is given to him); the boards are not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
+| `manager_column_for_edit` | internal helper of the column functions: the column the caller may change, its board locked; no client may call it |
 | `manager_step_card` | internal helper of the board functions: the card of a step the caller may change |
 | `mark_signal_analysis_failed` | classify-guest-signals job: counts a failed model reading of a review, service_role only |
 | `mark_task_media_purged` | retention job (purge-task-media): marks purged files, service_role only |
@@ -264,11 +273,13 @@
 | `oauth_store_tokens` | MCP sign-in: keeps the digests of a connection's new tokens. |
 | `open_cleanings_by_listing` | panel registry counter of open cleanings per listing; derivable from GET /v1/cleanings |
 | `open_task_step` | phone-only flow of the cleaner at work (task steps): stamps the first opening of a step |
+| `order_manager_board_columns` | orders the columns of a manager board in the panel and on the manager's phone (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
 | `order_manager_steps` | puts the steps in a new order of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `problem_addition_max_files` | limit constant of the office batch (10 files) |
 | `problem_category_for_report` | lookup helper of report_problem/update_problem: the caller's company's category, archived or not; execute revoked from clients |
 | `problem_closing_addition` | helper of resolve_problem: the closing comment and files, revoked from clients |
 | `problem_description_max_length` | validation limit constant of report_problem/update_problem |
+| `problem_due_check` | internal helper: the day a task is to be done is from yesterday to a year ahead; no client may call it |
 | `problem_for_dispatch` | lock-and-check helper of assign_problem/unassign_problem; execute revoked from clients |
 | `problem_for_manager` | lock-and-check helper of the manager problem RPCs; execute revoked from clients |
 | `problem_guest_origin` | the task page of the panel and the phone: where a task from a guest came from, by role (the name only to the head technician and the office, read from the booking); its public part is already in API v1 as Task.source and Task.guest_stay, and a guest's name never is (forbidden guests:read_personal) |
@@ -289,10 +300,12 @@
 | `purge_signal_data` | scheduler job: nightly retention purge (purge-signal-data) of review texts and keys, irreversible; service_role only |
 | `purge_signal_stays` | scheduler job: nightly privacy sweep (purge-signal-stays) cutting settled stays to their month; service_role only |
 | `push_board_card_titles` | push plumbing: send-push reads the titles of a card-assigned push at the send, service_role only |
+| `push_board_titles` | push plumbing: send-push reads the title and owner of a handed-over board at the send, service_role only |
 | `push_digest_hour` | push plumbing: constant of the push queue and sender |
 | `push_history_kept` | push plumbing: constant of the push queue and sender |
 | `push_lease` | push plumbing: constant of the push queue and sender |
 | `push_lifetime` | push plumbing: constant of the push queue and sender |
+| `push_on_board_transferred` | trigger: queues the push of a manager board handed over, to its new owner; no client may call it |
 | `push_on_booking_status` | trigger function: queues a push when a booking stops being live during its cleaning |
 | `push_on_card_assigned` | trigger function: queues the board_card_assigned push for the new assignee of a manager board card |
 | `push_on_chat_message` | trigger function: queues pushes for a new chat message |
@@ -349,15 +362,18 @@
 | `review_text_allowed` | privacy rule: whether a review may keep a text (stay from the texts' line - the guest notice's day or the day texts first went on - hidden, archive, 18 months); execute revoked from every role |
 | `revoke_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `save_manager_board` | creates or renames a board of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 |
+| `save_manager_board_column` | adds or renames a column of a manager board in the panel and on the manager's phone (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
 | `save_manager_card` | creates a card with its steps or saves its fields of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `save_manager_comment` | writes or edits a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `save_manager_step` | adds a step to a card or changes its words of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `save_resolution_plan` | the manager saves a draft in the panel; the public resource comes with stage 6 of the plan |
 | `set_guest_chats` | the admin turns the company's guest chats on or off whole (switch, tasks, reading state, jobs); a company lever kept in the panel, as update_signal_settings |
 | `set_manager_board_archived` | archives or returns a board of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 |
+| `set_manager_board_column_done` | marks a column of a manager board finishing or not (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
 | `set_manager_card_assignee` | assigns a card of a manager board to a manager or admin in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `set_manager_card_state` | archives, soft-deletes or returns a card of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `set_manager_step_done` | ticks or unticks a step of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
+| `set_problem_due_date` | the office plans or clears the day a task (problem) is to be done, in the panel and on the manager's phone; API v1 has no field for it (a task's work has its own scheduled_date, the technician's day, another thing) and the owner asked for none on 2026-11-26: internal until a field is designed |
 | `set_problem_theme` | the manager corrects a task theme in the panel; the public resource comes with stage 6 of the plan |
 | `set_push_preference` | push plumbing: the signed-in person switches one of her own push events on or off |
 | `set_resolution_step_decided` | the manager closes a decision step in the panel; the public resource comes with stage 6 of the plan |
@@ -418,6 +434,7 @@
 | `task_step_for_update` | phone-only flow of the cleaner at work (task steps): lock-and-check helper, service_role only |
 | `task_title_max_length` | validation limit constant of save_task |
 | `touch_updated_at` | trigger function: stamps updated_at |
+| `transfer_manager_board` | hands a manager board to another active manager or admin in the panel and on the manager's phone (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
 | `unregister_push_token` | forbidden: push tokens (the signed-in phone lets go of its token) |
 | `update_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `update_signal_settings` | forbidden: data:destroy - texts off erases every kept review text at once; the other gates (texts and their first day, the deferred guest notice date, model spend, auto work orders) are admin levers kept in the panel |
@@ -469,7 +486,7 @@
 | `workflow_steps` | `checklists:read` | steps of a process template |
 | `workflow_templates` | `checklists:read` | process templates a cleaning follows |
 
-### Внутреннее — 31
+### Внутреннее — 33
 
 | Имя | Причина |
 | --- | --- |
@@ -484,8 +501,10 @@
 | `issue_theme_words` | the dictionary for staff texts |
 | `issue_themes` | the closed list of themes; the public resource comes with stage 6 |
 | `manager_board_cards` | cards of the managers' boards; read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18 |
+| `manager_board_columns` | the columns of the managers' own boards; read in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
 | `manager_board_entries` | the journal of a manager board card (comments and system lines); read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18 |
 | `manager_board_steps` | the checklist of a manager board card; read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18 |
+| `manager_board_transfers` | who handed a manager board to whom and when, no words; the server alone reads it, no client |
 | `manager_boards` | the managers' own boards (the office's work apart from cleanings and tasks); read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18 |
 | `oauth_clients` | MCP sign-in: dynamically registered OAuth clients. |
 | `oauth_codes` | MCP sign-in: authorization codes, as digests. |
