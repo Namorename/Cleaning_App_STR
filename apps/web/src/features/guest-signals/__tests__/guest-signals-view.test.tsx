@@ -148,6 +148,7 @@ vi.mock('../use-guest-signals', () => ({
   useRejectFinding: () => ({ ...idle, mutate: reject }),
   useAddFinding: () => ({ ...idle, mutate: vi.fn() }),
   useUpdateSettings: () => ({ ...idle, mutate: update }),
+  useSetGuestChats: () => ({ ...idle, mutate: vi.fn() }),
 }));
 vi.mock('@/features/problems/use-problems', () => ({
   useStaff: () => loaded([{ id: TECH_ID, full_name: 'Petr Fixer', role: 'tech' }]),

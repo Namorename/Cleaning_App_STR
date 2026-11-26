@@ -327,3 +327,28 @@ Deno.test("the phase of a message is its Prague day against the stay's", () => {
   assertEquals(phaseOf(new Date("2026-10-16T08:00:00Z"), "2026-10-13", "2026-10-16"), "departure_day");
   assertEquals(phaseOf(new Date("2026-10-16T22:30:00Z"), "2026-10-13", "2026-10-16"), null);
 });
+
+// «Карточки из чатов» (owner, 2026-11-26): the company's switch is the chats' one switch
+// (signal_settings.messages_enabled, set_guest_chats). Off — no card, no call to the model.
+Deno.test("chats switched off while a tick runs: the booking says off, no call, no card, the tick stops", async () => {
+  const store = new FakeStore({ queue: [claimed(FAKE_IDS.stay)], grants: 0, refusal: "off" });
+  const model = new FakeModel();
+  const summary = await runMessages(deps(store, model));
+  assertEquals(model.inputs.length, 0);
+  assertEquals(store.applied.length, 0);
+  assertEquals(summary.stopped, "off");
+});
+
+Deno.test("chats switched on again: a conversation is read and labelled as before", async () => {
+  const off = new FakeStore({ state: { ...STATE, enabled: false }, queue: [claimed(FAKE_IDS.stay)] });
+  const offModel = new FakeModel();
+  assertEquals((await runMessages(deps(off, offModel))).status, "off");
+  assertEquals(offModel.inputs.length, 0);
+
+  const on = new FakeStore({ queue: [claimed(FAKE_IDS.stay)] });
+  const onModel = new FakeModel();
+  const summary = await runMessages(deps(on, onModel));
+  assertEquals(summary.status, "done");
+  assertEquals(onModel.inputs.length, 1);
+  assertEquals(on.applied.length, 1);
+});

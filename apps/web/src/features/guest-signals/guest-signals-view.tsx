@@ -19,6 +19,7 @@ import { useAddressState } from '@/lib/use-address-state';
 import { useLanguage } from '@/lib/use-language';
 
 import { REVIEWS_PAGE_SIZE } from './api';
+import { ChatCardsSwitch } from './chat-cards-switch';
 import { FindingCard } from './finding-card';
 import {
   EMPTY_REVIEW_FILTERS,
@@ -548,6 +549,7 @@ function SettingsPanel({ isAdmin }: { isAdmin: boolean }) {
           />
         </label>
       ))}
+      <ChatCardsSwitch isAdmin={isAdmin} />
       <p>
         {textsDay === null
           ? t('panel.guests.settings.noTextsFrom')
