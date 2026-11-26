@@ -73,7 +73,11 @@
     "windowUntil": "до {{time}}",
     "messageFrom": "{{place}} · {{author}}",
     "releaseBody": "{{place}}, {{date}} · {{person}}",
-    "unknownPlace": "Объект {{id}}"
+    "unknownPlace": "Объект {{id}}",
+    "board_transferred": {
+      "title": "Вам передана доска",
+      "body": "{{board}}"
+    }
   },
   "en": {
     "cleaning_new": {
@@ -147,7 +151,11 @@
     "windowUntil": "until {{time}}",
     "messageFrom": "{{place}} · {{author}}",
     "releaseBody": "{{place}}, {{date}} · {{person}}",
-    "unknownPlace": "Property {{id}}"
+    "unknownPlace": "Property {{id}}",
+    "board_transferred": {
+      "title": "A board was handed to you",
+      "body": "{{board}}"
+    }
   },
   "cs": {
     "cleaning_new": {
@@ -223,6 +231,10 @@
     "windowUntil": "do {{time}}",
     "messageFrom": "{{place}} · {{author}}",
     "releaseBody": "{{place}}, {{date}} · {{person}}",
-    "unknownPlace": "Objekt {{id}}"
+    "unknownPlace": "Objekt {{id}}",
+    "board_transferred": {
+      "title": "Byla vám předána nástěnka",
+      "body": "{{board}}"
+    }
   }
 }

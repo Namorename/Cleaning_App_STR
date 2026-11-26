@@ -756,3 +756,128 @@ Deno.test("a batch without card pushes never asks for titles", async () => {
   // Assert
   assertEquals(calls.some((call) => call.name === "push_board_card_titles"), false);
 });
+
+// ---------- a manager board handed to a new owner (20261126120000) ----------
+
+const BOARD = "7b0c1d2e-3f4a-4b5c-8d6e-7f8a9b0c1d2e";
+
+function boardGroup(language: string, muted: string[] = []) {
+  return {
+    recipient_id: "ina",
+    collapse_key: `board:${BOARD}`,
+    language,
+    tokens: [{ token: "T7", platform: "android" }],
+    places: {},
+    muted,
+    rows: [{
+      id: 41,
+      kind: "board_transferred",
+      task_id: null,
+      thread_id: null,
+      property_id: null,
+      params: { board_id: BOARD },
+      urgent: false,
+    }],
+  };
+}
+
+function boardDatabase(batch: unknown[], titles: () => { data: unknown; error: { message: string } | null }) {
+  const calls: Rpc[] = [];
+  const batches = [batch];
+  const db: PushDatabase = {
+    rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_push_batch") {
+        return Promise.resolve({ data: batches.shift() ?? [], error: null });
+      }
+      if (name === "push_board_titles") {
+        return Promise.resolve(titles());
+      }
+      return Promise.resolve({ data: name === "claim_push_receipts" ? [] : null, error: null });
+    },
+  };
+  return { db, calls };
+}
+
+Deno.test("a board handed to her: one push with the board's title, read at the send, and a tap that names the board", async () => {
+  // Arrange
+  const { db, calls } = boardDatabase([boardGroup("ru")], () => ({
+    data: [{ board_id: BOARD, board_title: "Ремонт квартиры", owner_id: "ina", is_live: true }],
+    error: null,
+  }));
+  const { expo, sent } = sender(okTickets);
+
+  // Act
+  await runSendPush(db, expo, quiet);
+
+  // Assert
+  assertEquals(calls.filter((call) => call.name === "push_board_titles").map((call) => call.args), [
+    { p_board_ids: [BOARD] },
+  ]);
+  const message = sent[0][0];
+  assertEquals([message.title, message.body], ["Вам передана доска", "Ремонт квартиры"]);
+  assertEquals(message.data, { kind: "board_transferred", boardId: BOARD });
+  assertEquals(settled(calls).map((result) => result.outcome), ["sent"]);
+});
+
+Deno.test("a board push whose board cannot be read is set aside as failed, to go in the next run", async () => {
+  // Arrange
+  const errors: unknown[] = [];
+  const { db, calls } = boardDatabase([boardGroup("en")], () => ({ data: null, error: { message: "boom" } }));
+  const { expo, sent } = sender(okTickets);
+
+  // Act
+  await runSendPush(db, expo, { log: () => {}, error: (...args) => errors.push(args) });
+
+  // Assert
+  assertEquals(sent.length, 0);
+  assertEquals(errors.length, 1);
+  assertEquals(settled(calls).map((result) => result.outcome), ["failed"]);
+});
+
+Deno.test("a board handed on again since is no longer news: not sent", async () => {
+  // Arrange
+  const { db, calls } = boardDatabase([boardGroup("ru")], () => ({
+    data: [{ board_id: BOARD, board_title: "Ремонт", owner_id: "olga", is_live: true }],
+    error: null,
+  }));
+  const { expo, sent } = sender(okTickets);
+
+  // Act
+  await runSendPush(db, expo, quiet);
+
+  // Assert
+  assertEquals(sent.length, 0);
+  assertEquals(settled(calls).map((result) => result.outcome), ["collapsed"]);
+});
+
+Deno.test("a board push she switched off is settled as muted", async () => {
+  // Arrange
+  const { db, calls } = boardDatabase([boardGroup("cs", ["board_transferred"])], () => ({
+    data: [{ board_id: BOARD, board_title: "Nástěnka", owner_id: "ina", is_live: true }],
+    error: null,
+  }));
+  const { expo, sent } = sender(okTickets);
+
+  // Act
+  await runSendPush(db, expo, quiet);
+
+  // Assert
+  assertEquals(sent.length, 0);
+  assertEquals(settled(calls).map((result) => result.outcome), ["muted"]);
+});
+
+Deno.test("a card on a board she does not see: the push names the card alone", async () => {
+  // Arrange
+  const { db } = cardDatabase([cardGroup("ru")], () => ({
+    data: [{ card_id: CARD, card_title: "Плитка", board_title: null, assignee_id: "ina", is_live: true }],
+    error: null,
+  }));
+  const { expo, sent } = sender(okTickets);
+
+  // Act
+  await runSendPush(db, expo, quiet);
+
+  // Assert
+  assertEquals([sent[0][0].title, sent[0][0].body], ["Вам назначена карточка", "Плитка"]);
+});

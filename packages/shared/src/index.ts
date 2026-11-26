@@ -132,6 +132,32 @@ export {
   type TextPart,
 } from './boards/cards';
 export {
+  BOARD_COLUMN_LIMITS,
+  canAddColumn,
+  canDeleteColumn,
+  columnName,
+  columnOrderAfterDrop,
+  columnOrderAfterStep,
+  firstDoneColumn,
+  isInDoneColumn,
+  liveColumns,
+  moveTargets,
+  presetKeyOf,
+  type BoardColumnRow,
+} from './boards/columns';
+export {
+  DUE_DAYS_AHEAD,
+  compareQueue,
+  dayOfInstant,
+  orderQueue,
+  plannedDay,
+  plannedTail,
+  queueDay,
+  tailDay,
+  type PlannedDay,
+  type QueueFacts,
+} from './problems/queue';
+export {
   STALE_CLOCK_MESSAGE,
   STALE_CLOCK_RETRY_DELAYS_MS,
   staleClockSafeFetch,

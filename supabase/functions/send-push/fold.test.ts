@@ -380,3 +380,30 @@ Deno.test("a card given to her folds into one push with the titles the run read,
   });
   assertEquals(fold(group([row("board_card_assigned", {})])), null);
 });
+
+Deno.test("a board handed to her folds into one push with its title, only while she still owns it", () => {
+  const boardId = "7b0c1d2e-3f4a-4b5c-8d6e-7f8a9b0c1d2e";
+  const rows = [row("board_transferred", { board_id: boardId })];
+  const base = group(rows);
+  const owned = (ownerId: string | null) => ({
+    ...base,
+    boards: new Map([[boardId, { board: "Repairs", ownerId }]]),
+  });
+  assertEquals(fold(owned(base.recipientId)), { type: "board", boardId, board: "Repairs" });
+  assertEquals(fold(owned("someone-else")), null);
+  assertEquals(fold({ ...base, boards: new Map() }), null);
+  assertEquals(fold(base), { type: "board", boardId, board: null });
+  assertEquals(fold(group([row("board_transferred", {})])), null);
+});
+
+Deno.test("a card on a board she does not see folds with the card's title alone", () => {
+  const cardId = "8c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f";
+  const base = group([row("board_card_assigned", { card_id: cardId })]);
+  assertEquals(
+    fold({
+      ...base,
+      cards: new Map([[cardId, { card: "Tiles", board: null, assigneeId: base.recipientId, isLive: true }]]),
+    }),
+    { type: "card", cardId, card: "Tiles", board: null },
+  );
+});

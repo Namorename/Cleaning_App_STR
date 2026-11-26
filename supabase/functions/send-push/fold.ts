@@ -22,14 +22,15 @@
  * A manager board card given to her (20261118230000) is said once, with the
  * card's and its board's titles as they are at the send — and not at all when
  * it is no longer news: the card is somebody else's by then, or nobody's, or
- * archived, deleted, or on an archived board.
+ * archived, deleted, or on an archived board. A board handed to her (20261126120000) is said once,
+ * with its title at the send, and not at all once it is somebody else's again.
  */
 
 import type { PushGroup, PushKind, PushRow } from "./batch.ts";
 
 export type TaskEvent = Exclude<
   PushKind,
-  "chat_message" | "daily_digest" | "problem_new" | "board_card_assigned"
+  "chat_message" | "daily_digest" | "problem_new" | "board_card_assigned" | "board_transferred"
 >;
 
 export interface MoveFacts {
@@ -99,7 +100,21 @@ export interface FoldedCard {
   readonly board: string | null;
 }
 
-export type Folded = FoldedTask | FoldedChat | FoldedDigest | FoldedProblem | FoldedCard;
+/** A manager board handed to her (20261126120000): what the board is called now. */
+export interface FoldedBoard {
+  readonly type: "board";
+  readonly boardId: string;
+  /** Null when the title could not be read: the push then says only that a board is hers. */
+  readonly board: string | null;
+}
+
+export type Folded =
+  | FoldedTask
+  | FoldedChat
+  | FoldedDigest
+  | FoldedProblem
+  | FoldedCard
+  | FoldedBoard;
 
 const TAKEN_AWAY: ReadonlySet<PushKind> = new Set(["cleaning_cancelled", "cleaning_unassigned"]);
 /** What the office hears of a cleaning a cleaner handed back (20261118120000). */
@@ -285,6 +300,22 @@ function foldCard(group: PushGroup, rows: readonly PushRow[]): FoldedCard | null
   return { type: "card", cardId, card: titles.card, board: titles.board };
 }
 
+function foldBoard(group: PushGroup, rows: readonly PushRow[]): FoldedBoard | null {
+  const boardId = text(rows[rows.length - 1].params.board_id);
+  if (boardId === null) {
+    return null;
+  }
+  if (group.boards === undefined) {
+    // Not read: the run sets such a group aside before it folds; without it, said bare.
+    return { type: "board", boardId, board: null };
+  }
+  const titles = group.boards.get(boardId);
+  if (titles === undefined || titles.ownerId !== group.recipientId) {
+    return null;
+  }
+  return { type: "board", boardId, board: titles.board };
+}
+
 export function fold(group: PushGroup): Folded | null {
   const rows = group.rows;
   const last = rows[rows.length - 1];
@@ -296,6 +327,9 @@ export function fold(group: PushGroup): Folded | null {
   }
   if (last.kind === "board_card_assigned") {
     return foldCard(group, rows.filter((row) => row.kind === "board_card_assigned"));
+  }
+  if (last.kind === "board_transferred") {
+    return foldBoard(group, rows.filter((row) => row.kind === "board_transferred"));
   }
   if (last.kind === "problem_new") {
     return foldProblem(rows.filter((row) => row.kind === "problem_new"));

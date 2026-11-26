@@ -13,7 +13,8 @@ import { isRecord } from "../_shared/coerce.ts";
  * push_kind, in the order the migrations declare it (20260928100000;
  * problem_new, the head technician's new task, 20261003150000; a cleaning a
  * cleaner handed back, for the office, 20261118120000; a manager board card
- * given to somebody, 20261118230000).
+ * given to somebody, 20261118230000; a manager board handed to a new owner,
+ * 20261126120000).
  */
 export const PUSH_KINDS = [
   "cleaning_new",
@@ -27,6 +28,7 @@ export const PUSH_KINDS = [
   "cleaning_interrupted",
   "booking_cancelled_live",
   "board_card_assigned",
+  "board_transferred",
   "problem_new",
   "chat_message",
   "daily_digest",
@@ -61,9 +63,22 @@ export interface Place {
  */
 export interface CardTitles {
   readonly card: string;
-  readonly board: string;
+  /**
+   * Null when the card is on a board its assignee does not see (20261126120000): the push names
+   * the card alone.
+   */
+  readonly board: string | null;
   readonly assigneeId: string | null;
   readonly isLive: boolean;
+}
+
+/**
+ * A manager board handed over, as it stands at the send (push_board_titles, 20261126120000): its
+ * title, never queued, and who owns it now — the push goes only while its recipient still does.
+ */
+export interface BoardTitles {
+  readonly board: string;
+  readonly ownerId: string | null;
 }
 
 export interface PushToken {
@@ -85,6 +100,8 @@ export interface PushGroup {
    * they could not be read.
    */
   readonly cards?: ReadonlyMap<string, CardTitles>;
+  /** Keyed by board id: the boards its handed-over rows are about; filled by the run, absent unread. */
+  readonly boards?: ReadonlyMap<string, BoardTitles>;
   /** The claim's lease: a group is settled under it. Null from an older database. */
   readonly lease: string | null;
   readonly rows: readonly PushRow[];

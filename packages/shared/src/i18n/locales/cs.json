@@ -941,7 +941,9 @@
         "autoOff": "Zpět ke schvalování",
         "autoCap": "Nejvýše úkolů vytvořených hned za den",
         "autoCapSave": "Uložit",
-        "autoCapHint": "Od {{min}} do {{max}}; nad strop čekají nálezy na manažera."
+        "autoCapHint": "Od {{min}} do {{max}}; nad strop čekají nálezy na manažera.",
+        "chatCards": "Karty z chatů",
+        "chatCardsHint": "Vypnuto — z konverzací s hosty nevznikají nové karty: konverzace se nečtou a pro chaty se nevolá žádný model; karty z chatů se zde nezobrazují. Zapnutím se vše vrátí, jak bylo. Je to tentýž přepínač jako „Úkoly z chatů“ v nastavení firmy."
       },
       "channel": {
         "airbnb": "Airbnb",
@@ -1090,7 +1092,7 @@
       "loadError": "Plán se nepodařilo načíst",
       "notFound": "Plán nebyl nalezen",
       "closedOn": "Hotovo {{day}}",
-    "droppedNote": "Uzavřeno bez výsledku: {{n}}",
+      "droppedNote": "Uzavřeno bez výsledku: {{n}}",
       "status": {
         "draft": "Koncept",
         "launched": "Probíhá",
@@ -1123,7 +1125,7 @@
         "draft": "Koncept",
         "open": "Probíhá",
         "closed": "Uzavřeno",
-      "dropped": "Neprovedeno",
+        "dropped": "Neprovedeno",
         "openWork": "Otevřít",
         "decide": "Rozhodnuto",
         "undecide": "Vrátit"
@@ -1133,7 +1135,7 @@
         "assignee_role": "Tento druh kroku není pro tohoto člověka",
         "date_missing": "Je potřeba termín",
         "task_closed": "Úkol už je uzavřený",
-      "text_too_long": "Text je pro tento druh kroku příliš dlouhý"
+        "text_too_long": "Text je pro tento druh kroku příliš dlouhý"
       }
     },
     "quality": {
@@ -2276,7 +2278,8 @@
         "problem_new": "Nový úkol",
         "board_card_assigned": "Přidělená karta nástěnky",
         "chat_message": "Zpráva v chatu",
-        "daily_digest": "Ranní přehled"
+        "daily_digest": "Ranní přehled",
+        "board_transferred": "Předaná nástěnka"
       },
       "channels": {
         "urgent": "Naléhavá oznámení",
@@ -2906,6 +2909,19 @@
     "fixWork": {
       "title": "Práce technika",
       "by": "{{name}} · {{status}}"
+    },
+    "due": {
+      "label": "Termín",
+      "none": "Bez termínu",
+      "today": "Dnes",
+      "tomorrow": "Zítra",
+      "chip": "Termín: {{when}}",
+      "change": "Změnit termín",
+      "clear": "Zrušit termín",
+      "save": "Uložit termín",
+      "hint": "Úkol se technikům zařadí na tento den; zdržení a zpoždění se počítají až od něj.",
+      "planned": "Naplánováno",
+      "pick": "Vybrat termín"
     }
   },
   "supplies": {
@@ -3299,7 +3315,43 @@
     "assigneeOn": "Řešitel: {{name}}",
     "assignedToMe": "Přiděleno mně",
     "assignedToMeEmpty": "Zatím vám není přidělena žádná karta",
-    "onBoard": "Nástěnka „{{title}}“"
+    "onBoard": "Nástěnka „{{title}}“",
+    "visibility": "Kdo nástěnku vidí",
+    "visibilityPrivate": "Vidím ji jen já",
+    "visibilityPrivateOwner": "Vidí ji jen vlastník",
+    "visibilityShared": "Vidí ji i ostatní manažeři",
+    "visibilityNote": "Administrátor vidí všechny nástěnky. Manažer, kterému je přidělena karta soukromé nástěnky, vidí tuto kartu — ale ne nástěnku.",
+    "privateBoard": "Soukromá nástěnka",
+    "settingsTitle": "Nastavení nástěnky",
+    "columns": "Sloupce",
+    "columnsTitle": "Sloupce nástěnky „{{title}}“",
+    "columnAdd": "Přidat sloupec",
+    "columnName": "Název sloupce",
+    "columnRename": "Přejmenovat sloupec",
+    "columnUp": "Výš",
+    "columnDown": "Níž",
+    "columnDone": "Dokončovací",
+    "columnDoneHint": "Karty v dokončovacím sloupci jsou hotové: jejich termín už nevaruje a souhrn je nepočítá; kartu se všemi odškrtnutými kroky lze přesunout sem.",
+    "columnDelete": "Smazat sloupec",
+    "columnDeleteTitle": "Smazat sloupec „{{name}}“?",
+    "columnDeleteEmpty": "Ve sloupci nejsou žádné karty.",
+    "columnDeleteCards": "Karet ve sloupci (včetně archivovaných a smazaných): {{count}}. Přesunou se do vybraného sloupce a v deníku každé přibude záznam.",
+    "columnMoveTarget": "Kam karty přesunout",
+    "columnLast": "Poslední sloupec nelze smazat.",
+    "columnsMax": "Nejvýše {{max}} sloupců.",
+    "columnDragHint": "Pořadí sloupců změníte přetažením nebo tlačítky „Výš“ a „Níž“.",
+    "columnMove": "Přesunout sloupec „{{name}}“",
+    "transfer": "Předat nástěnku",
+    "transferTitle": "Předat nástěnku „{{title}}“",
+    "transferTo": "Nový vlastník",
+    "transferPick": "Vyberte manažera",
+    "transferNobody": "Není komu ji předat: ve firmě nejsou další aktivní manažeři ani administrátoři.",
+    "transferNotePrivate": "Nástěnku vidí jen vlastník: po předání ji už neuvidíte — zůstanou jen karty přidělené vám.",
+    "transferNoteShared": "Nástěnku vidí i ostatní manažeři: uvidíte ji jako oni, ale název, sloupce a viditelnost bude měnit nový vlastník nebo administrátor.",
+    "transferNoteAdmin": "Jste administrátor: nástěnku budete vidět dál.",
+    "transferNoteCards": "Karty, jejich řešitelé a viditelnost se nemění; nové karty dostane ve výchozím stavu nový vlastník. Přijde mu oznámení.",
+    "transferConfirm": "Předat",
+    "transferDone": "Nástěnka předána: {{name}}"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Zdroj a cíl jsou tentýž apartmán",
@@ -3536,7 +3588,15 @@
     "additionPublished": "Soubory už jsou k úkolu přidané a nelze je změnit",
     "additionEmpty": "Žádný soubor se nenahrál — zkuste to znovu",
     "additionTaskClosed": "Úkol je uzavřený — soubory už k němu přidat nelze",
-    "closingAdditionInvalid": "Komentář se nepodařilo uložit — obnovte stránku a uzavřete úkol znovu"
+    "closingAdditionInvalid": "Komentář se nepodařilo uložit — obnovte stránku a uzavřete úkol znovu",
+    "boardColumnNotFound": "Sloupec nenalezen — možná byl smazán",
+    "boardColumnTitleInvalid": "Název sloupce má 1 až {{max}} znaků",
+    "boardTooManyColumns": "Nástěnka má nejvýše {{max}} sloupců",
+    "boardColumnLast": "Poslední sloupec nástěnky nelze smazat",
+    "boardColumnHasCards": "Ve sloupci jsou karty ({{count}}): vyberte, kam je přesunout",
+    "boardTransferInvalid": "Nástěnku lze předat jen aktivnímu manažerovi nebo administrátorovi firmy",
+    "problemDueInvalid": "Termín je od včerejška do jednoho roku dopředu",
+    "problemDueOfficeOnly": "Termín nastavuje jen kancelář"
   },
   "push": {
     "cleaning_new": {
@@ -3612,7 +3672,11 @@
     "windowUntil": "do {{time}}",
     "messageFrom": "{{place}} · {{author}}",
     "releaseBody": "{{place}}, {{date}} · {{person}}",
-    "unknownPlace": "Objekt {{id}}"
+    "unknownPlace": "Objekt {{id}}",
+    "board_transferred": {
+      "title": "Byla vám předána nástěnka",
+      "body": "{{board}}"
+    }
   },
   "iosPermissions": {
     "camera": "Aplikace fotoaparátem pořizuje fotky a videa práce — před ní a po ní.",

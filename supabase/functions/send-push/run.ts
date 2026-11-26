@@ -20,7 +20,14 @@
  */
 
 import { isRecord } from "../_shared/coerce.ts";
-import { type Batch, type CardTitles, type PushGroup, type PushKind, readBatch } from "./batch.ts";
+import {
+  type Batch,
+  type BoardTitles,
+  type CardTitles,
+  type PushGroup,
+  type PushKind,
+  readBatch,
+} from "./batch.ts";
 import {
   type ExpoMessage,
   ExpoMixedProjectsError,
@@ -131,6 +138,9 @@ function pushData(folded: Folded): Record<string, unknown> {
       return { kind: "problem_new", problemId: folded.problemId };
     case "card":
       return { kind: "board_card_assigned", cardId: folded.cardId };
+    case "board":
+      // A build that does not know the kind reads this as nothing: a tap opens the app.
+      return { kind: "board_transferred", boardId: folded.boardId };
   }
 }
 
@@ -147,6 +157,8 @@ function kindOf(folded: Folded): PushKind {
       return "problem_new";
     case "card":
       return "board_card_assigned";
+    case "board":
+      return "board_transferred";
   }
 }
 
@@ -391,12 +403,12 @@ async function withCardTitles(batch: Batch, db: PushDatabase, options: RunOption
     const raw = await call(db, "push_board_card_titles", { p_card_ids: ids });
     for (const row of Array.isArray(raw) ? raw : []) {
       if (
-        isRecord(row) && typeof row.card_id === "string" && typeof row.card_title === "string" &&
-        typeof row.board_title === "string"
+        isRecord(row) && typeof row.card_id === "string" && typeof row.card_title === "string"
       ) {
         cards.set(row.card_id, {
           card: row.card_title,
-          board: row.board_title,
+          // Null on a board its assignee does not see (20261126120000): the card is named alone.
+          board: typeof row.board_title === "string" ? row.board_title : null,
           assigneeId: typeof row.assignee_id === "string" ? row.assignee_id : null,
           isLive: row.is_live === true,
         });
@@ -407,6 +419,46 @@ async function withCardTitles(batch: Batch, db: PushDatabase, options: RunOption
     return batch;
   }
   return { ...batch, groups: batch.groups.map((group) => ({ ...group, cards })) };
+}
+
+/** The board ids the batch's handed-over rows name, each once. */
+function boardIds(batch: Batch): string[] {
+  const ids = batch.groups.flatMap((group) =>
+    group.rows.flatMap((row) => {
+      const id = row.params.board_id;
+      return row.kind === "board_transferred" && typeof id === "string" && id !== "" ? [id] : [];
+    })
+  );
+  return [...new Set(ids)];
+}
+
+/**
+ * The boards a batch speaks of, read now (push_board_titles, 20261126120000): a board's title lives
+ * in its table and never in the queue, and whether the push is still news is told by who owns it
+ * now. A read that fails is reported, and those pushes are set aside as failed — the next run asks
+ * again, within the push's lifetime.
+ */
+async function withBoardTitles(batch: Batch, db: PushDatabase, options: RunOptions): Promise<Batch> {
+  const ids = boardIds(batch);
+  if (ids.length === 0) {
+    return batch;
+  }
+  const boards = new Map<string, BoardTitles>();
+  try {
+    const raw = await call(db, "push_board_titles", { p_board_ids: ids });
+    for (const row of Array.isArray(raw) ? raw : []) {
+      if (isRecord(row) && typeof row.board_id === "string" && typeof row.board_title === "string") {
+        boards.set(row.board_id, {
+          board: row.board_title,
+          ownerId: typeof row.owner_id === "string" ? row.owner_id : null,
+        });
+      }
+    }
+  } catch (error) {
+    options.error("send-push: the boards could not be read; their pushes go in the next run", error);
+    return batch;
+  }
+  return { ...batch, groups: batch.groups.map((group) => ({ ...group, boards })) };
 }
 
 /**
@@ -420,6 +472,10 @@ function prepare(group: PushGroup, options: RunOptions): Outgoing | Settlement {
   try {
     if (group.cards === undefined && group.rows.some((row) => row.kind === "board_card_assigned")) {
       // Its card could not be read: whether it is still news is unknown — the next run asks again.
+      return settlement(group, "failed");
+    }
+    if (group.boards === undefined && group.rows.some((row) => row.kind === "board_transferred")) {
+      // Its board could not be read: whether it is still news is unknown — the next run asks again.
       return settlement(group, "failed");
     }
     const folded = fold(group);
@@ -534,7 +590,11 @@ export async function runSendPush(
     }
     summary.batches += 1;
 
-    const batch = await withCardTitles(readBatch(raw), db, options);
+    const batch = await withBoardTitles(
+      await withCardTitles(readBatch(raw), db, options),
+      db,
+      options,
+    );
     const settlements = await runBatch(batch, expo, options, deadline);
     await call(db, "record_push_results", { p_results: settlements });
     for (const settlement of settlements) {

@@ -287,3 +287,11 @@ Deno.test("a card given to her names the board and the card in every language, a
   assertEquals(renderPush(card({ card: "Dlažba", board: "Opravy" }), group("cs")).title, "Byla vám přidělena karta");
   assertEquals(renderPush(card({ card: null, board: null }), group("en")), { title: "Card assigned to you", body: "" });
 });
+
+Deno.test("a board handed over is said in every language, with its title or without", () => {
+  const handed = { type: "board", boardId: "b1", board: "Opravy" } as const;
+  assertEquals(renderPush(handed, group("ru")), { title: "Вам передана доска", body: "Opravy" });
+  assertEquals(renderPush(handed, group("en")).title, "A board was handed to you");
+  assertEquals(renderPush(handed, group("cs")).title, "Byla vám předána nástěnka");
+  assertEquals(renderPush({ ...handed, board: null }, group("ru")).body, "");
+});

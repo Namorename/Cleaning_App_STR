@@ -16,6 +16,7 @@
 import type { Language, Place, PushGroup } from "./batch.ts";
 import type {
   Folded,
+  FoldedBoard,
   FoldedCard,
   FoldedChat,
   FoldedDigest,
@@ -220,6 +221,15 @@ function renderCard(texts: Texts, folded: FoldedCard): PushText {
   return { title, body: say(texts, "board_card_assigned.body", { board: folded.board, card: folded.card }) };
 }
 
+/** «Вам передана доска»: the board as it is called now. */
+function renderBoard(texts: Texts, folded: FoldedBoard): PushText {
+  const title = say(texts, "board_transferred.title");
+  if (folded.board === null) {
+    return { title, body: "" };
+  }
+  return { title, body: say(texts, "board_transferred.body", { board: folded.board }) };
+}
+
 export function renderPush(folded: Folded, group: PushGroup): PushText {
   const texts = textsFor(group.language);
   switch (folded.type) {
@@ -233,5 +243,7 @@ export function renderPush(folded: Folded, group: PushGroup): PushText {
       return renderProblem(texts, folded, group);
     case "card":
       return renderCard(texts, folded);
+    case "board":
+      return renderBoard(texts, folded);
   }
 }
