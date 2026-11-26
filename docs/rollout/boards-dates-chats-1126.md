@@ -95,3 +95,14 @@ Wagner выключить, карточки из чатов убрать. Сло
   обновления карточки не показывались — запасные колонки по этапам; сортировка очереди считала пояс в
   каждом сравнении) и LOW по списку обзоров.
 | 16:58 | `main` `6a40772` (слово владельца 26.11, CORE) | у добавленных колонок своя полоса (палитра карточек по порядку создания), названия карточек и заданий крупнее (доски, «Задания техников», список), без надписи под «Карточки из чатов»; Vercel Production Ready `woom-8o96nyjcy`; телефон не менялся — OTA не нужна |
+| 18:37:12 | `20261126140000_api_boards` под заставой (sha `ba75d3ed…`, голова `20261126130000`, сухой прогон = ровно он; `150000` вынесен из каталога) | доски в API v1 и MCP: `boards:read`, `boards:create_cards`; проба `docs/rollout/probe_api_boards_purge_1126.sql`: три `api_v1_*` — только `service_role`, помощники — никому |
+| 18:37:57 | `20261126150000_archive_purge` под заставой (sha `1dcafcdd…` сверен после возврата, голова `20261126140000`) | удаление навсегда из архивов (админ): `delete_archived_board`, `delete_shelved_board_card`, `delete_archived_problem` — `authenticated`; очередь файлов `raw.task_media_orphans` — только `service_role`, как все `raw`; триггер `task_media_queue_orphan`; `migration list --linked` = репозиторий |
+| 18:39 | функции `api` (было v8) и `mcp` (было v7) из `581851c` | без ключа 401; `oauth` и `_shared` не менялись |
+| 19:07 | `main` `04b8ef6..581851c`, Vercel Production Ready `woom-2voozbjzv`, `/login` 200 | панель: «Удалить навсегда» в архивах (админ), «В архив» в меню карточки «Задания техников»; телефон не менялся — OTA не нужна. Живой MCP: подключение «Claude Roma» (оператор) получило `boards:read` и `boards:create_cards` |
+
+Откат (обратный порядок): `git revert 581851c` в `main` → функции `api` и `mcp` из `04b8ef6` →
+`docs/one-off-writes/archive-purge-rollback.sql` (сначала `purge-task-media`, если очередь не пуста;
+удалённое не возвращается) + `migration repair --status reverted 20261126150000` →
+`docs/one-off-writes/api-boards-rollback.sql` + repair `20261126140000`. Обзоры: API — без CRITICAL/HIGH
+(MEDIUM `updated_since` у карточек не видел шагов — исправлено; LOW `maxItems: 100` — исправлено);
+удаление — без CRITICAL/HIGH (LOW: после отказа страница задания перечитывается — исправлено).
