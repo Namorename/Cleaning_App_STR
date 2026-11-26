@@ -1,4 +1,12 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
+
+// Who reads the page: an admin may delete an archived task for good (20261126150000).
+let signedIn: { app_metadata: Record<string, unknown> } | null = null;
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: async () => ({
+    auth: { getUser: async () => ({ data: { user: signedIn } }) },
+  }),
+}));
 
 import ProblemPage from '../(panel)/problems/[id]/page';
 
@@ -8,7 +16,7 @@ const ID = '11111111-1111-4111-8111-111111111111';
 async function pageFor(id: string) {
   try {
     const element = await ProblemPage({ params: Promise.resolve({ id }) });
-    return element.props as { problemId: string };
+    return element.props as { problemId: string; isAdmin: boolean };
   } catch (error) {
     return (error as { digest?: string }).digest ?? '';
   }
@@ -20,8 +28,11 @@ async function pageFor(id: string) {
  * conversation they share it with: problem-detail.test.tsx.
  */
 describe('/problems/<id>', () => {
-  test('hands the page the task’s id and nothing else', async () => {
-    expect(await pageFor(ID)).toEqual({ problemId: ID });
+  test('hands the page the task’s id and whether its reader is an admin', async () => {
+    signedIn = { app_metadata: { role: 'manager' } };
+    expect(await pageFor(ID)).toEqual({ problemId: ID, isAdmin: false });
+    signedIn = { app_metadata: { role: 'admin' } };
+    expect(await pageFor(ID)).toEqual({ problemId: ID, isAdmin: true });
   });
 
   test('a malformed id is a 404, not a query', async () => {

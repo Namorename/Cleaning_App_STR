@@ -61,6 +61,8 @@ import {
   useBoardCards,
   useBoardColumns,
   useBoards,
+  useDeleteArchivedBoard,
+  useDeleteShelvedCard,
   useDuplicateCard,
   useForgetBoard,
   useMoveCard,
@@ -80,7 +82,9 @@ interface ManagerBoardViewProps {
  * filters, its own columns (20261126120000), and the archive. Every manager and
  * admin who sees it works on its cards; the board itself — its name, who sees
  * it, its columns, its owner, its archive — is its owner's and an admin's, and
- * its menu is shown to them alone, without a word to anybody else.
+ * its menu is shown to them alone, without a word to anybody else. Only an
+ * admin deletes for good what is in an archive (20261126150000): the archived
+ * board, and an archived or deleted card — each after a question.
  */
 export function ManagerBoardView({ boardId, viewer }: ManagerBoardViewProps) {
   const { t } = useTranslation();
@@ -126,8 +130,8 @@ interface Shelved {
   shelf: CardShelf;
 }
 
-/** The board's own dialogs, one at a time: its owner's and an admin's. */
-type BoardDialog = 'settings' | 'columns' | 'transfer' | 'archive';
+/** The board's own dialogs, one at a time: its owner's and an admin's («purge» an admin's alone). */
+type BoardDialog = 'settings' | 'columns' | 'transfer' | 'archive' | 'purge';
 
 interface BoardPageProps {
   board: Board;
@@ -169,6 +173,11 @@ function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
   const archiveBoard = useSetBoardArchived();
   const people = useOfficePeople();
   const forgetBoard = useForgetBoard();
+  const purgeBoard = useDeleteArchivedBoard();
+  const purgeCard = useDeleteShelvedCard();
+  // The card «Удалить навсегда» asks about; kept while its question fades out.
+  const [purging, setPurging] = useState<BoardCard | null>(null);
+  const [isPurgeAsked, setIsPurgeAsked] = useState(false);
 
   const today = todayIso();
   const presetName: PresetName = (key) => t(`problems.statuses.${key}`);
@@ -179,6 +188,7 @@ function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
   const canWork = canWorkOn(board);
   const mayRestoreBoard =
     board.archived_at !== null && (viewer.isAdmin || board.owner_id === viewer.id);
+  const mayPurgeBoard = board.archived_at !== null && viewer.isAdmin;
   const isFiltered = hasCardFilters(filters);
   const matching = cards.filter((card) => matchesCardFilters(card, filters, today));
   const onBoard = matching.filter((card) => shelfOf(card) === 'active');
@@ -262,6 +272,34 @@ function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
     setNotice(t('boards.transferDone', { name }));
   };
 
+  // An archived board deleted for good: it leaves the list at once and the technicians' board
+  // takes its place, as after a handover of a private board.
+  const purgeThisBoard = () =>
+    purgeBoard.mutate(board.id, {
+      ...outcome(() => {
+        forgetBoard(board.id);
+        router.push(boardHref(null));
+      }),
+      onSettled: () => setDialog(null),
+    });
+
+  const askPurgeCard = (card: BoardCard) => {
+    setPurging(card);
+    setIsPurgeAsked(true);
+  };
+  const purgeAskedCard = () => {
+    if (purging === null) {
+      return;
+    }
+    const { title } = purging;
+    setShelved(null);
+    setNotice(null);
+    purgeCard.mutate(purging.id, {
+      ...outcome(() => setNotice(`${t('boards.cardPurged')} · ${title}`)),
+      onSettled: () => setIsPurgeAsked(false),
+    });
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -301,16 +339,31 @@ function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
       {board.archived_at !== null ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted p-3 text-sm">
           <span>{t('boards.boardArchivedNote')}</span>
-          {mayRestoreBoard ? (
-            <Button
-              type="button"
-              className="h-11"
-              disabled={archiveBoard.isPending}
-              onClick={() => archiveBoard.mutate({ boardId: board.id, archived: false }, outcome())}
-            >
-              {t('boards.restoreBoard')}
-            </Button>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {mayRestoreBoard ? (
+              <Button
+                type="button"
+                className="h-11"
+                disabled={archiveBoard.isPending || purgeBoard.isPending}
+                onClick={() =>
+                  archiveBoard.mutate({ boardId: board.id, archived: false }, outcome())
+                }
+              >
+                {t('boards.restoreBoard')}
+              </Button>
+            ) : null}
+            {mayPurgeBoard ? (
+              <Button
+                type="button"
+                variant="destructive"
+                className="h-11"
+                disabled={archiveBoard.isPending || purgeBoard.isPending}
+                onClick={() => setDialog('purge')}
+              >
+                {t('boards.purgeBoard')}
+              </Button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -363,7 +416,8 @@ function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
             cardHref={cardHref}
             onOpen={openCard}
             onRestore={canWork ? (card) => putOn(card, 'active') : undefined}
-            isBusy={shelve.isPending}
+            onPurge={viewer.isAdmin ? askPurgeCard : undefined}
+            isBusy={shelve.isPending || purgeCard.isPending}
           />
         </TabsContent>
       </Tabs>
@@ -463,6 +517,28 @@ function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
           )
         }
         onClose={() => setDialog(null)}
+      />
+      <ConfirmMoveDialog
+        open={dialog === 'purge'}
+        title={t('boards.purgeBoard')}
+        description={t('boards.purgeBoardText', { title: board.title })}
+        confirmLabel={t('boards.purgeConfirm')}
+        abortLabel={t('boards.cancel')}
+        isDestructive
+        isBusy={purgeBoard.isPending}
+        onConfirm={purgeThisBoard}
+        onClose={() => setDialog(null)}
+      />
+      <ConfirmMoveDialog
+        open={isPurgeAsked}
+        title={t('boards.purgeCardTitle')}
+        description={t('boards.purgeCardText', { title: purging?.title ?? '' })}
+        confirmLabel={t('boards.purgeConfirm')}
+        abortLabel={t('boards.cancel')}
+        isDestructive
+        isBusy={purgeCard.isPending}
+        onConfirm={purgeAskedCard}
+        onClose={() => setIsPurgeAsked(false)}
       />
     </div>
   );

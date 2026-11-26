@@ -149,13 +149,13 @@ describe('preset rule of the panel = the database rule (supabase/tests/api_v1.sq
 
   test('read only: every ordinary read scope', () => {
     expect(rule('read_only')).toBe(
-      'bookings:read,cleanings:read,media:read,properties:read,settings:read,staff:read,tasks:read',
+      'boards:read,bookings:read,cleanings:read,media:read,properties:read,settings:read,staff:read,tasks:read',
     );
   });
 
-  test('operator: reading, and creating and assigning tasks and cleanings', () => {
+  test('operator: reading, creating and assigning tasks and cleanings, adding board cards', () => {
     expect(rule('operator')).toBe(
-      'bookings:read,cleanings:assign,cleanings:read,media:read,properties:read,settings:read,staff:read,tasks:assign,tasks:create,tasks:read',
+      'boards:create_cards,boards:read,bookings:read,cleanings:assign,cleanings:read,media:read,properties:read,settings:read,staff:read,tasks:assign,tasks:create,tasks:read',
     );
   });
 

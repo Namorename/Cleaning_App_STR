@@ -38,6 +38,9 @@ const MCP_PORT = 8788;
 const DEMO_ADMIN = "a2899999-0000-4000-8000-000000000001";
 const OTHER_HOST = "a2899999-0000-4000-8000-00000000000b";
 const OTHER_ADMIN = "a2899999-0000-4000-8000-000000000002";
+// A board of the demo admin's alone, with the four columns every new board gets (20261126120000).
+const STAND_BOARD = "a2899999-0000-4000-8000-0000000000b1";
+const STAND_BOARD_TITLE = "API stand board";
 
 function argOf(name: string): string | null {
   const i = Deno.args.indexOf(name);
@@ -161,6 +164,10 @@ await db.unsafe(
 );
 await db.unsafe(`update public.profiles set host_id = $1 where id = $2`, [host, DEMO_ADMIN]);
 await db.unsafe(`update public.profiles set host_id = $1 where id = $2`, [OTHER_HOST, OTHER_ADMIN]);
+await db.unsafe(
+  `insert into public.manager_boards (id, host_id, title, owner_id, shared) values ($1, $2, $3, $4, false)`,
+  [STAND_BOARD, host, STAND_BOARD_TITLE, DEMO_ADMIN],
+);
 const firstProperty = (await db.unsafe(
   "select id from public.properties where host_id = $1 and parent_id is null order by id limit 1",
   [host],
@@ -389,6 +396,38 @@ async function contract(k: Record<string, string>): Promise<number> {
       await call("a cleaning to a technician", "/v1/cleanings/{id}/assign", `/v1/cleanings/${open.id}/assign`, write(k.operator, { assignee_id: tech.id }, "stand-4"), 422, "rejected");
     }
   }
+
+  // The managers' boards (20261126140000): read, and a card on a board named by its title.
+  const boards = await call("boards", "/v1/boards", "/v1/boards?limit=2", auth(k.read_only), 200);
+  if (typeof boards?.next_cursor === "string") {
+    await call("boards, page 2", "/v1/boards", `/v1/boards?limit=2&cursor=${boards.next_cursor}`, auth(k.read_only), 200);
+  }
+  const named = await call("a board by its title", "/v1/boards", `/v1/boards?title=${encodeURIComponent(" api STAND board ")}`, auth(k.read_only), 200);
+  if (((named?.data ?? []) as Json[]).map((b) => b.id).join() !== STAND_BOARD) {
+    failures += 1;
+    console.log("FAIL the title filter did not find the stand's board alone");
+  }
+  const card = await call(
+    "a card on a board named by its title",
+    "/v1/board-cards",
+    "/v1/board-cards",
+    write(k.operator, { board_title: STAND_BOARD_TITLE.toLowerCase(), title: "API stand: order tiles", steps: ["Measure", "Ask for a quote"] }, "stand-5"),
+    201,
+  );
+  const cardData = (card?.data ?? {}) as Json;
+  if (cardData.board_id !== STAND_BOARD || cardData.steps_total !== 2 || cardData.column_name !== "open") {
+    failures += 1;
+    console.log("FAIL the card is not on the named board's first column with its steps");
+  }
+  const cards = await call("the board's cards", "/v1/boards/{id}/cards", `/v1/boards/${STAND_BOARD}/cards`, auth(k.read_only), 200);
+  if (!((cards?.data ?? []) as Json[]).some((c) => c.id === cardData.id)) {
+    failures += 1;
+    console.log("FAIL the board's cards do not list the new card");
+  }
+  await call("a board nobody has", "/v1/board-cards", "/v1/board-cards", write(k.operator, { board_title: "No such board (stand)", title: "x" }, "stand-6"), 404, "not-found");
+  await call("read only adds no card", "/v1/board-cards", "/v1/board-cards", write(k.read_only, { board_title: STAND_BOARD_TITLE, title: "x" }, "stand-7"), 403, "insufficient-scope");
+  await call("custom reads no board", "/v1/boards", "/v1/boards", auth(k.custom), 403, "insufficient-scope");
+  await call("another company's board", "/v1/boards/{id}/cards", `/v1/boards/${STAND_BOARD}/cards`, auth(k.other), 404, "not-found");
 
   console.log(`${checked - failures}/${checked} answers fit the spec`);
   return failures;

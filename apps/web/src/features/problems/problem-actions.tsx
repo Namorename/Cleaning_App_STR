@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { serverErrorText } from '@/lib/server-error';
 
 import { FalsePositiveDialog } from './false-positive-dialog';
+import { ProblemPurge } from './problem-purge';
 import { ResolveDialog } from './resolve-dialog';
 import {
   isFromGuestSignal,
@@ -47,8 +48,13 @@ type PendingAction = 'resolve' | 'cancel' | 'archive' | 'falsePositive' | null;
 
 interface ProblemActionsProps {
   problem: Problem;
-  /** After «Ложное срабатывание» deleted the task: there is no page left to stay on. */
+  /**
+   * After «Ложное срабатывание» or «Удалить навсегда» deleted the task: there is no page left to
+   * stay on.
+   */
   onDeleted?: () => void;
+  /** An admin deletes an archived task for good (20261126150000); nobody else sees the button. */
+  isAdmin?: boolean;
 }
 
 /**
@@ -61,9 +67,10 @@ interface ProblemActionsProps {
  * else waits until the problem is back. Cancelling asks for a reason and
  * archiving for confirmation, each in a dialog of its own. A task a guest's
  * review or message brought in has «Ложное срабатывание» in the menu too
- * (the owner's decision 8), live or closed.
+ * (the owner's decision 8), live or closed. An archived task shows an admin
+ * «Удалить навсегда» under «Восстановить из архива», behind its own question.
  */
-export function ProblemActions({ problem, onDeleted }: ProblemActionsProps) {
+export function ProblemActions({ problem, onDeleted, isAdmin = false }: ProblemActionsProps) {
   const { t } = useTranslation();
   const resolve = useResolveProblem();
   const cancel = useCancelProblem();
@@ -154,6 +161,7 @@ export function ProblemActions({ problem, onDeleted }: ProblemActionsProps) {
           </DropdownMenu>
         )}
       </div>
+      {isArchived && isAdmin ? <ProblemPurge problem={problem} onDeleted={onDeleted} /> : null}
       {failure !== null ? (
         <p role="alert" className="text-sm text-destructive">
           {failure.text}

@@ -46,6 +46,8 @@ const PROBLEM_STATUS = ["open", "assigned", "in_progress", "resolved", "cancelle
 const PROBLEM_PRIORITY = ["low", "normal", "high", "critical"];
 const STAFF_ROLE = ["cleaner", "tech", "head_tech", "reception", "manager", "admin"];
 const CHANNEL = ["airbnb", "booking", "vrbo", "direct", "google", "other"];
+// The card palette (packages/shared/src/boards, CARD_COLORS); save_manager_card checks the same.
+const CARD_COLOR = ["blue", "sky", "teal", "green", "olive", "violet", "orchid", "slate"];
 
 const PATH_UUID = (arg: string): ParamSpec => ({ name: "id", arg, kind: "uuid", required: true });
 const PATH_ID = (arg: string): ParamSpec => ({ name: "id", arg, kind: "id", required: true });
@@ -294,6 +296,58 @@ export const ROUTES: readonly Route[] = [
     fn: "api_v1_get_settings",
     kind: "item",
     params: [],
+  },
+  {
+    operationId: "listBoards",
+    method: "GET",
+    path: "/v1/boards",
+    scope: "boards:read",
+    fn: "api_v1_list_boards",
+    kind: "list",
+    params: [
+      { name: "title", arg: "p_title", kind: "text", maxLength: 80 },
+      { name: "include_archived", arg: "p_include_archived", kind: "boolean" },
+    ],
+    cursor: byField("_sort", "p_after_created", "datetime", "uuid"),
+  },
+  {
+    operationId: "listBoardCards",
+    method: "GET",
+    path: "/v1/boards/{id}/cards",
+    scope: "boards:read",
+    fn: "api_v1_list_board_cards",
+    kind: "list",
+    params: [
+      PATH_UUID("p_board_id"),
+      { name: "column_id", arg: "p_column_id", kind: "uuid" },
+      { name: "assignee_id", arg: "p_assignee_id", kind: "uuid" },
+      { name: "property_id", arg: "p_property_id", kind: "id" },
+      { name: "include_archived", arg: "p_include_archived", kind: "boolean" },
+      UPDATED_SINCE,
+    ],
+    cursor: byField("_sort", "p_after_created", "datetime", "uuid"),
+  },
+  {
+    operationId: "createBoardCard",
+    method: "POST",
+    path: "/v1/board-cards",
+    scope: "boards:create_cards",
+    fn: "api_v1_create_board_card",
+    kind: "write",
+    params: [],
+    body: [
+      { name: "title", arg: "p_title", kind: "text", required: true, maxLength: 200 },
+      { name: "board_id", arg: "p_board_id", kind: "uuid", nullable: true },
+      { name: "board_title", arg: "p_board_title", kind: "text", nullable: true, maxLength: 80 },
+      { name: "column_id", arg: "p_column_id", kind: "uuid", nullable: true },
+      { name: "column_name", arg: "p_column_name", kind: "text", nullable: true, maxLength: 40 },
+      { name: "description", arg: "p_description", kind: "text", nullable: true, maxLength: 10000 },
+      { name: "due_on", arg: "p_due_on", kind: "date", nullable: true },
+      { name: "property_id", arg: "p_property_id", kind: "id", nullable: true },
+      { name: "color", arg: "p_color", kind: "text", nullable: true, enum: CARD_COLOR },
+      { name: "steps", arg: "p_steps", kind: "textList", nullable: true, maxLength: 500, maxItems: 100 },
+    ],
+    objectIdOf: writeId,
   },
 ];
 

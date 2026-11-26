@@ -8,11 +8,16 @@ import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 import { cardMove } from './board-moves';
 import type { ResolveChoice } from './resolve-dialog';
 import { liveFixTask, type BoardStatus, type Problem } from './schema';
-import { useReopenProblem, useResolveProblem, useUnassignProblem } from './use-problems';
+import {
+  useArchiveProblem,
+  useReopenProblem,
+  useResolveProblem,
+  useUnassignProblem,
+} from './use-problems';
 
-/** A move that needs the manager's word before anything is sent. */
+/** A move that needs the manager's word before anything is sent; «В архив» is one too. */
 export interface PendingMove {
-  kind: 'assign' | 'resolve' | 'unassign';
+  kind: 'assign' | 'resolve' | 'unassign' | 'archive';
   problem: Problem;
 }
 
@@ -37,26 +42,32 @@ export interface BoardMoves {
   /** The refusal of a closing that carried a comment or files; the dialog shows it. */
   resolveError: unknown;
   isUnassigning: boolean;
+  isArchiving: boolean;
   /** What a drop on a column — or the menu's «Перевести в …» — does. */
   moveTo: (problem: Problem, status: BoardStatus) => void;
+  /** «В архив» from the card's menu: asks first, as the task's page does. */
+  askArchive: (problem: Problem) => void;
   /** A drag that may not go where it went: the line says where it is done. */
   refuse: () => void;
   closePending: () => void;
   /** Who did the work; null: nobody, the manager did it alone. */
   confirmResolve: (choice: ResolveChoice) => void;
   confirmUnassign: () => void;
+  confirmArchive: () => void;
 }
 
 /**
  * The board's moves and the questions they ask (5.4; owner, 05.10): assigning
  * opens the technician form, resolving and taking the technician off ask
- * first, reopening a resolved card goes at once.
+ * first, reopening a resolved card goes at once. «В архив» (owner, 2026-11-26)
+ * asks the question of the task's page and sends archive_problem, as it does.
  */
 export function useBoardMoves(): BoardMoves {
   const { t } = useTranslation();
   const resolve = useResolveProblem();
   const unassign = useUnassignProblem();
   const reopen = useReopenProblem();
+  const archive = useArchiveProblem();
   const [pending, setPending] = useState<PendingMove | null>(null);
   const [shown, setShown] = useState<PendingMove | null>(null);
   const [notice, setNotice] = useState<BoardNotice | null>(null);
@@ -64,7 +75,7 @@ export function useBoardMoves(): BoardMoves {
     setShown(pending);
   }
 
-  const failed = [resolve, unassign, reopen].find((mutation) => mutation.isError);
+  const failed = [resolve, unassign, reopen, archive].find((mutation) => mutation.isError);
   const say = (text: string | null) =>
     setNotice((last) => (text === null ? null : { text, count: (last?.count ?? 0) + 1 }));
   // The line shows the first mutation that failed, whenever it did: a new
@@ -73,6 +84,7 @@ export function useBoardMoves(): BoardMoves {
     resolve.reset();
     unassign.reset();
     reopen.reset();
+    archive.reset();
   };
   // A request answers the question that sent it: a later one, opened while it
   // was on its way, is not the answer's to close.
@@ -87,6 +99,7 @@ export function useBoardMoves(): BoardMoves {
     isResolving: resolve.isPending,
     resolveError: resolve.isError ? resolve.error : null,
     isUnassigning: unassign.isPending,
+    isArchiving: archive.isPending,
     moveTo: (problem, status) => {
       clearOutcome();
       const move = cardMove(problem, status);
@@ -96,6 +109,11 @@ export function useBoardMoves(): BoardMoves {
       } else if (move !== null) {
         setPending({ kind: move, problem });
       }
+    },
+    askArchive: (problem) => {
+      clearOutcome();
+      say(null);
+      setPending({ kind: 'archive', problem });
     },
     refuse: () => {
       clearOutcome();
@@ -125,6 +143,15 @@ export function useBoardMoves(): BoardMoves {
             onSettled: closeIf(pending),
           },
         );
+      }
+    },
+    confirmArchive: () => {
+      if (pending?.kind === 'archive') {
+        const { problem } = pending;
+        archive.mutate(problem.id, {
+          onSuccess: () => say(t('panel.problems.board.archived', { title: problem.title })),
+          onSettled: closeIf(pending),
+        });
       }
     },
   };

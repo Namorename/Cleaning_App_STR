@@ -12,8 +12,10 @@ vi.mock('../api', async (importOriginal) => ({
   resolveProblem: vi.fn(async () => ({})),
   archiveProblem: vi.fn(async () => ({})),
   setProblemDueDate: vi.fn(async () => ({})),
+  deleteArchivedProblem: vi.fn(async () => true),
 }));
 
+import { chatKeys } from '@/features/chat/keys';
 import { taskKeys } from '@/features/tasks/keys';
 
 import { problemKeys } from '../keys';
@@ -21,6 +23,7 @@ import {
   useArchiveProblem,
   useAssignProblem,
   useCancelProblem,
+  useDeleteArchivedProblem,
   useResolveProblem,
   useSetProblemDueDate,
 } from '../use-problems';
@@ -94,5 +97,22 @@ describe('a write on a problem', () => {
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: problemKeys.all });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.all });
+  });
+});
+
+// «Удалить навсегда» (20261126150000): the lists, the repairs and the unread marks lose the task;
+// its own page is not read again — it would find nothing, and the page that asked leaves it.
+describe('a task deleted for good', () => {
+  test('wakes the lists, the tasks and the unread marks, not the task’s own page', async () => {
+    const { result, invalidate } = renderWithCache(() => useDeleteArchivedProblem());
+
+    await act(async () => {
+      await result.current.mutateAsync(PROBLEM);
+    });
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: problemKeys.list() });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.all });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: chatKeys.unread() });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: problemKeys.all });
   });
 });

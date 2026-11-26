@@ -32,7 +32,8 @@ interface ProblemsBoardProps {
  * moving back to "open" asks first and takes the technician off the job
  * (unassign_problem, with the person the card shows), and a resolved card
  * moved back to "open" is reopened. "In progress" belongs to the technician's
- * phone, so the menu does not offer it.
+ * phone, so the menu does not offer it. The menu also puts a card in the
+ * archive, with the question the task's page asks (owner, 2026-11-26).
  *
  * The mouse adds two of those moves (owner, 05.10): an open card dragged to
  * «Назначено» and an assigned one back to «Открыто», through the same form
@@ -81,6 +82,7 @@ export function ProblemsBoard({
               drop={drag.column(status)}
               drag={drag.card}
               onMove={moves.moveTo}
+              onArchive={moves.askArchive}
               unread={unread.problems}
               from={from}
             />
@@ -156,6 +158,17 @@ function BoardQuestions({ moves }: { moves: BoardMoves }) {
         isDestructive
         isBusy={moves.isUnassigning}
         onConfirm={moves.confirmUnassign}
+        onClose={moves.closePending}
+      />
+      <ConfirmMoveDialog
+        open={pending?.kind === 'archive'}
+        title={t('panel.problems.actions.archive')}
+        description={t('panel.problems.actions.archiveText')}
+        confirmLabel={t('panel.problems.actions.archiveConfirm')}
+        abortLabel={t('panel.problems.actions.archiveAbort')}
+        isDestructive
+        isBusy={moves.isArchiving}
+        onConfirm={moves.confirmArchive}
         onClose={moves.closePending}
       />
     </>

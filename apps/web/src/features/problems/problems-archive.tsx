@@ -17,6 +17,7 @@ import { useLanguage } from '@/lib/use-language';
 import { problemChatHref, problemHref, type ProblemsAddress } from './address';
 import { EMPTY_PROBLEM_FILTERS, filtersKey, type ProblemFilters } from './filters';
 import { ProblemClosing } from './problem-closing';
+import { ProblemPurge } from './problem-purge';
 import { problemPlace, type Problem } from './schema';
 import { ARCHIVE_PAGE, ShowMoreButton, useShowMore } from './show-more';
 import { useUnarchiveProblem } from './use-problems';
@@ -28,6 +29,8 @@ interface ProblemsArchiveProps {
   isFiltered?: boolean;
   /** What the archive is filtered by: a task's page carries it back. */
   filters?: ProblemFilters;
+  /** An admin deletes an archived task for good (20261126150000); nobody else sees the button. */
+  isAdmin?: boolean;
 }
 
 /**
@@ -36,12 +39,14 @@ interface ProblemsArchiveProps {
  * conversation, as in the list.
  *
  * The archive only grows, so it shows a page at a time (owner, 10.10), newest
- * reported first; «Показать ещё» under it brings the older ones.
+ * reported first; «Показать ещё» under it brings the older ones. An admin also
+ * has «Удалить навсегда» on each, behind a question (owner, 2026-11-26).
  */
 export function ProblemsArchive({
   problems,
   isFiltered = false,
   filters = EMPTY_PROBLEM_FILTERS,
+  isAdmin = false,
 }: ProblemsArchiveProps) {
   const { t } = useTranslation();
   const language = useLanguage();
@@ -97,15 +102,18 @@ export function ProblemsArchive({
               </span>
               <ProblemClosing problem={problem} className="text-muted-foreground" />
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={unarchive.isPending}
-              onClick={() => unarchive.mutate(problem.id)}
-            >
-              {t('panel.problems.actions.unarchive')}
-            </Button>
+            <div className="flex flex-wrap items-start gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={unarchive.isPending}
+                onClick={() => unarchive.mutate(problem.id)}
+              >
+                {t('panel.problems.actions.unarchive')}
+              </Button>
+              {isAdmin ? <ProblemPurge problem={problem} isCompact /> : null}
+            </div>
           </li>
         ))}
       </ul>

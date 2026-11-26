@@ -104,10 +104,13 @@ Deno.test("the spec lists every problem code the handler can answer, at its stat
   assertEquals(codes.slice().sort(), Object.keys(PROBLEMS).sort());
 });
 
+/** The writes that make something: they answer 201. */
+const CREATES: ReadonlySet<string> = new Set(["createTask", "createBoardCard"]);
+
 Deno.test("each operation documents its success and the errors every request can meet", () => {
   for (const route of ROUTES) {
     const responses = specOf(route.operationId).op.responses as Json;
-    const success = route.operationId === "createTask" ? "201" : "200";
+    const success = CREATES.has(route.operationId) ? "201" : "200";
     assert(responses[success] !== undefined, `${route.operationId} ${success}`);
     for (const status of ["401", "429", "500"]) {
       assert(responses[status] !== undefined, `${route.operationId} ${status}`);
@@ -173,6 +176,22 @@ const MEDIA = {
   duration_sec: 10.5, step_id: UUID, step_type: "video", status: "uploaded", created_by: UUID,
   device_taken_at: null, uploaded_at: TS, created_at: TS,
 };
+// A board with a preset column and one of the office's own, the last finishing.
+const BOARD = {
+  id: UUID, title: "Renovation", owner_id: UUID, shared: false, archived: false, archived_at: null,
+  created_at: TS, updated_at: TS,
+  columns: [
+    { id: UUID, name: "open", preset: "open", position: 1, is_done: false, stage: "open" },
+    { id: UUID, name: "Waiting for parts", preset: null, position: 5, is_done: false, stage: "in_progress" },
+    { id: UUID, name: "Done", preset: "resolved", position: 6, is_done: true, stage: "resolved" },
+  ],
+};
+const BOARD_CARD = {
+  id: UUID, board_id: UUID, column_id: UUID, column_name: "Waiting for parts", stage: "in_progress",
+  title: "Order tiles", description: null, text_masked: false, due_on: "2026-12-04", color: "teal",
+  property_id: 123456, assignee_id: UUID, created_by: UUID, steps_done: 1, steps_total: 2,
+  archived: false, deleted: false, moved_at: TS, archived_at: null, deleted_at: null, created_at: TS, updated_at: TS,
+};
 const ANSWERS: Record<string, unknown> = {
   api_v1_get_me: {
     key: { id: UUID, name: "Agent", prefix: "woom_BBBBBBB", preset: "read_only", scopes: ["cleanings:read"], property_ids: null, expires_at: null, created_at: TS },
@@ -197,11 +216,18 @@ const ANSWERS: Record<string, unknown> = {
     company_id: UUID, company_name: "Company", default_language: "en", video_max_sec: 180, video_max_mb: 140,
     video_bitrate_kbps: 2500, gallery_allowed: true, parallel_start_allowed: false, updated_at: TS,
   },
+  api_v1_list_boards: [{ ...BOARD, _sort: "2026-10-28T09:15:00.1+00:00" }],
+  api_v1_list_board_cards: [{ ...BOARD_CARD, _sort: "2026-10-28T09:15:00.1+00:00" }],
+  api_v1_create_board_card: { status: 201, body: BOARD_CARD, replayed: false },
 };
 const BODIES: Record<string, unknown> = {
   assignCleaning: { assignee_id: UUID },
   createTask: { title: "Dripping tap", priority: "high", property_id: 123456 },
   assignTask: { assignee_id: UUID, scheduled_date: "2026-11-05", time_from: "09:00" },
+  createBoardCard: {
+    board_title: "Renovation", column_name: "Waiting for parts", title: "Order tiles", due_on: "2026-12-04",
+    color: "teal", property_id: 123456, steps: ["Measure", "Ask for a quote"],
+  },
 };
 
 const handler = createApiHandler({

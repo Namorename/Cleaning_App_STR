@@ -4855,6 +4855,29 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      api_board_card_json: {
+        Args: {
+          p_card: Database["public"]["Tables"]["manager_board_cards"]["Row"]
+        }
+        Returns: Json
+      }
+      api_board_column_name: {
+        Args: {
+          p_column: Database["public"]["Tables"]["manager_board_columns"]["Row"]
+        }
+        Returns: string
+      }
+      api_board_json: {
+        Args: { p_board: Database["public"]["Tables"]["manager_boards"]["Row"] }
+        Returns: Json
+      }
+      api_board_visible: {
+        Args: {
+          p_board: Database["public"]["Tables"]["manager_boards"]["Row"]
+          p_ctx: Database["public"]["CompositeTypes"]["api_context"]
+        }
+        Returns: boolean
+      }
       api_booking_json: {
         Args: {
           p_allowed: number[]
@@ -5046,6 +5069,24 @@ export type Database = {
         }
         Returns: Json
       }
+      api_v1_create_board_card: {
+        Args: {
+          p_board_id?: string
+          p_board_title?: string
+          p_color?: string
+          p_column_id?: string
+          p_column_name?: string
+          p_description?: string
+          p_digest: string
+          p_due_on?: string
+          p_idempotency_key: string
+          p_property_id?: number
+          p_request_hash: string
+          p_steps?: Json
+          p_title: string
+        }
+        Returns: Json
+      }
       api_v1_create_task: {
         Args: {
           p_assignee_id?: string
@@ -5082,6 +5123,32 @@ export type Database = {
       }
       api_v1_get_task: {
         Args: { p_digest: string; p_id: string }
+        Returns: Json
+      }
+      api_v1_list_board_cards: {
+        Args: {
+          p_after_created?: string
+          p_after_id?: string
+          p_assignee_id?: string
+          p_board_id: string
+          p_column_id?: string
+          p_digest: string
+          p_include_archived?: boolean
+          p_limit?: number
+          p_property_id?: number
+          p_updated_since?: string
+        }
+        Returns: Json
+      }
+      api_v1_list_boards: {
+        Args: {
+          p_after_created?: string
+          p_after_id?: string
+          p_digest: string
+          p_include_archived?: boolean
+          p_limit?: number
+          p_title?: string
+        }
         Returns: Json
       }
       api_v1_list_bookings: {
@@ -5824,6 +5891,8 @@ export type Database = {
         }
       }
       default_host_id: { Args: never; Returns: string }
+      delete_archived_board: { Args: { p_id: string }; Returns: boolean }
+      delete_archived_problem: { Args: { p_id: string }; Returns: boolean }
       delete_manager_board_column: {
         Args: { p_id: string; p_move_to?: string }
         Returns: undefined
@@ -5834,6 +5903,7 @@ export type Database = {
         Args: { p_id: string; p_rev: number }
         Returns: undefined
       }
+      delete_shelved_board_card: { Args: { p_id: string }; Returns: boolean }
       delete_supply_request: { Args: { p_id: string }; Returns: boolean }
       duplicate_manager_card: {
         Args: { p_id: string; p_source_id: string; p_title: string }

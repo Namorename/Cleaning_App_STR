@@ -386,3 +386,88 @@ Deno.test("the REST API asks the gate about keys only; the MCP server names its 
   await mcp.handler(get("/v1/me"));
   assertEquals(mcp.calls.find((call) => call.fn === "api_gate")?.args.p_channel, "mcp");
 });
+
+// ---------- the managers' boards (20261126140000) ----------
+
+Deno.test("a card for a board named by its title: the fields and the steps reach the function", async () => {
+  const { handler, calls } = await setup({
+    api_v1_create_board_card: () => ({ data: { status: 201, body: { id: UUID } }, error: null }),
+  });
+  const created = await handler(post("/v1/board-cards", {
+    board_title: "Renovation",
+    title: "Order tiles",
+    column_name: "Waiting for parts",
+    due_on: "2026-12-04",
+    color: "teal",
+    steps: ["Measure", "Ask for a quote"],
+  }));
+  assertEquals(created.status, 201);
+  const args = calls.find((c) => c.fn === "api_v1_create_board_card")?.args ?? {};
+  assertEquals(
+    [args.p_board_title, args.p_title, args.p_column_name, args.p_due_on, args.p_color, args.p_steps],
+    ["Renovation", "Order tiles", "Waiting for parts", "2026-12-04", "teal", ["Measure", "Ask for a quote"]],
+  );
+  assertEquals(args.p_board_id, undefined);
+});
+
+Deno.test("steps must be a list of non-empty strings of at most 500, a hundred at most", async () => {
+  const { handler, calls } = await setup();
+  const refused = async (steps: unknown) => {
+    const response = await handler(post("/v1/board-cards", { board_title: "B", title: "T", steps }));
+    assertEquals(response.status, 400);
+    assertEquals((await response.json()).errors[0].name, "steps");
+  };
+  await refused("Measure");
+  await refused(["Measure", 3]);
+  await refused(["  "]);
+  await refused(["x".repeat(501)]);
+  await refused(Array.from({ length: 101 }, (_, i) => `step ${i}`));
+  assertEquals(calls.filter((c) => c.fn === "api_v1_create_board_card").length, 0);
+});
+
+Deno.test("an unknown colour is a 400; null steps and fields are taken", async () => {
+  const { handler, calls } = await setup({
+    api_v1_create_board_card: () => ({ data: { status: 201, body: { id: UUID } }, error: null }),
+  });
+  assertEquals((await handler(post("/v1/board-cards", { board_title: "B", title: "T", color: "red" }))).status, 400);
+  const taken = await handler(post("/v1/board-cards", { board_id: UUID, title: "T", steps: null, column_id: null }));
+  assertEquals(taken.status, 201);
+  const args = calls.find((c) => c.fn === "api_v1_create_board_card")?.args ?? {};
+  assertEquals([args.p_board_id, args.p_steps, args.p_column_id], [UUID, null, null]);
+});
+
+Deno.test("a board's refusals: an ambiguous title is 422 with the ids, an archived board 409", async () => {
+  const { handler } = await setup({
+    api_v1_create_board_card: (args) =>
+      args.p_board_title === "Kitchen"
+        ? {
+          data: null,
+          error: {
+            code: "23514",
+            message: "Several live boards have this title",
+            hint: "api:rejected",
+            details: JSON.stringify({ reason: "board-title-ambiguous", board_ids: [UUID] }),
+          },
+        }
+        : {
+          data: null,
+          error: { code: "23514", message: "Board is archived", hint: "serverErrors.boardArchived", details: null },
+        },
+  });
+  const ambiguous = await handler(post("/v1/board-cards", { board_title: "Kitchen", title: "T" }));
+  assertEquals(ambiguous.status, 422);
+  assertEquals((await ambiguous.json()).params, { reason: "board-title-ambiguous", board_ids: [UUID] });
+  const archived = await handler(post("/v1/board-cards", { board_id: UUID, title: "T" }));
+  assertEquals(archived.status, 409);
+  assertEquals((await archived.json()).reason, "serverErrors.boardArchived");
+});
+
+Deno.test("a board's cards: the board in the path, the filters by their argument names", async () => {
+  const { handler, calls } = await setup({ api_v1_list_board_cards: () => ({ data: [], error: null }) });
+  const listed = await handler(get(`/v1/boards/${UUID}/cards?include_archived=true&column_id=${UUID}`));
+  assertEquals(listed.status, 200);
+  const args = calls.find((c) => c.fn === "api_v1_list_board_cards")?.args ?? {};
+  assertEquals([args.p_board_id, args.p_include_archived, args.p_column_id], [UUID, true, UUID]);
+  assertEquals((await handler(get("/v1/boards/not-a-uuid/cards"))).status, 400);
+  assertEquals((await handler(get("/v1/board-cards"))).status, 405);
+});

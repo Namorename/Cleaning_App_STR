@@ -141,6 +141,8 @@ const CONFLICT_REASONS: ReadonlySet<string> = new Set([
   "serverErrors.taskMovedMeanwhile",
   "serverErrors.problemNotOpen",
   "serverErrors.problemArchived",
+  // A card on a board in the archive: the board may be returned.
+  "serverErrors.boardArchived",
 ]);
 
 const KNOWN_API_CODES: ReadonlySet<string> = new Set(Object.keys(PROBLEMS));

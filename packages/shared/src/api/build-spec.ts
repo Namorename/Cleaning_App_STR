@@ -121,7 +121,7 @@ const PRESET_TEXT: Readonly<Record<Preset, readonly [string, string, string]>> =
   ],
   operator: [
     '**Operator**',
-    'Read only, plus creating and assigning tasks and cleanings',
+    'Read only, plus creating and assigning tasks and cleanings and adding cards to boards',
     'new normal read scopes and new scopes marked for operators join it',
   ],
   full: [

@@ -435,3 +435,15 @@ export async function unarchiveProblem(client: Client, problemId: string): Promi
   }
   return problemSchema.parse(data);
 }
+
+/**
+ * «Удалить навсегда» (20261126150000): an admin deletes an archived task with everything on it.
+ * False: it was gone already — a repeat after a lost answer is harmless.
+ */
+export async function deleteArchivedProblem(client: Client, problemId: string): Promise<boolean> {
+  const { data, error } = await client.rpc('delete_archived_problem', { p_id: problemId });
+  if (error) {
+    throw error;
+  }
+  return data === true;
+}

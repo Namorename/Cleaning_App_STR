@@ -43,8 +43,9 @@ const NO_PROBLEMS: Problem[] = [];
  *
  * «Новое задание» stands in the header on every view (the owner, 09.10: the
  * panel had no way to create a task); the form lives only while it is open.
+ * An admin deletes archived tasks for good from the archive (20261126150000).
  */
-export function ProblemsView() {
+export function ProblemsView({ isAdmin = false }: { isAdmin?: boolean }) {
   const { t } = useTranslation();
   const [isCreating, setIsCreating] = useState(false);
   const [address, setAddress] = useAddressState(readProblemsAddress, writeProblemsAddress);
@@ -132,7 +133,12 @@ export function ProblemsView() {
               )}
             </TabsContent>
             <TabsContent value="archive">
-              <ProblemsArchive problems={archived} isFiltered={isFiltered} filters={filters} />
+              <ProblemsArchive
+                problems={archived}
+                isFiltered={isFiltered}
+                filters={filters}
+                isAdmin={isAdmin}
+              />
             </TabsContent>
           </Tabs>
         </>

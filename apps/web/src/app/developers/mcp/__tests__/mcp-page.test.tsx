@@ -63,16 +63,18 @@ describe('the MCP server page', () => {
     expect(within(clients).getByText(/sign in as a company admin/)).toBeInTheDocument();
   });
 
-  test('lists every tool with its scope, and marks the three that change data', async () => {
+  test('lists every tool with its scope, and marks the four that change data', async () => {
     await renderPage();
 
     const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
-    expect(rows).toHaveLength(17);
-    expect(rows.filter((row) => within(row).queryByText('Changes data') !== null)).toHaveLength(3);
+    expect(rows).toHaveLength(20);
+    expect(rows.filter((row) => within(row).queryByText('Changes data') !== null)).toHaveLength(4);
     const me = rows.find((row) => within(row).queryByText('get_me') !== null);
     expect(me).toHaveTextContent('Any key');
     const assign = rows.find((row) => within(row).queryByText('assign_cleaning') !== null);
     expect(assign).toHaveTextContent('cleanings:assign');
+    const card = rows.find((row) => within(row).queryByText('create_board_card') !== null);
+    expect(card).toHaveTextContent('boards:create_cards');
   });
 
   test('in Russian, the scopes read as the key form says them', async () => {
@@ -82,7 +84,9 @@ describe('the MCP server page', () => {
     const table = screen.getByRole('table');
     // list_cleanings and get_cleaning, both under «cleanings:read».
     expect(within(table).getAllByText('Чтение уборок')).toHaveLength(2);
-    expect(within(table).getAllByText('Меняет данные')).toHaveLength(3);
+    // list_boards and list_board_cards, both under «boards:read».
+    expect(within(table).getAllByText('Доски — чтение')).toHaveLength(2);
+    expect(within(table).getAllByText('Меняет данные')).toHaveLength(4);
     expect(screen.getByRole('main')).toHaveAttribute('lang', 'ru');
   });
 

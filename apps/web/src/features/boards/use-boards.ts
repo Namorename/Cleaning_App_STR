@@ -5,8 +5,10 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { useSupabase } from '@/lib/supabase/use-client';
 
 import {
+  deleteArchivedBoard,
   deleteColumn,
   deleteComment,
+  deleteShelvedCard,
   deleteStep,
   duplicateCard,
   fetchBoardCards,
@@ -186,6 +188,19 @@ export function useForgetBoard() {
   };
 }
 
+/**
+ * «Удалить доску навсегда» (an admin, an archived board): the screen forgets it at once (useForgetBoard)
+ * and leaves; the list and «Назначено мне» read again.
+ */
+export function useDeleteArchivedBoard() {
+  const client = useSupabase();
+  const invalidate = useInvalidate('boards', 'cards');
+  return useMutation({
+    mutationFn: (boardId: string) => deleteArchivedBoard(client, boardId),
+    onSettled: invalidate,
+  });
+}
+
 /** Adds a column or renames one: a rename leaves the columns alone stale, an add the cards too. */
 export function useSaveColumn() {
   const client = useSupabase();
@@ -357,6 +372,16 @@ export function useSetCardShelf() {
   return useMutation({
     mutationFn: (variables: { cardId: string; shelf: CardShelf }) =>
       setCardShelf(client, variables),
+    onSettled: invalidate,
+  });
+}
+
+/** «Удалить навсегда» (an admin, an archived or deleted card): the boards and the card read again. */
+export function useDeleteShelvedCard() {
+  const client = useSupabase();
+  const invalidate = useInvalidate('cards', 'card');
+  return useMutation({
+    mutationFn: (cardId: string) => deleteShelvedCard(client, cardId),
     onSettled: invalidate,
   });
 }

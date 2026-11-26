@@ -98,7 +98,7 @@ interface ArgError {
 }
 
 /** The JSON types checkArguments knows; the parity test holds every tool's schema to them. */
-export const KNOWN_TYPES: ReadonlySet<string> = new Set(["null", "string", "integer", "number", "boolean"]);
+export const KNOWN_TYPES: ReadonlySet<string> = new Set(["null", "string", "integer", "number", "boolean", "array"]);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -114,6 +114,9 @@ function typeFits(value: unknown, type: string): boolean {
       return typeof value === "number" && Number.isFinite(value);
     case "boolean":
       return typeof value === "boolean";
+    case "array":
+      // The items are the API's to judge (a body field: createBoardCard's steps).
+      return Array.isArray(value);
     default:
       return false;
   }

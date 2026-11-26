@@ -77,6 +77,7 @@ vi.mock('../use-problems', () => ({
   useWorkers: () => ({ data: [], isPending: false, isError: false }),
   useUnassignProblem: () => idle,
   useReopenProblem: () => idle,
+  useArchiveProblem: () => ({ ...idle, reset: vi.fn() }),
   useUnarchiveProblem: () => ({ ...idle, mutate: unarchive }),
   useReportProblem: () => ({ ...reportState, mutate: report }),
   // A company that types its tasks: the form of before (the catalogue's form has its own file,

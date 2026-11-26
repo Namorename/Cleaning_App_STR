@@ -237,6 +237,9 @@ export const spies = {
   assign: vi.fn(),
   /** A board dropped from the cache (useForgetBoard). */
   forget: vi.fn(),
+  /** «Удалить навсегда» (20261126150000): an archived board, an archived or deleted card. */
+  purgeBoard: vi.fn(),
+  purgeCard: vi.fn(),
 };
 
 /** The navigation the screens ask for. */
@@ -332,6 +335,8 @@ export const useBoardsModule = {
   useSaveComment: () => useMutationOf(spies.saveComment),
   useDeleteComment: () => useMutationOf(spies.deleteComment),
   useSetCardAssignee: () => useMutationOf(spies.assign),
+  useDeleteArchivedBoard: () => useMutationOf(spies.purgeBoard),
+  useDeleteShelvedCard: () => useMutationOf(spies.purgeCard),
 };
 
 /** Every test starts from one shared board of four columns, its cards and the company's people. */

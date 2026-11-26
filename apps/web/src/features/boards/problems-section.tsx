@@ -31,14 +31,14 @@ export function ProblemsSection({ viewer, hasBoards = true }: ProblemsSectionPro
   const { boardId } = readBoardAddress(new URLSearchParams(params.toString()));
 
   if (!hasBoards) {
-    return <ProblemsView />;
+    return <ProblemsView isAdmin={viewer.isAdmin} />;
   }
 
   return (
     <div className="flex flex-col gap-4">
       <BoardSwitcher activeId={boardId} />
       {boardId === null ? (
-        <ProblemsView />
+        <ProblemsView isAdmin={viewer.isAdmin} />
       ) : boardId === MY_CARDS ? (
         <MyCardsView viewer={viewer} />
       ) : (

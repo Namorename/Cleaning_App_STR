@@ -16,7 +16,7 @@
 openapi: 3.1.0
 info:
   title: woom API
-  version: 1.0.0
+  version: 1.1.0
   summary: Cleanings, tasks, properties, staff and bookings of a woom company, for scripts and AI agents.
   contact:
     name: woom
@@ -32,6 +32,7 @@ info:
     **Words.** *Tasks* are what the team reports (a broken tap, missing towels).
     *Cleanings* are the jobs on a property: cleanings, inspections, mid-stay
     cleanings and the repair work done for a task (`type: maintenance`).
+    *Boards* are the managers' own boards of *cards*, in columns of their own.
 
     ## Quick start (5 minutes)
 
@@ -209,6 +210,9 @@ info:
 
     ### Changelog
 
+    - **1.1.0** (2026-11-26) — the managers' boards: `listBoards` and
+      `listBoardCards` to read (`boards:read`), and `createBoardCard` to add a
+      card to a board named by its id or its title (`boards:create_cards`).
     - **1.0.0** (2026-10-28) — the first version: properties, cleanings, tasks,
       staff, bookings, media metadata and settings to read; creating a task and
       assigning a task or a cleaning to write.
@@ -240,6 +244,8 @@ tags:
     description: What was photographed and filmed, as metadata.
   - name: Settings
     description: The company's settings.
+  - name: Boards
+    description: The managers' own boards, their columns and cards.
 paths:
   /v1/me:
     get:
@@ -847,6 +853,146 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "500": { $ref: "#/components/responses/InternalError" }
+  /v1/boards:
+    get:
+      operationId: listBoards
+      tags: [Boards]
+      summary: List boards
+      description: |
+        The managers' boards the key sees, oldest first (`created_at`, then `id`), each with its
+        columns in order. A key acts as the admin who made it, and an admin sees every board of
+        the company, private ones included. Archived boards only with `include_archived=true`.
+        To find a board by its name, pass `title`: it matches the whole title, whatever the case
+        and the spaces around it.
+      x-woom-scope: boards:read
+      parameters:
+        - name: title
+          in: query
+          description: The board's whole title, compared without regard to case or surrounding spaces.
+          schema: { type: string, maxLength: 80, example: Renovation }
+        - name: include_archived
+          in: query
+          schema: { type: boolean, default: false }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of boards.
+          x-woom-headers: common
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data, next_cursor]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Board" } }
+                  next_cursor: { $ref: "#/components/schemas/NextCursor" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+  /v1/boards/{id}/cards:
+    get:
+      operationId: listBoardCards
+      tags: [Boards]
+      summary: List a board's cards
+      description: |
+        The cards of one board, oldest first (`created_at`, then `id`). Cards in the archive and
+        deleted cards only with `include_archived=true`. A key limited to some properties reads
+        only the cards of those properties. The steps of a card come as counts.
+      x-woom-scope: boards:read
+      parameters:
+        - $ref: "#/components/parameters/UuidId"
+        - name: column_id
+          in: query
+          description: Only the cards of this column.
+          schema: { type: string, format: uuid }
+        - name: assignee_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: property_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: include_archived
+          in: query
+          description: Cards in the archive and deleted cards too.
+          schema: { type: boolean, default: false }
+        - $ref: "#/components/parameters/UpdatedSince"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of cards.
+          x-woom-headers: common
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data, next_cursor]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/BoardCard" } }
+                  next_cursor: { $ref: "#/components/schemas/NextCursor" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+  /v1/board-cards:
+    post:
+      operationId: createBoardCard
+      tags: [Boards]
+      summary: Create a card on a board
+      description: |
+        Adds a card to a board the way the panel does, in the name of the admin who made the key;
+        the card is given to the board's owner, as a card made in the panel is. Name the board by
+        `board_id` or by `board_title` — the board's whole title, whatever the case and the spaces
+        around it, among the boards not in the archive. A title that no such board has is `404 not-found`
+        (`params.reason` `board-title-unknown`); a title two boards share is `422 rejected`
+        (`params.reason` `board-title-ambiguous`, their ids in `params.board_ids`) — name one by
+        its id then. The column is `column_id` or `column_name` (a column's `name` as `listBoards`
+        gives it, matched the same way); without either the card goes to the board's first
+        column that is not a finishing one. A board in the archive is `409 conflict`. A key
+        limited to some properties must name one of them.
+      x-woom-scope: boards:create_cards
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateBoardCardRequest" }
+            example:
+              board_title: Renovation
+              title: Order the new kitchen tiles
+              description: Two boxes more than last time.
+              due_on: "2026-12-04"
+              steps: [Measure the wall, Ask for a quote]
+      responses:
+        "201":
+          description: The card.
+          x-woom-headers: write
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BoardCard" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
 components:
   securitySchemes:
     bearerAuth:
@@ -1355,3 +1501,82 @@ components:
         scheduled_date: { $ref: "#/components/schemas/NullableDay" }
         time_from: { $ref: "#/components/schemas/HourMinute" }
         time_to: { $ref: "#/components/schemas/HourMinute" }
+    Board:
+      type: object
+      additionalProperties: false
+      required: [id, title, owner_id, shared, archived, archived_at, created_at, updated_at, columns]
+      description: A manager board — the office's own work, apart from tasks and cleanings.
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, description: "The board's name, as the office wrote it." }
+        owner_id: { type: string, format: uuid, description: "The manager or admin who owns the board." }
+        shared: { type: boolean, description: "Seen by the other managers too; otherwise by its owner and the admins alone." }
+        archived: { type: boolean }
+        archived_at: { $ref: "#/components/schemas/NullableTimestamp" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+        columns:
+          type: array
+          description: The board's columns, in their order on the board.
+          items: { $ref: "#/components/schemas/BoardColumn" }
+    BoardColumn:
+      type: object
+      additionalProperties: false
+      required: [id, name, preset, position, is_done, stage]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, description: "The title the office gave the column; for a column it did not rename, its preset key (open, assigned, in_progress, resolved), which the panel shows in the reader's language." }
+        preset:
+          type: [string, "null"]
+          enum: [open, assigned, in_progress, resolved, null]
+          description: The column of the technicians' board it started as; null for a column the office added.
+        position: { type: integer, description: "Its place on the board; higher is further right." }
+        is_done: { type: boolean, description: "A finishing column: its cards are done." }
+        stage: { type: string, enum: [open, assigned, in_progress, resolved], description: "Which of the four stages the column stands for (resolved for a finishing one)." }
+    BoardCard:
+      type: object
+      additionalProperties: false
+      required: [id, board_id, column_id, column_name, stage, title, description, text_masked, due_on, color, property_id, assignee_id, created_by, steps_done, steps_total, archived, deleted, moved_at, archived_at, deleted_at, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        board_id: { type: string, format: uuid }
+        column_id: { type: string, format: uuid }
+        column_name: { type: string, description: "The column's name, as in the board's columns." }
+        stage: { type: string, enum: [open, assigned, in_progress, resolved], description: "The stage of the card's column; resolved means done." }
+        title: { type: string, description: "Door codes masked (••••)." }
+        description: { type: [string, "null"], description: "Door codes masked (••••); null when there is none." }
+        text_masked: { type: boolean, description: "True when a code was taken out of the title or the description." }
+        due_on: { $ref: "#/components/schemas/NullableDay" }
+        color: { type: [string, "null"], enum: [blue, sky, teal, green, olive, violet, orchid, slate, null] }
+        property_id: { type: [integer, "null"] }
+        assignee_id: { type: [string, "null"], format: uuid, description: "The manager or admin the card is given to." }
+        created_by: { type: string, format: uuid, description: "Who made the card; for a card made through the API, the admin who made the key." }
+        steps_done: { type: integer, minimum: 0, description: "Steps of the card's checklist that are ticked." }
+        steps_total: { type: integer, minimum: 0, description: "Steps of the card's checklist." }
+        archived: { type: boolean }
+        deleted: { type: boolean, description: "Deleted in the panel, where it can still be returned." }
+        moved_at: { $ref: "#/components/schemas/Timestamp" }
+        archived_at: { $ref: "#/components/schemas/NullableTimestamp" }
+        deleted_at: { $ref: "#/components/schemas/NullableTimestamp" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        updated_at: { $ref: "#/components/schemas/Timestamp" }
+    CreateBoardCardRequest:
+      type: object
+      additionalProperties: false
+      required: [title]
+      description: Name the board by `board_id` or by `board_title`, one of the two; the column by `column_id` or `column_name`, or by neither.
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        board_id: { type: [string, "null"], format: uuid }
+        board_title: { type: [string, "null"], minLength: 1, maxLength: 80, description: "The board's whole title, whatever the case and the spaces around it." }
+        column_id: { type: [string, "null"], format: uuid }
+        column_name: { type: [string, "null"], minLength: 1, maxLength: 40, description: "A column's name as the board's columns give it: its title, or a preset key such as in_progress." }
+        description: { type: [string, "null"], minLength: 1, maxLength: 10000, description: "Plain text; links are shown as links. The whole body is at most 16 KB." }
+        due_on: { $ref: "#/components/schemas/NullableDay" }
+        property_id: { type: [integer, "null"], minimum: 1, description: "Required for a key limited to some properties." }
+        color: { type: [string, "null"], enum: [blue, sky, teal, green, olive, violet, orchid, slate, null] }
+        steps:
+          type: [array, "null"]
+          description: The card's checklist, in order — up to 100 steps of 1 to 500 characters each.
+          maxItems: 100
+          items: { type: string, minLength: 1, maxLength: 500 }

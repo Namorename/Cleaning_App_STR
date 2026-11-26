@@ -20,6 +20,8 @@ const URL_ = "http://localhost/functions/v1/mcp";
 const UUID = "6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12";
 const MODERN = "2026-07-28";
 const ALL_SCOPES = [
+  "boards:create_cards",
+  "boards:read",
   "bookings:read",
   "cleanings:assign",
   "cleanings:read",
@@ -38,6 +40,7 @@ const FN_SCOPES: Record<string, string> = {
   api_v1_list_cleanings: "cleanings:read",
   api_v1_list_tasks: "tasks:read",
   api_v1_create_task: "tasks:create",
+  api_v1_create_board_card: "boards:create_cards",
   api_v1_get_task: "tasks:read",
 };
 
@@ -225,8 +228,9 @@ Deno.test("tools/list shows a key only the tools its scopes allow", async () => 
 
   assertEquals(few, ["get_me", "list_properties", "get_property", "list_cleanings", "get_cleaning"]);
   assertEquals(all, CATALOG.tools.map((tool) => tool.name));
-  assertEquals(all.length, 17);
+  assertEquals(all.length, 20);
   assert(all.includes("create_task") && all.includes("assign_cleaning"));
+  assert(all.includes("list_boards") && all.includes("list_board_cards") && all.includes("create_board_card"));
 });
 
 Deno.test("a read is marked read-only and a write says what it changes", async () => {
@@ -427,6 +431,44 @@ Deno.test("create_task files a critical task, and refuses a priority it does not
   );
   assertEquals(resultOf(refused).isError, true);
   assertEquals(callsOf(calls, "api_v1_create_task").length, 1);
+});
+
+// The managers' boards (20261126140000): a card on a board named by its title, its steps a list.
+Deno.test("create_board_card names the board by its title and sends its steps as a list", async () => {
+  const card = { id: UUID, title: "Order tiles", steps_total: 2 };
+  const { mcp, calls } = await setup({
+    answers: { api_v1_create_board_card: () => ({ data: { status: 201, body: card, replayed: false }, error: null }) },
+  });
+
+  const payload = await body(
+    await mcp(rpcRequest("tools/call", {
+      name: "create_board_card",
+      arguments: {
+        idempotency_key: "idem-card",
+        board_title: "Renovation",
+        title: "Order tiles",
+        steps: ["Measure", "Ask for a quote"],
+      },
+    })),
+  );
+  assertEquals(toolJson(payload).data, card);
+  const [call] = callsOf(calls, "api_v1_create_board_card");
+  assertEquals([call.args.p_board_title, call.args.p_steps], ["Renovation", ["Measure", "Ask for a quote"]]);
+
+  const refused = await body(
+    await mcp(rpcRequest("tools/call", {
+      name: "create_board_card",
+      arguments: { idempotency_key: "idem-card-2", board_title: "Renovation", title: "T", steps: "Measure" },
+    })),
+  );
+  assertEquals(resultOf(refused).isError, true);
+  assertEquals(callsOf(calls, "api_v1_create_board_card").length, 1);
+});
+
+Deno.test("a key that only reads the boards is not shown the tool that adds a card", async () => {
+  const { mcp } = await setup({ scopes: ["boards:read"] });
+  const names = toolNames(await body(await mcp(rpcRequest("tools/list"))));
+  assertEquals(names, ["get_me", "list_boards", "list_board_cards"]);
 });
 
 Deno.test("a write without an idempotency key is not sent", async () => {

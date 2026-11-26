@@ -31,6 +31,8 @@ interface BoardColumnProps {
   drop: ColumnDrop;
   drag: CardDrag;
   onMove: (problem: Problem, status: BoardStatus) => void;
+  /** «В архив» from a card's menu. */
+  onArchive?: (problem: Problem) => void;
   /** The breakages somebody wrote about that the manager has not read. */
   unread: ReadonlySet<string>;
   /** The board as it is filtered: a card's page carries it back. */
@@ -57,6 +59,7 @@ export function BoardColumn({
   drop,
   drag,
   onMove,
+  onArchive,
   unread,
   from,
 }: BoardColumnProps) {
@@ -111,6 +114,7 @@ export function BoardColumn({
               problem={problem}
               moves={menuMoves(problem)}
               onMove={onMove}
+              onArchive={onArchive}
               hasUnread={unread.has(problem.id)}
               from={from}
               onDragStart={drag.onDragStart}

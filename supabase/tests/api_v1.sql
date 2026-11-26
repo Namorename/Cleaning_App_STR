@@ -244,11 +244,11 @@ select pg_temp.check('making a key is journalled with what it was made with',
 
 select pg_temp.check('read only: every ordinary read scope',
   (select array_to_string(public.api_effective_scopes('read_only', '{}'), ',')),
-  'bookings:read,cleanings:read,media:read,properties:read,settings:read,staff:read,tasks:read');
+  'boards:read,bookings:read,cleanings:read,media:read,properties:read,settings:read,staff:read,tasks:read');
 
-select pg_temp.check('operator: reading, and creating and assigning tasks and cleanings',
+select pg_temp.check('operator: reading, creating and assigning tasks and cleanings, adding board cards',
   (select array_to_string(public.api_effective_scopes('operator', '{}'), ',')),
-  'bookings:read,cleanings:assign,cleanings:read,media:read,properties:read,settings:read,staff:read,tasks:assign,tasks:create,tasks:read');
+  'boards:create_cards,boards:read,bookings:read,cleanings:assign,cleanings:read,media:read,properties:read,settings:read,staff:read,tasks:assign,tasks:create,tasks:read');
 
 select pg_temp.check('full: every exposed scope, the sensitive ones included',
   (select array_to_string(public.api_effective_scopes('full', '{}'), ',')),
@@ -803,7 +803,9 @@ select pg_temp.check('service_role may call exactly the gate, the log, the opera
      'api_v1_create_task', 'api_v1_get_booking', 'api_v1_get_cleaning', 'api_v1_get_me', 'api_v1_get_property',
      'api_v1_get_settings', 'api_v1_get_staff_member', 'api_v1_get_task', 'api_v1_list_bookings',
      'api_v1_list_cleaning_media', 'api_v1_list_cleanings', 'api_v1_list_properties', 'api_v1_list_staff',
-     'api_v1_list_task_media', 'api_v1_list_tasks']) n));
+     'api_v1_list_task_media', 'api_v1_list_tasks',
+     -- The managers' boards (20261126140000).
+     'api_v1_list_boards', 'api_v1_list_board_cards', 'api_v1_create_board_card']) n));
 
 select pg_temp.check('neither client role may call an operation or the gate',
   (select count(*)::int from pg_proc p, unnest(array['anon', 'authenticated']) r

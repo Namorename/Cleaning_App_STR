@@ -14,6 +14,7 @@
     "chat",
     "knowledge",
     "guest_signals",
+    "boards",
     "webhooks"
   ],
   "presets": ["read_only", "operator", "full", "custom"],
@@ -53,6 +54,8 @@
     { "id": "knowledge:write", "group": "knowledge", "action": "write", "sensitivity": "sensitive", "status": "planned", "operator": false },
     { "id": "guest_signals:read", "group": "guest_signals", "action": "read", "sensitivity": "sensitive", "status": "planned", "operator": false },
     { "id": "guest_signals:decide", "group": "guest_signals", "action": "write", "sensitivity": "normal", "status": "planned", "operator": true },
+    { "id": "boards:read", "group": "boards", "action": "read", "sensitivity": "normal", "status": "exposed", "operator": false },
+    { "id": "boards:create_cards", "group": "boards", "action": "write", "sensitivity": "normal", "status": "exposed", "operator": true },
     { "id": "webhooks:manage", "group": "webhooks", "action": "write", "sensitivity": "sensitive", "status": "planned", "operator": false }
   ],
   "forbidden": [

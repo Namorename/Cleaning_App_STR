@@ -46,7 +46,9 @@ type BoardFunction =
   | 'order_manager_steps'
   | 'save_manager_comment'
   | 'delete_manager_comment'
-  | 'set_manager_card_assignee';
+  | 'set_manager_card_assignee'
+  | 'delete_archived_board'
+  | 'delete_shelved_board_card';
 
 type BoardRpc = (
   fn: BoardFunction,
@@ -291,6 +293,14 @@ export async function setBoardArchived(
   });
 }
 
+/**
+ * «Удалить доску навсегда» (an admin, an archived board; 20261126150000): the board with every card,
+ * step, journal, column and transfer. False: it was gone already.
+ */
+export async function deleteArchivedBoard(client: Client, boardId: string): Promise<boolean> {
+  return (await call(client, 'delete_archived_board', { p_id: boardId })) === true;
+}
+
 /** The fields of a card as its form holds them. */
 export interface CardFields {
   title: string;
@@ -367,6 +377,14 @@ export async function setCardShelf(
     p_id: variables.cardId,
     p_state: variables.shelf,
   });
+}
+
+/**
+ * «Удалить навсегда» (an admin, an archived or deleted card; 20261126150000): the card with its steps
+ * and journal. False: it was gone already.
+ */
+export async function deleteShelvedCard(client: Client, cardId: string): Promise<boolean> {
+  return (await call(client, 'delete_shelved_board_card', { p_id: cardId })) === true;
 }
 
 export async function duplicateCard(

@@ -54,8 +54,14 @@ const resolved: Problem = problemSchema.parse({
   fix_tasks: [],
 });
 
-const mutations = { resolve: vi.fn(), unassign: vi.fn(), assign: vi.fn(), reopen: vi.fn() };
-const resets = { resolve: vi.fn(), unassign: vi.fn(), reopen: vi.fn() };
+const mutations = {
+  resolve: vi.fn(),
+  unassign: vi.fn(),
+  assign: vi.fn(),
+  reopen: vi.fn(),
+  archive: vi.fn(),
+};
+const resets = { resolve: vi.fn(), unassign: vi.fn(), reopen: vi.fn(), archive: vi.fn() };
 const idle = { isPending: false, isError: false, isSuccess: false, error: null };
 
 /** What a mutation last ended in, kept until it is reset — as TanStack keeps it. */
@@ -83,6 +89,7 @@ vi.mock('../use-problems', () => ({
   }),
   useAssignProblem: () => ({ ...idle, mutate: mutations.assign }),
   useReopenProblem: () => ({ ...idle, mutate: mutations.reopen, reset: resets.reopen }),
+  useArchiveProblem: () => ({ ...idle, mutate: mutations.archive, reset: resets.archive }),
   useStaff: () => ({
     data: [{ id: TECH_ID, full_name: 'Petr Fixer', role: 'cleaner' }],
     isPending: false,
@@ -513,7 +520,10 @@ describe('ProblemsBoard card menu', () => {
     });
     render(<ProblemsBoard problems={[orphan]} />);
 
-    expect(itemsOf(await openCardMenu('Скрипит дверь'))).toEqual(['Перевести в «Выполнено»']);
+    expect(itemsOf(await openCardMenu('Скрипит дверь'))).toEqual([
+      'Перевести в «Выполнено»',
+      'Удалить в архив',
+    ]);
     await userEvent.keyboard('{Escape}');
 
     dragTo('Скрипит дверь', 'Открыто');
@@ -527,14 +537,19 @@ describe('ProblemsBoard card menu', () => {
     expect(itemsOf(await openCardMenu('Течёт кран'))).toEqual([
       'Перевести в «Назначено»',
       'Перевести в «Выполнено»',
+      'Удалить в архив',
     ]);
     await userEvent.keyboard('{Escape}');
     expect(itemsOf(await openCardMenu('Сломан замок'))).toEqual([
       'Перевести в «Открыто»',
       'Перевести в «Выполнено»',
+      'Удалить в архив',
     ]);
     await userEvent.keyboard('{Escape}');
-    expect(itemsOf(await openCardMenu('Перегорела лампа'))).toEqual(['Перевести в «Открыто»']);
+    expect(itemsOf(await openCardMenu('Перегорела лампа'))).toEqual([
+      'Перевести в «Открыто»',
+      'Удалить в архив',
+    ]);
   });
 
   // Owner, 05.10: the menu asks the same question the drop does.
@@ -853,5 +868,51 @@ describe('the board in the queue’s order', () => {
     // Counted from the planned day: two days, not yet overdue.
     expect(within(card('С 24-го')).queryByText('Просрочено')).toBeNull();
     expect(within(card('С 24-го')).getByText('Висит 2 дня')).toBeInTheDocument();
+  });
+});
+
+// Owner, 2026-11-26: «В архив» from a card's menu — the action and the question of the task's page.
+describe('«В архив» from a card’s menu', () => {
+  test('stands apart under the moves, and asks the task page’s question first', async () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    const menu = await openCardMenu('Течёт кран');
+    expect(within(menu).getByRole('separator')).toBeInTheDocument();
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Удалить в архив' }));
+
+    const question = await screen.findByRole('dialog', { name: 'Удалить в архив' });
+    expect(question).toHaveTextContent(
+      'Ничего не удаляется: вернуть его можно из вкладки «Архив».',
+    );
+    expect(mutations.archive).not.toHaveBeenCalled();
+  });
+
+  test('«Оставить» sends nothing', async () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    const menu = await openCardMenu('Сломан замок');
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Удалить в архив' }));
+    const question = await screen.findByRole('dialog', { name: 'Удалить в архив' });
+    await userEvent.click(within(question).getByRole('button', { name: 'Оставить' }));
+
+    expect(mutations.archive).not.toHaveBeenCalled();
+  });
+
+  test('«Да, в архив» archives that task, and the line under the board says so', async () => {
+    mutations.archive.mockImplementation(
+      (_id: unknown, options: { onSuccess?: () => void; onSettled?: () => void }) => {
+        options.onSuccess?.();
+        options.onSettled?.();
+      },
+    );
+    render(<ProblemsBoard problems={problems} />);
+
+    const menu = await openCardMenu('Сломан замок');
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Удалить в архив' }));
+    const question = await screen.findByRole('dialog', { name: 'Удалить в архив' });
+    await userEvent.click(within(question).getByRole('button', { name: 'Да, в архив' }));
+
+    expect(mutations.archive).toHaveBeenCalledWith(ASSIGNED_ID, expect.anything());
+    expect(screen.getByRole('status')).toHaveTextContent('Задание «Сломан замок» убрано в архив');
   });
 });

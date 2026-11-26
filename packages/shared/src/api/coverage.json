@@ -120,6 +120,26 @@
       "reason": "API plumbing: the key behind a digest, with the scope an operation needs.",
       "defined_in": "20261028100000_public_api_v1.sql"
     },
+    "api_board_card_json": {
+      "status": "internal",
+      "reason": "API plumbing: what a manager board card looks like in the API (codes masked, steps as counts).",
+      "defined_in": "20261126140000_api_boards.sql"
+    },
+    "api_board_column_name": {
+      "status": "internal",
+      "reason": "API plumbing: a board column's name, its title or its preset key.",
+      "defined_in": "20261126140000_api_boards.sql"
+    },
+    "api_board_json": {
+      "status": "internal",
+      "reason": "API plumbing: what a manager board looks like in the API, with its live columns.",
+      "defined_in": "20261126140000_api_boards.sql"
+    },
+    "api_board_visible": {
+      "status": "internal",
+      "reason": "API plumbing: whether the key's maker sees a board, by the panel's rule (manager_board_visible).",
+      "defined_in": "20261126140000_api_boards.sql"
+    },
     "api_booking_json": {
       "status": "internal",
       "reason": "API plumbing: what a booking looks like in the API.",
@@ -273,6 +293,15 @@
       "reason": "The assignTask operation of API v1.",
       "defined_in": "20261028100000_public_api_v1.sql"
     },
+    "api_v1_create_board_card": {
+      "status": "exposed",
+      "scope": "boards:create_cards",
+      "operations": [
+        "createBoardCard"
+      ],
+      "reason": "The createBoardCard operation of API v1 (owner 2026-11-26).",
+      "defined_in": "20261126140000_api_boards.sql"
+    },
     "api_v1_create_task": {
       "status": "exposed",
       "scope": "tasks:create",
@@ -343,6 +372,24 @@
       ],
       "reason": "The getTask operation of API v1.",
       "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_list_board_cards": {
+      "status": "exposed",
+      "scope": "boards:read",
+      "operations": [
+        "listBoardCards"
+      ],
+      "reason": "The listBoardCards operation of API v1 (owner 2026-11-26).",
+      "defined_in": "20261126140000_api_boards.sql"
+    },
+    "api_v1_list_boards": {
+      "status": "exposed",
+      "scope": "boards:read",
+      "operations": [
+        "listBoards"
+      ],
+      "reason": "The listBoards operation of API v1 (owner 2026-11-26).",
+      "defined_in": "20261126140000_api_boards.sql"
     },
     "api_v1_list_bookings": {
       "status": "exposed",
@@ -640,6 +687,16 @@
       "reason": "tenant default of host_id columns (single-company phase A); internal plumbing",
       "defined_in": "20260905094000_tenant_host_id.sql"
     },
+    "delete_archived_board": {
+      "status": "internal",
+      "reason": "forbidden: data:destroy - an admin deletes an archived manager board for good, with its cards, steps, journals, columns and transfers (panel, after a question); irreversible, never through the API",
+      "defined_in": "20261126150000_archive_purge.sql"
+    },
+    "delete_archived_problem": {
+      "status": "internal",
+      "reason": "forbidden: data:destroy - an admin deletes an archived task for good, with its repairs, steps, media and their files, conversations and journals (panel, after a question); irreversible, never through the API",
+      "defined_in": "20261126150000_archive_purge.sql"
+    },
     "delete_manager_board_column": {
       "status": "internal",
       "reason": "deletes a column of a manager board, its cards moved to another column first (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API)",
@@ -659,6 +716,11 @@
       "status": "internal",
       "reason": "the manager deletes a draft in the panel; the public resource comes with stage 6 of the plan",
       "defined_in": "20261110220000_resolution_plans.sql"
+    },
+    "delete_shelved_board_card": {
+      "status": "internal",
+      "reason": "forbidden: data:destroy - an admin deletes an archived or soft-deleted manager board card for good, with its steps and journal (panel, after a question); irreversible, never through the API",
+      "defined_in": "20261126150000_archive_purge.sql"
     },
     "delete_supply_request": {
       "status": "internal",
@@ -1079,7 +1141,7 @@
     },
     "mark_task_media_purged": {
       "status": "internal",
-      "reason": "retention job (purge-task-media): marks purged files, service_role only",
+      "reason": "retention job (purge-task-media): marks purged files, and drops the queued files of deleted rows (20261126150000), service_role only",
       "defined_in": "20260907160200_task_media_purge.sql"
     },
     "mark_thread_read": {
@@ -1467,6 +1529,11 @@
       "reason": "Guest chats (docs/guest-chats.md), behind a switch: the hourly poll's conversations join the queue; the job's own.",
       "defined_in": "20261110120000_guest_chats.sql"
     },
+    "queue_orphaned_media": {
+      "status": "internal",
+      "reason": "trigger: the file of a task_media row deleted before its purge waits in raw.task_media_orphans for purge-task-media; no client calls it",
+      "defined_in": "20261126150000_archive_purge.sql"
+    },
     "record_push_receipts": {
       "status": "internal",
       "reason": "push plumbing: send-push stores Expo receipts, service_role only",
@@ -1695,8 +1762,12 @@
       "defined_in": "20261126120000_board_columns.sql"
     },
     "save_manager_card": {
-      "status": "internal",
-      "reason": "creates a card with its steps or saves its fields of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19",
+      "status": "exposed",
+      "scope": "boards:create_cards",
+      "operations": [
+        "createBoardCard"
+      ],
+      "reason": "creates a card with its steps or saves its fields of a manager board in the panel and on the manager's phone; since 2026-11-26 (owner) API v1 creates a card through it as the key's maker (createBoardCard); changing a card's fields stays in the panel",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "save_manager_comment": {
@@ -2081,7 +2152,7 @@
     },
     "task_media_to_purge": {
       "status": "internal",
-      "reason": "retention job (purge-task-media): next batch of files to remove, service_role only",
+      "reason": "retention job (purge-task-media): next batch of files to remove, the queued files of deleted rows too (20261126150000), service_role only",
       "defined_in": "20260924120000_chat_media_expiry.sql"
     },
     "task_media_video_tolerance_sec": {
@@ -2321,23 +2392,35 @@
       "defined_in": "20261030100000_knowledge_base.sql"
     },
     "manager_board_cards": {
-      "status": "internal",
-      "reason": "cards of the managers' boards; read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18",
+      "status": "exposed",
+      "scope": "boards:read",
+      "operations": [
+        "listBoardCards"
+      ],
+      "reason": "cards of the managers' boards; read in the panel and on the manager's phone, and through API v1 since 2026-11-26 (owner), title and description with codes masked",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "manager_board_columns": {
-      "status": "internal",
-      "reason": "the columns of the managers' own boards; read in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API)",
+      "status": "exposed",
+      "scope": "boards:read",
+      "operations": [
+        "listBoards"
+      ],
+      "reason": "the columns of the managers' own boards; read in the panel and on the manager's phone, and through API v1 since 2026-11-26 (owner), within each board",
       "defined_in": "20261126120000_board_columns.sql"
     },
     "manager_board_entries": {
       "status": "internal",
-      "reason": "the journal of a manager board card (comments and system lines); read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18",
+      "reason": "the journal of a manager board card (comments and system lines); read in the panel and on the manager's phone; API v1 reads boards, columns and cards since 2026-11-26 but not the journal (owner: no other texts)",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "manager_board_steps": {
-      "status": "internal",
-      "reason": "the checklist of a manager board card; read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18",
+      "status": "exposed",
+      "scope": "boards:read",
+      "operations": [
+        "listBoardCards"
+      ],
+      "reason": "the checklist of a manager board card; read in the panel and on the manager's phone; API v1 gives a card's steps as counts (steps_done, steps_total) since 2026-11-26, and createBoardCard writes them through save_manager_card",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "manager_board_transfers": {
@@ -2346,8 +2429,13 @@
       "defined_in": "20261126120000_board_columns.sql"
     },
     "manager_boards": {
-      "status": "internal",
-      "reason": "the managers' own boards (the office's work apart from cleanings and tasks); read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18",
+      "status": "exposed",
+      "scope": "boards:read",
+      "operations": [
+        "listBoards",
+        "listBoardCards"
+      ],
+      "reason": "the managers' own boards (the office's work apart from cleanings and tasks); read in the panel and on the manager's phone, and through API v1 since 2026-11-26 (owner): every board the key's maker sees",
       "defined_in": "20261118200000_manager_boards.sql"
     },
     "oauth_clients": {

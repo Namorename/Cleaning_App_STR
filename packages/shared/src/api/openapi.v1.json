@@ -2,12 +2,12 @@
   "openapi": "3.1.0",
   "info": {
     "title": "woom API",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "summary": "Cleanings, tasks, properties, staff and bookings of a woom company, for scripts and AI agents.",
     "contact": {
       "name": "woom"
     },
-    "description": "The woom API gives your scripts, AI agents and integrations the same view of\nthe work that the woom panel has: properties, cleanings, tasks reported by\nthe team, staff, bookings and the photos and videos of a cleaning — and lets\nthem create tasks and assign people through the same rules the panel uses.\n\nEvery key belongs to one company and sees that company only. What a key may\ndo is chosen when it is made, scope by scope.\n\n**Words.** *Tasks* are what the team reports (a broken tap, missing towels).\n*Cleanings* are the jobs on a property: cleanings, inspections, mid-stay\ncleanings and the repair work done for a task (`type: maintenance`).\n\n## Quick start (5 minutes)\n\n1. An **admin** opens **Settings → API** in the woom panel, presses\n   **Create key**, keeps the **Read only** preset and copies the key. It is\n   shown once: keep it in a password manager or a secret store, never in code.\n2. Put it in your environment:\n\n   ```bash\n   export WOOM_API_KEY='woom_…'\n   export WOOM_API='https://<project-ref>.supabase.co/functions/v1/api'\n   ```\n\n3. Ask who you are:\n\n   ```bash\n   curl -s \"$WOOM_API/v1/me\" -H \"Authorization: Bearer $WOOM_API_KEY\"\n   ```\n\n   The answer names the key, its scopes and its company.\n4. List next week's cleanings:\n\n   ```bash\n   curl -s \"$WOOM_API/v1/cleanings?date_from=2026-11-02&date_to=2026-11-08\" \\\n     -H \"Authorization: Bearer $WOOM_API_KEY\"\n   ```\n\n5. With an **Operator** key, create a task for a technician. Every POST needs\n   an `Idempotency-Key`: repeat a request after a lost answer with the same\n   key and you get the first answer back, not a second task.\n\n   ```bash\n   curl -s -X POST \"$WOOM_API/v1/tasks\" \\\n     -H \"Authorization: Bearer $WOOM_API_KEY\" \\\n     -H \"Content-Type: application/json\" \\\n     -H \"Idempotency-Key: $(uuidgen)\" \\\n     -d '{\"title\": \"Dripping tap in the bathroom\", \"property_id\": 123456, \"priority\": \"high\"}'\n   ```\n\n## Authentication\n\nSend the key in the `Authorization` header, and only there:\n`Authorization: Bearer woom_…`. A key in the URL (`?key=`, `?api_key=`,\n`?access_token=`, `?token=`) is refused with `400 key-in-url` — URLs end up\nin logs. Keys are stored by woom only as a keyed hash; nobody, woom included,\ncan show a key again. Lost a key? Revoke it and make a new one.\n\nA key stops working when it is revoked, when it expires, and while the admin\nwho made it is no longer an active admin of the company (`key-suspended`; it\nworks again once she is). Writes are recorded in woom's journals in her name.\n\n## Scopes\n\nEach operation needs one scope; the table of operations below names it, and\nso does each operation's description. A scope is *normal* or *sensitive*:\nsensitive scopes carry personal data of staff or the addresses of\nproperties, are never part of the **Read only** or **Operator** presets, and\nare switched on by hand.\n\n| Scope | Group | Action | Level | Status | Used by |\n| --- | --- | --- | --- | --- | --- |\n| `properties:read` | properties | read | normal | available | `listProperties`, `getProperty` |\n| `properties:read_address` | properties | read | **sensitive** | available | `Property.address` |\n| `properties:write` | properties | write | **sensitive** | reserved | — |\n| `cleanings:read` | cleanings | read | normal | available | `listCleanings`, `getCleaning` |\n| `cleanings:assign` | cleanings | write | normal | available | `assignCleaning` |\n| `cleanings:create` | cleanings | write | normal | reserved | — |\n| `cleanings:update` | cleanings | write | normal | reserved | — |\n| `cleanings:cancel` | cleanings | write | normal | reserved | — |\n| `cleanings:read_steps` | cleanings | read | normal | reserved | — |\n| `tasks:read` | tasks | read | normal | available | `listTasks`, `getTask` |\n| `tasks:create` | tasks | write | normal | available | `createTask` |\n| `tasks:assign` | tasks | write | normal | available | `assignTask` |\n| `tasks:update` | tasks | write | normal | reserved | — |\n| `tasks:resolve` | tasks | write | normal | reserved | — |\n| `tasks:cancel` | tasks | write | normal | reserved | — |\n| `staff:read` | staff | read | normal | available | `listStaff`, `getStaffMember` |\n| `staff:read_names` | staff | read | **sensitive** | available | `TaskPerson.full_name`, `StaffMember.full_name` |\n| `staff:write` | staff | write | **sensitive** | reserved | — |\n| `bookings:read` | bookings | read | normal | available | `listBookings`, `getBooking` |\n| `bookings:read_prices` | bookings | read | **sensitive** | reserved | — |\n| `media:read` | media | read | normal | available | `listCleaningMedia`, `listTaskMedia` |\n| `media:download` | media | read | **sensitive** | reserved | — |\n| `settings:read` | settings | read | normal | available | `getSettings` |\n| `settings:write` | settings | write | **sensitive** | reserved | — |\n| `checklists:read` | checklists | read | normal | reserved | — |\n| `checklists:write` | checklists | write | **sensitive** | reserved | — |\n| `supplies:read` | supplies | read | normal | reserved | — |\n| `supplies:write` | supplies | write | normal | reserved | — |\n| `analytics:read` | analytics | read | normal | reserved | — |\n| `chat:read` | chat | read | **sensitive** | reserved | — |\n| `chat:write` | chat | write | **sensitive** | reserved | — |\n| `knowledge:read` | knowledge | read | **sensitive** | reserved | — |\n| `knowledge:write` | knowledge | write | **sensitive** | reserved | — |\n| `guest_signals:read` | guest_signals | read | **sensitive** | reserved | — |\n| `guest_signals:decide` | guest_signals | write | normal | reserved | — |\n| `webhooks:manage` | webhooks | write | **sensitive** | reserved | — |\n\nReserved scopes are listed so that integrations can plan for them; a key\ncannot hold them until their operations exist.\n\n## Presets\n\nA key keeps its preset, not a list: the preset is worked out again at every\nrequest, so a scope added to the API later joins every preset whose rule it\nmeets.\n\n| Preset | Gives | Today | Scopes added later |\n| --- | --- | --- | --- |\n| **Read only** (`read_only`) | every *normal* scope that reads | `bookings:read`, `cleanings:read`, `media:read`, `properties:read`, `settings:read`, `staff:read`, `tasks:read` | a new normal read scope joins it; sensitive and writing scopes never do |\n| **Operator** (`operator`) | Read only, plus creating and assigning tasks and cleanings | `bookings:read`, `cleanings:assign`, `cleanings:read`, `media:read`, `properties:read`, `settings:read`, `staff:read`, `tasks:assign`, `tasks:create`, `tasks:read` | new normal read scopes and new scopes marked for operators join it |\n| **Full access** (`full`) | every available scope, sensitive ones included — treat the key like an admin password | `bookings:read`, `cleanings:assign`, `cleanings:read`, `media:read`, `properties:read`, `properties:read_address`, `settings:read`, `staff:read`, `staff:read_names`, `tasks:assign`, `tasks:create`, `tasks:read` | every scope added later joins it; the forbidden list never does |\n| **Custom** (`custom`) | exactly the scopes ticked | — | nothing joins it by itself |\n\n## What the API never does\n\nThese rights cannot be given to any key, **Full access** included.\n\n| Never granted | Why |\n| --- | --- |\n| `api_keys:manage` | A key that issues keys outlives its own revocation: one leak would become permanent. |\n| `staff:manage_privileged` | Credentials and roles of admins and managers: a key could make itself an admin or take over the owner's account. |\n| `staff:read_contacts` | E-mails and phone numbers of staff are personal data; the API identifies people by id. |\n| `guests:read_personal` | Guest names, contacts and messages are personal data; bookings are served without them. |\n| `access_codes:read` | Door, lockbox and keypad codes give physical access to a property. |\n| `integrations:read_secrets` | Secrets and tokens of Hostaway, webhooks and push devices are someone else's credentials. |\n| `hostaway:write` | Hostaway is the source of truth; the API only reads woom's copy of it. |\n| `data:destroy` | Irreversible deletion cannot be undone if a key leaks; v1 only cancels and archives. |\n| `security:write` | A key must not weaken the security settings that restrict it. |\n| `tenants:cross` | Each company sees only its own data; the company always comes from the key. |\n\nThe answers never carry guests' names, contacts or messages, booking\nprices, staff e-mails or phone numbers, door codes (a code written into a\nproperty's name or into what somebody reported is masked, and `name_masked` or\n`text_masked` says so), free-text notes, or\nlinks to media files.\n\n## Operations\n\n| Method | Path | Scope | What it does |\n| --- | --- | --- | --- |\n| GET | `/v1/me` | any working key | The key and its company |\n| GET | `/v1/properties` | `properties:read` | List properties |\n| GET | `/v1/properties/{id}` | `properties:read` | Get a property |\n| GET | `/v1/cleanings` | `cleanings:read` | List cleanings |\n| GET | `/v1/cleanings/{id}` | `cleanings:read` | Get a cleaning |\n| POST | `/v1/cleanings/{id}/assign` | `cleanings:assign` | Assign a cleaning |\n| GET | `/v1/cleanings/{id}/media` | `media:read` | List a cleaning's media |\n| GET | `/v1/tasks` | `tasks:read` | List tasks |\n| POST | `/v1/tasks` | `tasks:create` | Create a task |\n| GET | `/v1/tasks/{id}` | `tasks:read` | Get a task |\n| POST | `/v1/tasks/{id}/assign` | `tasks:assign` | Assign a task |\n| GET | `/v1/tasks/{id}/media` | `media:read` | List a task's media |\n| GET | `/v1/staff` | `staff:read` | List staff |\n| GET | `/v1/staff/{id}` | `staff:read` | Get a member of staff |\n| GET | `/v1/bookings` | `bookings:read` | List bookings |\n| GET | `/v1/bookings/{id}` | `bookings:read` | Get a booking |\n| GET | `/v1/settings` | `settings:read` | Get the company's settings |\n\n## Errors\n\nErrors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem\ndetails, `Content-Type: application/problem+json`:\n\n```json\n{\n  \"type\": \"urn:woom:problem:insufficient-scope\",\n  \"title\": \"The key lacks the scope this operation needs\",\n  \"status\": 403,\n  \"code\": \"insufficient-scope\",\n  \"detail\": \"This operation needs cleanings:read\",\n  \"required_scope\": \"cleanings:read\",\n  \"request_id\": \"1b4e…\"\n}\n```\n\nSwitch on `code`. `reason` and `params` come with a refusal of woom's\nbusiness rules (`rejected`, `conflict`): `reason` is a stable key such as\n`serverErrors.taskAssigneeInvalid`. `errors` lists the fields of an\n`invalid-request`. Quote `request_id` when you write to us.\n\n| Status | `code` | When |\n| --- | --- | --- |\n| 400 | `invalid-request` | a parameter or field has the wrong form, or is unknown |\n| 400 | `invalid-cursor` | the cursor is damaged or belongs to other filters |\n| 400 | `key-in-url` | a key was sent in the URL |\n| 400 | `idempotency-key-required` | a POST without `Idempotency-Key` |\n| 401 | `missing-key`, `invalid-key`, `key-expired`, `key-revoked`, `key-suspended` | the key cannot be used |\n| 403 | `insufficient-scope` | the key lacks the scope named in `required_scope` |\n| 403 | `property-not-allowed` | the key is limited to other properties |\n| 404 | `not-found` | no such object in your company (or in the key's properties) |\n| 405 | `method-not-allowed` | see the `Allow` header |\n| 409 | `conflict` | the object's state does not allow it now (a closed cleaning, a resolved task) |\n| 413 | `payload-too-large` | the body is over 16 KB |\n| 415 | `unsupported-media-type` | a POST body that is not `application/json` |\n| 422 | `rejected` | a business rule refused it (`reason`, `params`) |\n| 422 | `idempotency-key-reused` | the same `Idempotency-Key` with another request |\n| 429 | `rate-limited` | slow down; see `Retry-After` |\n| 500 | `internal` | our fault; nothing about it is in the answer |\n\n## Rate limits\n\n120 requests a minute per key. Every answer says where you stand:\n\n```\nRateLimit-Policy: \"default\";q=120;w=60\nRateLimit: \"default\";r=117;t=42\nX-RateLimit-Limit: 120\nX-RateLimit-Remaining: 117\nX-RateLimit-Reset: 42\n```\n\n`r` is what is left, `t` the seconds until the window resets. Over the\nlimit: `429` with `Retry-After`. After 20 failed authentications from one\naddress in ten minutes, further failed attempts from it get `429` until the\nten minutes pass; a working key is never held up by its address.\n\n## Conventions\n\n- **Timestamps** are ISO 8601 in UTC with `Z`, to the second:\n  `2026-10-28T09:15:00Z`. Parameters that take a timestamp accept any zone.\n- **Days** (a cleaning's day, arrival, departure) are plain dates,\n  `YYYY-MM-DD`, in the property's own time zone (`timezone`). Hours of a\n  cleaning's window are `HH:MM`, local to the property.\n- **Lists** answer `{\"data\": [...], \"next_cursor\": \"…\"}`. Pass `next_cursor`\n  back as `cursor`, with the same filters, until it is `null`. `limit` is 1\n  to 200, 50 by default. The order is fixed per list and stated on it.\n- **Filters** that take several values take them comma-separated:\n  `status=assigned,accepted`. An unknown parameter is an error, not ignored.\n- **Idempotency.** Every POST needs `Idempotency-Key` (1 to 255 visible ASCII\n  characters; a UUID is ideal). The first answer is kept for 24 hours and\n  replayed, with `Idempotent-Replayed: true`, to a repeat with the same body;\n  the same key with another body is `422 idempotency-key-reused`. A request\n  that failed is not kept: fix it and send it again with the same key.\n- **Unknown fields and values.** New fields, operations and values of an\n  enumeration may appear in v1 at any time. Ignore what you do not know.\n\n## Versions and changes\n\nThe version is in the path: `/v1`. Within v1 changes only add — fields,\noperations, optional parameters, enumeration values, scopes. Anything that\nwould break a client (a field renamed or removed, a type or meaning changed,\na parameter made required) goes to `/v2`; v1 then lives on for at least\ntwelve months, and its answers carry `Deprecation` and `Sunset` headers\nwith the date and a `Link` to the migration notes.\n\n### Changelog\n\n- **1.0.0** (2026-10-28) — the first version: properties, cleanings, tasks,\n  staff, bookings, media metadata and settings to read; creating a task and\n  assigning a task or a cleaning to write.\n"
+    "description": "The woom API gives your scripts, AI agents and integrations the same view of\nthe work that the woom panel has: properties, cleanings, tasks reported by\nthe team, staff, bookings and the photos and videos of a cleaning — and lets\nthem create tasks and assign people through the same rules the panel uses.\n\nEvery key belongs to one company and sees that company only. What a key may\ndo is chosen when it is made, scope by scope.\n\n**Words.** *Tasks* are what the team reports (a broken tap, missing towels).\n*Cleanings* are the jobs on a property: cleanings, inspections, mid-stay\ncleanings and the repair work done for a task (`type: maintenance`).\n*Boards* are the managers' own boards of *cards*, in columns of their own.\n\n## Quick start (5 minutes)\n\n1. An **admin** opens **Settings → API** in the woom panel, presses\n   **Create key**, keeps the **Read only** preset and copies the key. It is\n   shown once: keep it in a password manager or a secret store, never in code.\n2. Put it in your environment:\n\n   ```bash\n   export WOOM_API_KEY='woom_…'\n   export WOOM_API='https://<project-ref>.supabase.co/functions/v1/api'\n   ```\n\n3. Ask who you are:\n\n   ```bash\n   curl -s \"$WOOM_API/v1/me\" -H \"Authorization: Bearer $WOOM_API_KEY\"\n   ```\n\n   The answer names the key, its scopes and its company.\n4. List next week's cleanings:\n\n   ```bash\n   curl -s \"$WOOM_API/v1/cleanings?date_from=2026-11-02&date_to=2026-11-08\" \\\n     -H \"Authorization: Bearer $WOOM_API_KEY\"\n   ```\n\n5. With an **Operator** key, create a task for a technician. Every POST needs\n   an `Idempotency-Key`: repeat a request after a lost answer with the same\n   key and you get the first answer back, not a second task.\n\n   ```bash\n   curl -s -X POST \"$WOOM_API/v1/tasks\" \\\n     -H \"Authorization: Bearer $WOOM_API_KEY\" \\\n     -H \"Content-Type: application/json\" \\\n     -H \"Idempotency-Key: $(uuidgen)\" \\\n     -d '{\"title\": \"Dripping tap in the bathroom\", \"property_id\": 123456, \"priority\": \"high\"}'\n   ```\n\n## Authentication\n\nSend the key in the `Authorization` header, and only there:\n`Authorization: Bearer woom_…`. A key in the URL (`?key=`, `?api_key=`,\n`?access_token=`, `?token=`) is refused with `400 key-in-url` — URLs end up\nin logs. Keys are stored by woom only as a keyed hash; nobody, woom included,\ncan show a key again. Lost a key? Revoke it and make a new one.\n\nA key stops working when it is revoked, when it expires, and while the admin\nwho made it is no longer an active admin of the company (`key-suspended`; it\nworks again once she is). Writes are recorded in woom's journals in her name.\n\n## Scopes\n\nEach operation needs one scope; the table of operations below names it, and\nso does each operation's description. A scope is *normal* or *sensitive*:\nsensitive scopes carry personal data of staff or the addresses of\nproperties, are never part of the **Read only** or **Operator** presets, and\nare switched on by hand.\n\n| Scope | Group | Action | Level | Status | Used by |\n| --- | --- | --- | --- | --- | --- |\n| `properties:read` | properties | read | normal | available | `listProperties`, `getProperty` |\n| `properties:read_address` | properties | read | **sensitive** | available | `Property.address` |\n| `properties:write` | properties | write | **sensitive** | reserved | — |\n| `cleanings:read` | cleanings | read | normal | available | `listCleanings`, `getCleaning` |\n| `cleanings:assign` | cleanings | write | normal | available | `assignCleaning` |\n| `cleanings:create` | cleanings | write | normal | reserved | — |\n| `cleanings:update` | cleanings | write | normal | reserved | — |\n| `cleanings:cancel` | cleanings | write | normal | reserved | — |\n| `cleanings:read_steps` | cleanings | read | normal | reserved | — |\n| `tasks:read` | tasks | read | normal | available | `listTasks`, `getTask` |\n| `tasks:create` | tasks | write | normal | available | `createTask` |\n| `tasks:assign` | tasks | write | normal | available | `assignTask` |\n| `tasks:update` | tasks | write | normal | reserved | — |\n| `tasks:resolve` | tasks | write | normal | reserved | — |\n| `tasks:cancel` | tasks | write | normal | reserved | — |\n| `staff:read` | staff | read | normal | available | `listStaff`, `getStaffMember` |\n| `staff:read_names` | staff | read | **sensitive** | available | `TaskPerson.full_name`, `StaffMember.full_name` |\n| `staff:write` | staff | write | **sensitive** | reserved | — |\n| `bookings:read` | bookings | read | normal | available | `listBookings`, `getBooking` |\n| `bookings:read_prices` | bookings | read | **sensitive** | reserved | — |\n| `media:read` | media | read | normal | available | `listCleaningMedia`, `listTaskMedia` |\n| `media:download` | media | read | **sensitive** | reserved | — |\n| `settings:read` | settings | read | normal | available | `getSettings` |\n| `settings:write` | settings | write | **sensitive** | reserved | — |\n| `checklists:read` | checklists | read | normal | reserved | — |\n| `checklists:write` | checklists | write | **sensitive** | reserved | — |\n| `supplies:read` | supplies | read | normal | reserved | — |\n| `supplies:write` | supplies | write | normal | reserved | — |\n| `analytics:read` | analytics | read | normal | reserved | — |\n| `chat:read` | chat | read | **sensitive** | reserved | — |\n| `chat:write` | chat | write | **sensitive** | reserved | — |\n| `knowledge:read` | knowledge | read | **sensitive** | reserved | — |\n| `knowledge:write` | knowledge | write | **sensitive** | reserved | — |\n| `guest_signals:read` | guest_signals | read | **sensitive** | reserved | — |\n| `guest_signals:decide` | guest_signals | write | normal | reserved | — |\n| `boards:read` | boards | read | normal | available | `listBoards`, `listBoardCards` |\n| `boards:create_cards` | boards | write | normal | available | `createBoardCard` |\n| `webhooks:manage` | webhooks | write | **sensitive** | reserved | — |\n\nReserved scopes are listed so that integrations can plan for them; a key\ncannot hold them until their operations exist.\n\n## Presets\n\nA key keeps its preset, not a list: the preset is worked out again at every\nrequest, so a scope added to the API later joins every preset whose rule it\nmeets.\n\n| Preset | Gives | Today | Scopes added later |\n| --- | --- | --- | --- |\n| **Read only** (`read_only`) | every *normal* scope that reads | `boards:read`, `bookings:read`, `cleanings:read`, `media:read`, `properties:read`, `settings:read`, `staff:read`, `tasks:read` | a new normal read scope joins it; sensitive and writing scopes never do |\n| **Operator** (`operator`) | Read only, plus creating and assigning tasks and cleanings and adding cards to boards | `boards:create_cards`, `boards:read`, `bookings:read`, `cleanings:assign`, `cleanings:read`, `media:read`, `properties:read`, `settings:read`, `staff:read`, `tasks:assign`, `tasks:create`, `tasks:read` | new normal read scopes and new scopes marked for operators join it |\n| **Full access** (`full`) | every available scope, sensitive ones included — treat the key like an admin password | `boards:create_cards`, `boards:read`, `bookings:read`, `cleanings:assign`, `cleanings:read`, `media:read`, `properties:read`, `properties:read_address`, `settings:read`, `staff:read`, `staff:read_names`, `tasks:assign`, `tasks:create`, `tasks:read` | every scope added later joins it; the forbidden list never does |\n| **Custom** (`custom`) | exactly the scopes ticked | — | nothing joins it by itself |\n\n## What the API never does\n\nThese rights cannot be given to any key, **Full access** included.\n\n| Never granted | Why |\n| --- | --- |\n| `api_keys:manage` | A key that issues keys outlives its own revocation: one leak would become permanent. |\n| `staff:manage_privileged` | Credentials and roles of admins and managers: a key could make itself an admin or take over the owner's account. |\n| `staff:read_contacts` | E-mails and phone numbers of staff are personal data; the API identifies people by id. |\n| `guests:read_personal` | Guest names, contacts and messages are personal data; bookings are served without them. |\n| `access_codes:read` | Door, lockbox and keypad codes give physical access to a property. |\n| `integrations:read_secrets` | Secrets and tokens of Hostaway, webhooks and push devices are someone else's credentials. |\n| `hostaway:write` | Hostaway is the source of truth; the API only reads woom's copy of it. |\n| `data:destroy` | Irreversible deletion cannot be undone if a key leaks; v1 only cancels and archives. |\n| `security:write` | A key must not weaken the security settings that restrict it. |\n| `tenants:cross` | Each company sees only its own data; the company always comes from the key. |\n\nThe answers never carry guests' names, contacts or messages, booking\nprices, staff e-mails or phone numbers, door codes (a code written into a\nproperty's name or into what somebody reported is masked, and `name_masked` or\n`text_masked` says so), free-text notes, or\nlinks to media files.\n\n## Operations\n\n| Method | Path | Scope | What it does |\n| --- | --- | --- | --- |\n| GET | `/v1/me` | any working key | The key and its company |\n| GET | `/v1/properties` | `properties:read` | List properties |\n| GET | `/v1/properties/{id}` | `properties:read` | Get a property |\n| GET | `/v1/cleanings` | `cleanings:read` | List cleanings |\n| GET | `/v1/cleanings/{id}` | `cleanings:read` | Get a cleaning |\n| POST | `/v1/cleanings/{id}/assign` | `cleanings:assign` | Assign a cleaning |\n| GET | `/v1/cleanings/{id}/media` | `media:read` | List a cleaning's media |\n| GET | `/v1/tasks` | `tasks:read` | List tasks |\n| POST | `/v1/tasks` | `tasks:create` | Create a task |\n| GET | `/v1/tasks/{id}` | `tasks:read` | Get a task |\n| POST | `/v1/tasks/{id}/assign` | `tasks:assign` | Assign a task |\n| GET | `/v1/tasks/{id}/media` | `media:read` | List a task's media |\n| GET | `/v1/staff` | `staff:read` | List staff |\n| GET | `/v1/staff/{id}` | `staff:read` | Get a member of staff |\n| GET | `/v1/bookings` | `bookings:read` | List bookings |\n| GET | `/v1/bookings/{id}` | `bookings:read` | Get a booking |\n| GET | `/v1/settings` | `settings:read` | Get the company's settings |\n| GET | `/v1/boards` | `boards:read` | List boards |\n| GET | `/v1/boards/{id}/cards` | `boards:read` | List a board's cards |\n| POST | `/v1/board-cards` | `boards:create_cards` | Create a card on a board |\n\n## Errors\n\nErrors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem\ndetails, `Content-Type: application/problem+json`:\n\n```json\n{\n  \"type\": \"urn:woom:problem:insufficient-scope\",\n  \"title\": \"The key lacks the scope this operation needs\",\n  \"status\": 403,\n  \"code\": \"insufficient-scope\",\n  \"detail\": \"This operation needs cleanings:read\",\n  \"required_scope\": \"cleanings:read\",\n  \"request_id\": \"1b4e…\"\n}\n```\n\nSwitch on `code`. `reason` and `params` come with a refusal of woom's\nbusiness rules (`rejected`, `conflict`): `reason` is a stable key such as\n`serverErrors.taskAssigneeInvalid`. `errors` lists the fields of an\n`invalid-request`. Quote `request_id` when you write to us.\n\n| Status | `code` | When |\n| --- | --- | --- |\n| 400 | `invalid-request` | a parameter or field has the wrong form, or is unknown |\n| 400 | `invalid-cursor` | the cursor is damaged or belongs to other filters |\n| 400 | `key-in-url` | a key was sent in the URL |\n| 400 | `idempotency-key-required` | a POST without `Idempotency-Key` |\n| 401 | `missing-key`, `invalid-key`, `key-expired`, `key-revoked`, `key-suspended` | the key cannot be used |\n| 403 | `insufficient-scope` | the key lacks the scope named in `required_scope` |\n| 403 | `property-not-allowed` | the key is limited to other properties |\n| 404 | `not-found` | no such object in your company (or in the key's properties) |\n| 405 | `method-not-allowed` | see the `Allow` header |\n| 409 | `conflict` | the object's state does not allow it now (a closed cleaning, a resolved task) |\n| 413 | `payload-too-large` | the body is over 16 KB |\n| 415 | `unsupported-media-type` | a POST body that is not `application/json` |\n| 422 | `rejected` | a business rule refused it (`reason`, `params`) |\n| 422 | `idempotency-key-reused` | the same `Idempotency-Key` with another request |\n| 429 | `rate-limited` | slow down; see `Retry-After` |\n| 500 | `internal` | our fault; nothing about it is in the answer |\n\n## Rate limits\n\n120 requests a minute per key. Every answer says where you stand:\n\n```\nRateLimit-Policy: \"default\";q=120;w=60\nRateLimit: \"default\";r=117;t=42\nX-RateLimit-Limit: 120\nX-RateLimit-Remaining: 117\nX-RateLimit-Reset: 42\n```\n\n`r` is what is left, `t` the seconds until the window resets. Over the\nlimit: `429` with `Retry-After`. After 20 failed authentications from one\naddress in ten minutes, further failed attempts from it get `429` until the\nten minutes pass; a working key is never held up by its address.\n\n## Conventions\n\n- **Timestamps** are ISO 8601 in UTC with `Z`, to the second:\n  `2026-10-28T09:15:00Z`. Parameters that take a timestamp accept any zone.\n- **Days** (a cleaning's day, arrival, departure) are plain dates,\n  `YYYY-MM-DD`, in the property's own time zone (`timezone`). Hours of a\n  cleaning's window are `HH:MM`, local to the property.\n- **Lists** answer `{\"data\": [...], \"next_cursor\": \"…\"}`. Pass `next_cursor`\n  back as `cursor`, with the same filters, until it is `null`. `limit` is 1\n  to 200, 50 by default. The order is fixed per list and stated on it.\n- **Filters** that take several values take them comma-separated:\n  `status=assigned,accepted`. An unknown parameter is an error, not ignored.\n- **Idempotency.** Every POST needs `Idempotency-Key` (1 to 255 visible ASCII\n  characters; a UUID is ideal). The first answer is kept for 24 hours and\n  replayed, with `Idempotent-Replayed: true`, to a repeat with the same body;\n  the same key with another body is `422 idempotency-key-reused`. A request\n  that failed is not kept: fix it and send it again with the same key.\n- **Unknown fields and values.** New fields, operations and values of an\n  enumeration may appear in v1 at any time. Ignore what you do not know.\n\n## Versions and changes\n\nThe version is in the path: `/v1`. Within v1 changes only add — fields,\noperations, optional parameters, enumeration values, scopes. Anything that\nwould break a client (a field renamed or removed, a type or meaning changed,\na parameter made required) goes to `/v2`; v1 then lives on for at least\ntwelve months, and its answers carry `Deprecation` and `Sunset` headers\nwith the date and a `Link` to the migration notes.\n\n### Changelog\n\n- **1.1.0** (2026-11-26) — the managers' boards: `listBoards` and\n  `listBoardCards` to read (`boards:read`), and `createBoardCard` to add a\n  card to a board named by its id or its title (`boards:create_cards`).\n- **1.0.0** (2026-10-28) — the first version: properties, cleanings, tasks,\n  staff, bookings, media metadata and settings to read; creating a task and\n  assigning a task or a cleaning to write.\n"
   },
   "servers": [
     {
@@ -62,6 +62,10 @@
     {
       "name": "Settings",
       "description": "The company's settings."
+    },
+    {
+      "name": "Boards",
+      "description": "The managers' own boards, their columns and cards."
     }
   ],
   "paths": {
@@ -2091,6 +2095,413 @@
           }
         ]
       }
+    },
+    "/v1/boards": {
+      "get": {
+        "operationId": "listBoards",
+        "tags": [
+          "Boards"
+        ],
+        "summary": "List boards",
+        "description": "**Scope:** `boards:read`\n\nThe managers' boards the key sees, oldest first (`created_at`, then `id`), each with its\ncolumns in order. A key acts as the admin who made it, and an admin sees every board of\nthe company, private ones included. Archived boards only with `include_archived=true`.\nTo find a board by its name, pass `title`: it matches the whole title, whatever the case\nand the spaces around it.",
+        "x-woom-scope": "boards:read",
+        "parameters": [
+          {
+            "name": "title",
+            "in": "query",
+            "description": "The board's whole title, compared without regard to case or surrounding spaces.",
+            "schema": {
+              "type": "string",
+              "maxLength": 80,
+              "example": "Renovation"
+            }
+          },
+          {
+            "name": "include_archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of boards.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Board"
+                      }
+                    },
+                    "next_cursor": {
+                      "$ref": "#/components/schemas/NextCursor"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "boards:read"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: boards:read\ncurl -s \"$WOOM_API/v1/boards?title=Renovation\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: boards:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/boards?title=Renovation`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: boards:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/boards?title=Renovation\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/boards/{id}/cards": {
+      "get": {
+        "operationId": "listBoardCards",
+        "tags": [
+          "Boards"
+        ],
+        "summary": "List a board's cards",
+        "description": "**Scope:** `boards:read`\n\nThe cards of one board, oldest first (`created_at`, then `id`). Cards in the archive and\ndeleted cards only with `include_archived=true`. A key limited to some properties reads\nonly the cards of those properties. The steps of a card come as counts.",
+        "x-woom-scope": "boards:read",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UuidId"
+          },
+          {
+            "name": "column_id",
+            "in": "query",
+            "description": "Only the cards of this column.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "assignee_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "include_archived",
+            "in": "query",
+            "description": "Cards in the archive and deleted cards too.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedSince"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of cards.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/BoardCard"
+                      }
+                    },
+                    "next_cursor": {
+                      "$ref": "#/components/schemas/NextCursor"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "boards:read"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: boards:read\ncurl -s \"$WOOM_API/v1/boards/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/cards\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: boards:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/boards/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/cards`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: boards:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/boards/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/cards\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/board-cards": {
+      "post": {
+        "operationId": "createBoardCard",
+        "tags": [
+          "Boards"
+        ],
+        "summary": "Create a card on a board",
+        "description": "**Scope:** `boards:create_cards`\n\nAdds a card to a board the way the panel does, in the name of the admin who made the key;\nthe card is given to the board's owner, as a card made in the panel is. Name the board by\n`board_id` or by `board_title` — the board's whole title, whatever the case and the spaces\naround it, among the boards not in the archive. A title that no such board has is `404 not-found`\n(`params.reason` `board-title-unknown`); a title two boards share is `422 rejected`\n(`params.reason` `board-title-ambiguous`, their ids in `params.board_ids`) — name one by\nits id then. The column is `column_id` or `column_name` (a column's `name` as `listBoards`\ngives it, matched the same way); without either the card goes to the board's first\ncolumn that is not a finishing one. A board in the archive is `409 conflict`. A key\nlimited to some properties must name one of them.",
+        "x-woom-scope": "boards:create_cards",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoardCardRequest"
+              },
+              "example": {
+                "board_title": "Renovation",
+                "title": "Order the new kitchen tiles",
+                "description": "Two boxes more than last time.",
+                "due_on": "2026-12-04",
+                "steps": [
+                  "Measure the wall",
+                  "Ask for a quote"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The card.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BoardCard"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/Idempotent-Replayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "boards:create_cards"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: boards:create_cards\ncurl -s -X POST \"$WOOM_API/v1/board-cards\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Idempotency-Key: $(uuidgen)\" \\\n  -d '{\"board_title\":\"Renovation\",\"title\":\"Order the new kitchen tiles\",\"description\":\"Two boxes more than last time.\",\"due_on\":\"2026-12-04\",\"steps\":[\"Measure the wall\",\"Ask for a quote\"]}'"
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: boards:create_cards\nconst response = await fetch(`${process.env.WOOM_API}/v1/board-cards`, {\n  method: 'POST',\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n    'Content-Type': 'application/json',\n    'Idempotency-Key': crypto.randomUUID(),\n  },\n  body: JSON.stringify({\n    \"board_title\": \"Renovation\",\n    \"title\": \"Order the new kitchen tiles\",\n    \"description\": \"Two boxes more than last time.\",\n    \"due_on\": \"2026-12-04\",\n    \"steps\": [\n      \"Measure the wall\",\n      \"Ask for a quote\"\n    ]\n  }),\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: boards:create_cards\nimport os\nimport uuid\nimport requests\n\nresponse = requests.post(\n    f\"{os.environ['WOOM_API']}/v1/board-cards\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n        \"Idempotency-Key\": str(uuid.uuid4()),\n    },\n    json={\n        \"board_title\": \"Renovation\",\n        \"title\": \"Order the new kitchen tiles\",\n        \"description\": \"Two boxes more than last time.\",\n        \"due_on\": \"2026-12-04\",\n        \"steps\": [\"Measure the wall\", \"Ask for a quote\"],\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -3607,6 +4018,353 @@
           },
           "time_to": {
             "$ref": "#/components/schemas/HourMinute"
+          }
+        }
+      },
+      "Board": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "owner_id",
+          "shared",
+          "archived",
+          "archived_at",
+          "created_at",
+          "updated_at",
+          "columns"
+        ],
+        "description": "A manager board — the office's own work, apart from tasks and cleanings.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "description": "The board's name, as the office wrote it."
+          },
+          "owner_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The manager or admin who owns the board."
+          },
+          "shared": {
+            "type": "boolean",
+            "description": "Seen by the other managers too; otherwise by its owner and the admins alone."
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "archived_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "columns": {
+            "type": "array",
+            "description": "The board's columns, in their order on the board.",
+            "items": {
+              "$ref": "#/components/schemas/BoardColumn"
+            }
+          }
+        }
+      },
+      "BoardColumn": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "preset",
+          "position",
+          "is_done",
+          "stage"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "description": "The title the office gave the column; for a column it did not rename, its preset key (open, assigned, in_progress, resolved), which the panel shows in the reader's language."
+          },
+          "preset": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "open",
+              "assigned",
+              "in_progress",
+              "resolved",
+              null
+            ],
+            "description": "The column of the technicians' board it started as; null for a column the office added."
+          },
+          "position": {
+            "type": "integer",
+            "description": "Its place on the board; higher is further right."
+          },
+          "is_done": {
+            "type": "boolean",
+            "description": "A finishing column: its cards are done."
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "open",
+              "assigned",
+              "in_progress",
+              "resolved"
+            ],
+            "description": "Which of the four stages the column stands for (resolved for a finishing one)."
+          }
+        }
+      },
+      "BoardCard": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "board_id",
+          "column_id",
+          "column_name",
+          "stage",
+          "title",
+          "description",
+          "text_masked",
+          "due_on",
+          "color",
+          "property_id",
+          "assignee_id",
+          "created_by",
+          "steps_done",
+          "steps_total",
+          "archived",
+          "deleted",
+          "moved_at",
+          "archived_at",
+          "deleted_at",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "board_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "column_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "column_name": {
+            "type": "string",
+            "description": "The column's name, as in the board's columns."
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "open",
+              "assigned",
+              "in_progress",
+              "resolved"
+            ],
+            "description": "The stage of the card's column; resolved means done."
+          },
+          "title": {
+            "type": "string",
+            "description": "Door codes masked (••••)."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Door codes masked (••••); null when there is none."
+          },
+          "text_masked": {
+            "type": "boolean",
+            "description": "True when a code was taken out of the title or the description."
+          },
+          "due_on": {
+            "$ref": "#/components/schemas/NullableDay"
+          },
+          "color": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "blue",
+              "sky",
+              "teal",
+              "green",
+              "olive",
+              "violet",
+              "orchid",
+              "slate",
+              null
+            ]
+          },
+          "property_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "assignee_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The manager or admin the card is given to."
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Who made the card; for a card made through the API, the admin who made the key."
+          },
+          "steps_done": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Steps of the card's checklist that are ticked."
+          },
+          "steps_total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Steps of the card's checklist."
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "deleted": {
+            "type": "boolean",
+            "description": "Deleted in the panel, where it can still be returned."
+          },
+          "moved_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "archived_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "deleted_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "CreateBoardCardRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title"
+        ],
+        "description": "Name the board by `board_id` or by `board_title`, one of the two; the column by `column_id` or `column_name`, or by neither.",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "board_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "board_title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "The board's whole title, whatever the case and the spaces around it."
+          },
+          "column_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "column_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "A column's name as the board's columns give it: its title, or a preset key such as in_progress."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 10000,
+            "description": "Plain text; links are shown as links. The whole body is at most 16 KB."
+          },
+          "due_on": {
+            "$ref": "#/components/schemas/NullableDay"
+          },
+          "property_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "description": "Required for a key limited to some properties."
+          },
+          "color": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "blue",
+              "sky",
+              "teal",
+              "green",
+              "olive",
+              "violet",
+              "orchid",
+              "slate",
+              null
+            ]
+          },
+          "steps": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "description": "The card's checklist, in order — up to 100 steps of 1 to 500 characters each.",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
           }
         }
       }

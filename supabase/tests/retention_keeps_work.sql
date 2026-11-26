@@ -6,6 +6,8 @@
 -- the raw layer leave the rows of the work untouched — cleanings and tasks, their steps, journals and
 -- closing history, comments (chat), task themes, plans and their steps, requests for supplies. Media
 -- rows only get their purged_at mark: the files go after 90 days (purge-task-media), the rows stay.
+-- The archives are work too: an archived task, its repair and their rows stay; deleting them for
+-- good is an admin's act (20261126150000), and the purge only drains the files such a delete left.
 --
 -- A raw booking has no foreign key from anywhere: deleting it moves nothing. A booking's row in
 -- public.reservations is never deleted by a retention job, only its guest_name cleared, so the
@@ -189,6 +191,34 @@ values ('fa900000-0000-4000-8000-00000000000a', 'fa900020-0000-4000-8000-0000000
         'fa900002-0000-4000-8000-000000000002', now() - interval '200 days',
         '{"count": 1, "photos": 1, "videos": 0, "at": "closing", "addition": "fa900050-0000-4000-8000-000000000001"}');
 
+-- The archives (20261126150000): a task archived 199 days ago with its cancelled repair and the
+-- repair's file — the archive is work too, and only an admin's «Удалить навсегда» deletes it — and
+-- the file of a media row such a delete took, waiting in the purge's queue.
+insert into public.problems (id, host_id, property_id, reported_by, title, status, archived_at)
+values ('fa900020-0000-4000-8000-000000000003', 'fa900000-0000-4000-8000-00000000000a', 900090001,
+        'fa900001-0000-4000-8000-000000000001', 'Synthetic archived tap', 'open', now() - interval '199 days');
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, problem_id)
+values ('fa900010-0000-4000-8000-000000000002', 'fa900000-0000-4000-8000-00000000000a', 900090001,
+        'maintenance', 'cancelled', current_date - 200, 'fa900020-0000-4000-8000-000000000003');
+update public.tasks set completed_at = now() - interval '200 days', updated_at = now() - interval '200 days'
+where id = 'fa900010-0000-4000-8000-000000000002';
+insert into public.task_steps (id, task_id, host_id, sort_order, type, required)
+values ('fa900011-0000-4000-8000-000000000002', 'fa900010-0000-4000-8000-000000000002',
+        'fa900000-0000-4000-8000-00000000000a', 1, 'photos_before', true);
+insert into public.task_media (id, host_id, task_id, step_id, kind, storage_path, mime_type, byte_size,
+                               created_by, created_at, uploaded_at)
+values ('fa900014-0000-4000-8000-000000000003', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900010-0000-4000-8000-000000000002', 'fa900011-0000-4000-8000-000000000002', 'photo',
+        'fa900000-0000-4000-8000-00000000000a/fa900010-0000-4000-8000-000000000002/synthetic.jpg',
+        'image/jpeg', 1000, 'fa900001-0000-4000-8000-000000000001', now() - interval '200 days',
+        now() - interval '200 days');
+insert into raw.task_media_orphans (id, host_id, storage_path, media)
+values ('fa900014-0000-4000-8000-000000000009', 'fa900000-0000-4000-8000-00000000000a',
+        'fa900000-0000-4000-8000-00000000000a/deleted/synthetic.jpg',
+        jsonb_build_object('id', 'fa900014-0000-4000-8000-000000000009', 'kind', 'photo',
+                           'storage_path', 'fa900000-0000-4000-8000-00000000000a/deleted/synthetic.jpg',
+                           'created_at', now() - interval '1 day'));
+
 select pg_temp.check('0 the fixtures have their journals and closing history',
   (select count(*) from public.task_events where task_id = 'fa900010-0000-4000-8000-000000000001') > 0
   and (select count(*) from public.task_closings where task_id = 'fa900010-0000-4000-8000-000000000001') = 1
@@ -303,6 +333,21 @@ select pg_temp.check('11 the cards keep their columns',
 
 select pg_temp.check('12 the task keeps its planned day',
   (select due_on from public.problems where id = 'fa900020-0000-4000-8000-000000000001'), current_date + 30);
+
+select pg_temp.check('13 the archived task and its repair stay; the repair''s file is marked purged',
+  (select count(*) from public.problems
+   where id = 'fa900020-0000-4000-8000-000000000003' and archived_at is not null)::text || ' '
+  || (select count(*) from public.tasks where id = 'fa900010-0000-4000-8000-000000000002')::text || ' '
+  || (select (purged_at is not null)::text from public.task_media
+      where id = 'fa900014-0000-4000-8000-000000000003'),
+  '1 1 true');
+
+select pg_temp.check('14 the file a person''s delete left goes, and its line in the queue with it',
+  (select count(*) from raw.task_media_orphans where id = 'fa900014-0000-4000-8000-000000000009'), 0::bigint);
+
+-- Deleting for good is a person's act (20261126150000), never a job's.
+select pg_temp.check('15 no scheduled job deletes from the archives',
+  (select count(*) from cron.job where command ~* 'delete_archived|delete_shelved'), 0::bigint);
 
 -- No foreign key leads from the raw layer to anything: a raw booking's delete cascades nowhere.
 select pg_temp.check('9 nothing references the raw bookings or listings',

@@ -74,6 +74,8 @@
 | `list_staff`, `get_staff_member` | `staff:read` (+ `staff:read_names` для имён) | читает |
 | `list_bookings`, `get_booking` | `bookings:read` | читает (без данных гостей) |
 | `get_settings` | `settings:read` | читает |
+| `list_boards`, `list_board_cards` | `boards:read` | читает доски менеджеров, их колонки и карточки (с 26.11) |
+| `create_board_card` | `boards:create_cards` | **пишет**: новая карточка на доске, названной по id или по названию (с 26.11) |
 
 - Аннотации: чтение — `readOnlyHint: true, destructiveHint: false, idempotentHint: true,
   openWorldHint: false`; запись — `readOnlyHint: false`, `idempotentHint: true` (ключ
@@ -124,7 +126,7 @@
   контекст помощника.
 - Ответ инструмента — не больше 64 КиБ JSON. Слишком большая страница запрашивается снова
   с половиной `limit` (до трёх раз); не уместилось — ошибка инструмента `result-too-large`.
-- `tools/list` — один ответ без страниц (17 инструментов, ~36 КБ), `ttlMs` 5 минут,
+- `tools/list` — один ответ без страниц (17 инструментов, ~36 КБ; с 26.11 — 20), `ttlMs` 5 минут,
   `cacheScope: "private"`.
 
 ## 7. Связь с функцией api

@@ -17,7 +17,9 @@ export type ParamKind =
   | "boolean"
   | "limit"
   | "time"
-  | "text";
+  | "text"
+  /** A body field only: a JSON array of strings, each 1..maxLength, at most maxItems of them. */
+  | "textList";
 
 export interface ParamSpec {
   /** The name on the wire: a query parameter, a path segment or a body field. */
@@ -32,6 +34,8 @@ export interface ParamSpec {
   /** A body field that may be sent as null (the field must still be sent when required). */
   readonly nullable?: boolean;
   readonly maxLength?: number;
+  /** For textList: how many strings at most. */
+  readonly maxItems?: number;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -95,7 +99,36 @@ function parseText(spec: ParamSpec, raw: string): Parsed {
       return raw.length >= 1 && raw.length <= (spec.maxLength ?? 200)
         ? { ok: true, value: raw }
         : bad(`must be 1 to ${spec.maxLength ?? 200} characters`);
+    case "textList":
+      // Never a query or path value: a list there is comma-separated (parseList).
+      return bad("must be an array of strings");
   }
+}
+
+const DEFAULT_MAX_ITEMS = 100;
+
+/** A body field of kind textList: an array of non-empty strings, each within maxLength. */
+function parseTextList(spec: ParamSpec, value: unknown): Parsed {
+  const maxItems = spec.maxItems ?? DEFAULT_MAX_ITEMS;
+  const maxLength = spec.maxLength ?? 200;
+  if (!Array.isArray(value)) {
+    return bad("must be an array of strings");
+  }
+  if (value.length > maxItems) {
+    return bad(`must hold at most ${maxItems} items`);
+  }
+  for (const item of value) {
+    if (typeof item !== "string") {
+      return bad("must be an array of strings");
+    }
+    if (item.includes("\u0000")) {
+      return bad("must not contain a NUL character");
+    }
+    if (item.trim().length < 1 || item.length > maxLength) {
+      return bad(`items must be 1 to ${maxLength} characters`);
+    }
+  }
+  return { ok: true, value: [...value] };
 }
 
 function parseList(spec: ParamSpec, raw: string): Parsed {
@@ -190,6 +223,16 @@ export function parseBody(specs: readonly ParamSpec[], body: unknown): ParsedPar
         values[spec.name] = null;
       } else {
         errors.push({ name: spec.name, message: "must not be null" });
+      }
+      continue;
+    }
+    if (spec.kind === "textList") {
+      const list = parseTextList(spec, value);
+      if (list.ok) {
+        args[spec.arg] = list.value;
+        values[spec.name] = list.value;
+      } else {
+        errors.push({ name: spec.name, message: list.message });
       }
       continue;
     }

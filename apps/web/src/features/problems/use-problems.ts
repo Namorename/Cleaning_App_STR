@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { chatKeys } from '@/features/chat/keys';
 import { signalKeys } from '@/features/guest-signals/keys';
 import { taskKeys } from '@/features/tasks/keys';
 import { useSupabase } from '@/lib/supabase/use-client';
@@ -10,6 +11,7 @@ import {
   archiveProblem,
   assignProblem,
   cancelProblem,
+  deleteArchivedProblem,
   editProblemText,
   fetchFixTaskSteps,
   fetchProblem,
@@ -261,5 +263,27 @@ export function useUnarchiveProblem() {
   return useMutation({
     mutationFn: (problemId: string) => unarchiveProblem(client, problemId),
     onSuccess: invalidate,
+  });
+}
+
+/**
+ * «Удалить навсегда» (admin, an archived task): the lists, the repairs (/tasks, the calendar) and
+ * the unread marks lose it. The task's own page is not read again — it would only find nothing;
+ * the page that asked leaves it.
+ */
+export function useDeleteArchivedProblem() {
+  const client = useSupabase();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (problemId: string) => deleteArchivedProblem(client, problemId),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: problemKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: taskKeys.all }),
+        queryClient.invalidateQueries({ queryKey: chatKeys.unread() }),
+      ]),
+    // A refusal (somebody brought it back meanwhile): the page reads it again and drops the button.
+    onError: (_error, problemId) =>
+      queryClient.invalidateQueries({ queryKey: problemKeys.detail(problemId) }),
   });
 }

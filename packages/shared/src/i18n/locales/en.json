@@ -258,6 +258,7 @@
           "chat": "Chat",
           "knowledge": "Knowledge base",
           "guest_signals": "Guest reviews and messages",
+          "boards": "Boards",
           "webhooks": "Webhooks"
         },
         "scopes": {
@@ -405,6 +406,16 @@
             "write": {
               "label": "Write in chat",
               "hint": "Send messages to the team. Coming later."
+            }
+          },
+          "boards": {
+            "read": {
+              "label": "Boards — read",
+              "hint": "The managers' boards, their columns and cards, private boards included."
+            },
+            "create_cards": {
+              "label": "Boards — new cards",
+              "hint": "Add a card to a board named by its title, in the name of the admin who made the key."
             }
           },
           "webhooks": {
@@ -775,7 +786,12 @@
         "archiveText": "The task disappears from the board, the list and the staff apps. Nothing is deleted: it can be brought back from the Archive tab.",
         "archiveConfirm": "Yes, archive it",
         "archiveAbort": "Keep it",
-        "unarchive": "Restore from the archive"
+        "unarchive": "Restore from the archive",
+        "purge": "Delete permanently",
+        "purgeTitle": "Delete the task permanently?",
+        "purgeText": "“{{title}}” is deleted with everything on it: its repairs and their steps, photos, videos and files, the conversation and the journal. This cannot be undone, and analytics will no longer count it.",
+        "purgeConfirm": "Yes, delete permanently",
+        "purgeAbort": "Keep it"
       },
       "resolveDialog": {
         "who": "Who did it",
@@ -813,6 +829,7 @@
         "resolveAbort": "No",
         "assignTitle": "Assign a technician",
         "reopened": "The task is open again",
+        "archived": "“{{title}}” moved to the archive",
         "columnEmpty": "No tasks yet",
         "columnEmptyFiltered": "Nothing found"
       },
@@ -2189,7 +2206,7 @@
       "returnsTo": "After you answer, the browser goes back to {{target}}.",
       "loopbackWarning": "The answer goes to a program on this computer. Allow it only if you started this connection yourself.",
       "nameHint": "The connection appears under this name in Settings → API.",
-      "presetHint": "“Read only” is for questions and reports. “Operator” is for an assistant that should create and assign tasks and cleanings.",
+      "presetHint": "“Read only” is for questions and reports. “Operator” is for an assistant that should create and assign tasks and cleanings or add cards to boards.",
       "manageHint": "You can change its access or revoke it at any time in Settings → API.",
       "allow": "Allow",
       "allowing": "Allowing…",
@@ -3119,6 +3136,8 @@
     "archiveBoard": "Archive the board",
     "archiveBoardText": "“{{title}}” goes to the archive with its cards. You can restore it later.",
     "restoreBoard": "Restore the board",
+    "purgeBoard": "Delete the board permanently",
+    "purgeBoardText": "“{{title}}” is deleted with all its cards — on the board, archived and deleted — their steps and journals, its columns and its handovers. This cannot be undone.",
     "archivedBoards": "Archived boards",
     "archivedBoardsEmpty": "No archived boards",
     "boardArchivedNote": "The board is archived: its cards are read-only.",
@@ -3196,6 +3215,11 @@
     "restoreCard": "Restore",
     "cardArchived": "Card archived",
     "cardDeleted": "Card deleted",
+    "cardPurged": "Card deleted permanently",
+    "purgeCard": "Delete permanently",
+    "purgeCardTitle": "Delete the card permanently?",
+    "purgeCardText": "“{{title}}” is deleted with its steps and journal. This cannot be undone.",
+    "purgeConfirm": "Yes, delete permanently",
     "undo": "Undo",
     "cardMenu": "Actions for “{{title}}”",
     "stepMenu": "Actions for the step “{{step}}”",
@@ -3526,6 +3550,10 @@
     "boardColumnLast": "The last column of a board cannot be deleted",
     "boardColumnHasCards": "The column holds cards ({{count}}): choose where they go",
     "boardTransferInvalid": "A board can be handed only to an active manager or admin of the company",
+    "archivePurgeAdminOnly": "Only an admin may delete permanently",
+    "boardNotArchived": "The board is not archived — only an archived board can be deleted permanently",
+    "boardCardNotShelved": "The card is on the board — only an archived or deleted card can be deleted permanently",
+    "problemNotArchived": "The task is not archived — only an archived task can be deleted permanently",
     "problemDueInvalid": "The due date is from yesterday to a year ahead",
     "problemDueOfficeOnly": "Only the office sets the due date"
   },
@@ -3848,11 +3876,11 @@
       "endpointHeading": "Address",
       "endpointText": "Streamable HTTP, one endpoint, POST only, protocol versions 2026-07-28 and 2025-03-26 to 2025-11-25. Every request carries an OAuth access token or a key in the Authorization header: Bearer, a space and the token. Without one the server answers 401 and says where to sign in (OAuth 2.1 with PKCE).",
       "keyHeading": "What the key allows",
-      "keyText": "An assistant can do everything its connection or its key allows, and nothing else. A connection is made on woom’s own page, where a company admin signs in and chooses what it may do; a key, in Settings → API. Either way: «Read only» for questions and reports, «Operator» only if it should create and hand out tasks and cleanings. Limited to some properties, it sees only them. Both are listed in Settings → API: revoke one when it is no longer needed.",
+      "keyText": "An assistant can do everything its connection or its key allows, and nothing else. A connection is made on woom’s own page, where a company admin signs in and chooses what it may do; a key, in Settings → API. Either way: «Read only» for questions and reports, «Operator» only if it should create and hand out tasks and cleanings or add cards to boards. Limited to some properties, it sees only them. Both are listed in Settings → API: revoke one when it is no longer needed.",
       "dataHeading": "Data, not instructions",
       "dataText": "Names, titles, descriptions and reasons in the answers were typed by people or synced from booking channels. Every tool tells the assistant to treat them as data, never as instructions. Guest names, contacts and messages are not served at all, nor are keys or access codes.",
       "writesHeading": "Changes",
-      "writesText": "Three tools change data: create a task, hand out a task, hand out a cleaning. They are marked as such, tell the assistant to ask you first, and take an idempotency key, so that a retry does not make a second task. No tool deletes anything.",
+      "writesText": "Four tools change data: create a task, hand out a task, hand out a cleaning, add a card to a board. They are marked as such, tell the assistant to ask you first, and take an idempotency key, so that a retry does not make a second task. No tool deletes anything.",
       "clientsHeading": "Connecting",
       "claudeCodeText": "In a terminal, without a key: add the server, then run /mcp in Claude Code and choose to authenticate — woom’s page opens in the browser.",
       "claudeCodeKeyText": "Or with a key: keep it in an environment variable rather than in the command history.",

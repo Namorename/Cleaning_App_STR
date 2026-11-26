@@ -14,6 +14,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { formatShortDay } from '@/lib/format-date';
@@ -27,6 +28,7 @@ import { RepairTail } from './repair-tail';
 import { SourceBadge } from './source-badge';
 import {
   isDraggable,
+  isProblemArchived,
   liveFixTask,
   livePlannedDay,
   problemPlace,
@@ -41,6 +43,8 @@ interface ProblemCardProps {
   moves?: readonly BoardStatus[];
   /** Send the card to a column, as a drop there would. */
   onMove?: (problem: Problem, status: BoardStatus) => void;
+  /** «В архив» from the menu (owner, 2026-11-26): the board asks first, as the task's page does. */
+  onArchive?: (problem: Problem) => void;
   /** Fired when the manager picks the card up; absent on a board that cannot move cards. */
   onDragStart?: (problem: Problem) => void;
   onDragEnd?: () => void;
@@ -55,7 +59,7 @@ interface ProblemCardProps {
  * the page, the place, the technician and the day; the urgency only when it
  * is not the usual one, and the planned day of a live task when it has one
  * («Дата: Завтра», owner 2026-11-26). Its menu «⋯» moves it between columns, so a move is
- * not left to the mouse alone.
+ * not left to the mouse alone, and puts it in the archive (owner, 2026-11-26).
  *
  * The title's link covers the card, so the whole card still opens the page;
  * the menu sits above it, outside the link.
@@ -64,6 +68,7 @@ export function ProblemCard({
   problem,
   moves = [],
   onMove,
+  onArchive,
   onDragStart,
   onDragEnd,
   hasUnread = false,
@@ -78,6 +83,8 @@ export function ProblemCard({
   // On the scale of four: «Критическая» is the strongest chip of the panel.
   const level = problemLevel(problem);
   const draggable = onDragStart !== undefined && isDraggable(problem);
+  const menuMoves = onMove === undefined ? [] : moves;
+  const canArchive = onArchive !== undefined && !isProblemArchived(problem);
 
   const handleDragStart = (event: DragEvent<HTMLElement>) => {
     // Firefox starts a drag only when something is set; the id is handy anyway.
@@ -107,7 +114,7 @@ export function ProblemCard({
         >
           {problem.title}
         </Link>
-        {onMove === undefined || moves.length === 0 ? null : (
+        {menuMoves.length === 0 && !canArchive ? null : (
           <div className="relative z-10 -mt-2.5 -mr-2.5 shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -117,13 +124,21 @@ export function ProblemCard({
                 <Ellipsis aria-hidden="true" />
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                {moves.map((status) => (
-                  <DropdownMenuItem key={status} onClick={() => onMove(problem, status)}>
+                {menuMoves.map((status) => (
+                  <DropdownMenuItem key={status} onClick={() => onMove?.(problem, status)}>
                     {t('panel.problems.board.moveTo', {
                       status: t(`problems.statuses.${status}`),
                     })}
                   </DropdownMenuItem>
                 ))}
+                {canArchive ? (
+                  <>
+                    {menuMoves.length > 0 ? <DropdownMenuSeparator /> : null}
+                    <DropdownMenuItem variant="destructive" onClick={() => onArchive?.(problem)}>
+                      {t('panel.problems.actions.archive')}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

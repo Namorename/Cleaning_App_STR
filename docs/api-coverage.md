@@ -10,18 +10,19 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 47 | 346 | 413 |
-| Таблицы и представления | 9 | 21 | 33 | 63 |
-| Всего | 29 | 68 | 379 | 476 |
+| Функции | 24 | 47 | 353 | 424 |
+| Таблицы и представления | 13 | 21 | 29 | 63 |
+| Всего | 37 | 68 | 382 | 487 |
 
 ## Функции
 
-### Выставлено в API v1 — 20
+### Выставлено в API v1 — 24
 
 | Имя | Право | Операции |
 | --- | --- | --- |
 | `api_v1_assign_cleaning` | `cleanings:assign` | `assignCleaning` |
 | `api_v1_assign_task` | `tasks:assign` | `assignTask` |
+| `api_v1_create_board_card` | `boards:create_cards` | `createBoardCard` |
 | `api_v1_create_task` | `tasks:create` | `createTask` |
 | `api_v1_get_booking` | `bookings:read` | `getBooking` |
 | `api_v1_get_cleaning` | `cleanings:read` | `getCleaning` |
@@ -30,6 +31,8 @@
 | `api_v1_get_settings` | `settings:read` | `getSettings` |
 | `api_v1_get_staff_member` | `staff:read` | `getStaffMember` |
 | `api_v1_get_task` | `tasks:read` | `getTask` |
+| `api_v1_list_board_cards` | `boards:read` | `listBoardCards` |
+| `api_v1_list_boards` | `boards:read` | `listBoards` |
 | `api_v1_list_bookings` | `bookings:read` | `listBookings` |
 | `api_v1_list_cleaning_media` | `media:read` | `listCleaningMedia` |
 | `api_v1_list_cleanings` | `cleanings:read` | `listCleanings` |
@@ -39,6 +42,7 @@
 | `api_v1_list_tasks` | `tasks:read` | `listTasks` |
 | `assign_problem` | `tasks:assign` | `createTask`, `assignTask` |
 | `report_problem` | `tasks:create` | `createTask` |
+| `save_manager_card` | `boards:create_cards` | `createBoardCard` |
 | `save_task` | `cleanings:assign` | `assignCleaning` |
 
 ### Запланировано (право зарезервировано) — 47
@@ -93,7 +97,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 346
+### Внутреннее — 353
 
 | Имя | Причина |
 | --- | --- |
@@ -110,6 +114,10 @@
 | `api_allows_booking` | API plumbing: the property restriction of a key, for bookings. |
 | `api_allows_property` | API plumbing: the property restriction of a key. |
 | `api_authorize` | API plumbing: the key behind a digest, with the scope an operation needs. |
+| `api_board_card_json` | API plumbing: what a manager board card looks like in the API (codes masked, steps as counts). |
+| `api_board_column_name` | API plumbing: a board column's name, its title or its preset key. |
+| `api_board_json` | API plumbing: what a manager board looks like in the API, with its live columns. |
+| `api_board_visible` | API plumbing: whether the key's maker sees a board, by the panel's rule (manager_board_visible). |
 | `api_booking_json` | API plumbing: what a booking looks like in the API. |
 | `api_channel` | API plumbing: names Hostaway's channel numbers. |
 | `api_check_key_fields` | API plumbing: checks a key's name, preset, scopes and properties. |
@@ -172,10 +180,13 @@
 | `decide_signal_finding` | decision rules of the classify job (no task, dropped, duplicate, already fixed, auto); called inside apply_signal_findings, execute revoked from every role |
 | `decline_cleaning` | a cleaner declines her own cleaning on the phone, before starting it; a person's own move, never an integration's (owner, 2026-11-18) |
 | `default_host_id` | tenant default of host_id columns (single-company phase A); internal plumbing |
+| `delete_archived_board` | forbidden: data:destroy - an admin deletes an archived manager board for good, with its cards, steps, journals, columns and transfers (panel, after a question); irreversible, never through the API |
+| `delete_archived_problem` | forbidden: data:destroy - an admin deletes an archived task for good, with its repairs, steps, media and their files, conversations and journals (panel, after a question); irreversible, never through the API |
 | `delete_manager_board_column` | deletes a column of a manager board, its cards moved to another column first (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
 | `delete_manager_comment` | deletes a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `delete_manager_step` | deletes a step of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `delete_resolution_plan` | the manager deletes a draft in the panel; the public resource comes with stage 6 of the plan |
+| `delete_shelved_board_card` | forbidden: data:destroy - an admin deletes an archived or soft-deleted manager board card for good, with its steps and journal (panel, after a question); irreversible, never through the API |
 | `delete_supply_request` | forbidden: irreversible delete (hard delete of a new supply request by its author) |
 | `duplicate_manager_card` | copies a card with its steps of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `effective_cleaner_notes` | forbidden: door/access codes (computed cleaner note of a listing carries key-box and access codes) |
@@ -257,7 +268,7 @@
 | `manager_column_for_edit` | internal helper of the column functions: the column the caller may change, its board locked; no client may call it |
 | `manager_step_card` | internal helper of the board functions: the card of a step the caller may change |
 | `mark_signal_analysis_failed` | classify-guest-signals job: counts a failed model reading of a review, service_role only |
-| `mark_task_media_purged` | retention job (purge-task-media): marks purged files, service_role only |
+| `mark_task_media_purged` | retention job (purge-task-media): marks purged files, and drops the queued files of deleted rows (20261126150000), service_role only |
 | `mark_webhook_events` | Hostaway webhook processing (process-webhook-events), service_role only |
 | `message_theme_finding` | Guest chats (docs/guest-chats.md), behind a switch: the card a theme makes; a helper of the job. |
 | `mirror_problem_status` | trigger function: mirrors the repair state onto its problem |
@@ -329,6 +340,7 @@
 | `quality_settled_to` | internal helper of the panel reads |
 | `quality_theme_rows` | internal helper of the panel reads |
 | `queue_polled_conversations` | Guest chats (docs/guest-chats.md), behind a switch: the hourly poll's conversations join the queue; the job's own. |
+| `queue_orphaned_media` | trigger: the file of a task_media row deleted before its purge waits in raw.task_media_orphans for purge-task-media; no client calls it |
 | `record_push_receipts` | push plumbing: send-push stores Expo receipts, service_role only |
 | `record_push_results` | push plumbing: send-push settles sent groups and tickets, service_role only |
 | `record_signal_feedback` | helper of the manager's levers: writes one verdict on a finding to signal_feedback, no text; execute revoked from every role |
@@ -363,7 +375,6 @@
 | `revoke_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `save_manager_board` | creates or renames a board of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 |
 | `save_manager_board_column` | adds or renames a column of a manager board in the panel and on the manager's phone (its owner or an admin); not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
-| `save_manager_card` | creates a card with its steps or saves its fields of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `save_manager_comment` | writes or edits a comment in the journal of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `save_manager_step` | adds a step to a card or changes its words of a manager board in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18; since 20261119090000 any active manager or admin of the company on any live board, the board itself still its owner's and an admin's; still not in API v1 by the owner's word of 2026-11-19 |
 | `save_resolution_plan` | the manager saves a draft in the panel; the public resource comes with stage 6 of the plan |
@@ -425,7 +436,7 @@
 | `task_media_max_photos` | media limit constant used by the upload checks |
 | `task_media_max_video_sec` | media limit constant used by the upload checks |
 | `task_media_retention_days` | retention constant of purge-task-media |
-| `task_media_to_purge` | retention job (purge-task-media): next batch of files to remove, service_role only |
+| `task_media_to_purge` | retention job (purge-task-media): next batch of files to remove, the queued files of deleted rows too (20261126150000), service_role only |
 | `task_media_video_tolerance_sec` | media limit constant used by the upload checks |
 | `task_media_written_meanwhile` | replay-race helper of the media RPCs; execute revoked from clients |
 | `task_note_line_count` | phone-only flow of the cleaner at work (task steps): counts note lines to tick, service_role only |
@@ -446,11 +457,15 @@
 
 ## Таблицы и представления
 
-### Выставлено в API v1 — 9
+### Выставлено в API v1 — 13
 
 | Имя | Право | Операции |
 | --- | --- | --- |
 | `hosts` | `settings:read` | `getSettings` |
+| `manager_board_cards` | `boards:read` | `listBoardCards` |
+| `manager_board_columns` | `boards:read` | `listBoards` |
+| `manager_board_steps` | `boards:read` | `listBoardCards` |
+| `manager_boards` | `boards:read` | `listBoards`, `listBoardCards` |
 | `problems` | `tasks:read` | `listTasks`, `getTask`, `createTask`, `assignTask` |
 | `profiles` | `staff:read` | `listStaff`, `getStaffMember` |
 | `properties` | `properties:read` | `listProperties`, `getProperty` |
@@ -486,7 +501,7 @@
 | `workflow_steps` | `checklists:read` | steps of a process template |
 | `workflow_templates` | `checklists:read` | process templates a cleaning follows |
 
-### Внутреннее — 33
+### Внутреннее — 29
 
 | Имя | Причина |
 | --- | --- |
@@ -500,12 +515,8 @@
 | `issue_facts` | episodes without guest text; the public API will serve aggregates only, from stage 6 |
 | `issue_theme_words` | the dictionary for staff texts |
 | `issue_themes` | the closed list of themes; the public resource comes with stage 6 |
-| `manager_board_cards` | cards of the managers' boards; read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18 |
-| `manager_board_columns` | the columns of the managers' own boards; read in the panel and on the manager's phone; not in API v1 by the owner's word of 2026-11-18 (the boards stay internal; 2026-11-26 adds no API) |
-| `manager_board_entries` | the journal of a manager board card (comments and system lines); read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18 |
-| `manager_board_steps` | the checklist of a manager board card; read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18 |
+| `manager_board_entries` | the journal of a manager board card (comments and system lines); read in the panel and on the manager's phone; API v1 reads boards, columns and cards since 2026-11-26 but not the journal (owner: no other texts) |
 | `manager_board_transfers` | who handed a manager board to whom and when, no words; the server alone reads it, no client |
-| `manager_boards` | the managers' own boards (the office's work apart from cleanings and tasks); read in the panel and on the manager's phone, not in API v1 by the owner's word of 2026-11-18 |
 | `oauth_clients` | MCP sign-in: dynamically registered OAuth clients. |
 | `oauth_codes` | MCP sign-in: authorization codes, as digests. |
 | `oauth_tokens` | MCP sign-in: access and refresh tokens of connections, as digests. |

@@ -260,6 +260,7 @@
           "chat": "Chat",
           "knowledge": "Znalostní báze",
           "guest_signals": "Recenze a zprávy hostů",
+          "boards": "Nástěnky",
           "webhooks": "Webhooky"
         },
         "scopes": {
@@ -407,6 +408,16 @@
             "write": {
               "label": "Psaní do chatu",
               "hint": "Posílat zprávy týmu. Přibude později."
+            }
+          },
+          "boards": {
+            "read": {
+              "label": "Nástěnky — čtení",
+              "hint": "Nástěnky manažerů, jejich sloupce a karty, i soukromé nástěnky."
+            },
+            "create_cards": {
+              "label": "Nástěnky — nové karty",
+              "hint": "Přidat kartu na nástěnku podle jejího názvu, jménem administrátora, který klíč vytvořil."
             }
           },
           "webhooks": {
@@ -777,7 +788,12 @@
         "archiveText": "Úkol zmizí z nástěnky, ze seznamu i z aplikací zaměstnanců. Nic se nemaže: lze ho vrátit ze záložky Archiv.",
         "archiveConfirm": "Ano, do archivu",
         "archiveAbort": "Ponechat",
-        "unarchive": "Obnovit z archivu"
+        "unarchive": "Obnovit z archivu",
+        "purge": "Smazat natrvalo",
+        "purgeTitle": "Smazat úkol natrvalo?",
+        "purgeText": "Úkol „{{title}}“ se smaže se vším, co k němu patří: s opravami a jejich kroky, fotkami, videi a soubory, konverzací i deníkem. Nelze to vrátit a z analytiky zmizí.",
+        "purgeConfirm": "Ano, smazat natrvalo",
+        "purgeAbort": "Ponechat"
       },
       "resolveDialog": {
         "who": "Kdo to provedl",
@@ -815,6 +831,7 @@
         "resolveAbort": "Ne",
         "assignTitle": "Přiřadit technika",
         "reopened": "Úkol je znovu otevřený",
+        "archived": "Úkol „{{title}}“ je v archivu",
         "columnEmpty": "Zatím žádné úkoly",
         "columnEmptyFiltered": "Nic nenalezeno"
       },
@@ -2227,7 +2244,7 @@
       "returnsTo": "Po odpovědi se prohlížeč vrátí na {{target}}.",
       "loopbackWarning": "Odpověď půjde programu na tomto počítači. Povolte ji, jen pokud jste připojení spustili sami.",
       "nameHint": "Pod tímto názvem se připojení objeví v Nastavení → API.",
-      "presetHint": "„Jen čtení“ je pro dotazy a přehledy. „Operátor“ je pro asistenta, který má vytvářet a přidělovat úkoly a úklidy.",
+      "presetHint": "„Jen čtení“ je pro dotazy a přehledy. „Operátor“ je pro asistenta, který má vytvářet a přidělovat úkoly a úklidy nebo přidávat karty na nástěnky.",
       "manageHint": "Přístup můžete kdykoli změnit nebo připojení zrušit v Nastavení → API.",
       "allow": "Povolit",
       "allowing": "Povolujeme…",
@@ -3177,6 +3194,8 @@
     "archiveBoard": "Přesunout nástěnku do archivu",
     "archiveBoardText": "Nástěnka „{{title}}“ odejde do archivu i s kartami. Půjde ji obnovit.",
     "restoreBoard": "Obnovit nástěnku",
+    "purgeBoard": "Smazat nástěnku natrvalo",
+    "purgeBoardText": "Nástěnka „{{title}}“ se smaže se všemi kartami — na nástěnce, v archivu i smazanými — s jejich kroky a deníky, se sloupci i historií předání. Nelze to vrátit.",
     "archivedBoards": "Archiv nástěnek",
     "archivedBoardsEmpty": "Archiv nástěnek je prázdný",
     "boardArchivedNote": "Nástěnka je v archivu: karty jsou jen ke čtení.",
@@ -3254,6 +3273,11 @@
     "restoreCard": "Obnovit",
     "cardArchived": "Karta je v archivu",
     "cardDeleted": "Karta smazána",
+    "cardPurged": "Karta smazána natrvalo",
+    "purgeCard": "Smazat natrvalo",
+    "purgeCardTitle": "Smazat kartu natrvalo?",
+    "purgeCardText": "Karta „{{title}}“ se smaže i s kroky a deníkem. Nelze to vrátit.",
+    "purgeConfirm": "Ano, smazat natrvalo",
     "undo": "Vrátit",
     "cardMenu": "Akce karty „{{title}}“",
     "stepMenu": "Akce kroku „{{step}}“",
@@ -3596,6 +3620,10 @@
     "boardColumnLast": "Poslední sloupec nástěnky nelze smazat",
     "boardColumnHasCards": "Ve sloupci jsou karty ({{count}}): vyberte, kam je přesunout",
     "boardTransferInvalid": "Nástěnku lze předat jen aktivnímu manažerovi nebo administrátorovi firmy",
+    "archivePurgeAdminOnly": "Natrvalo mazat může jen administrátor",
+    "boardNotArchived": "Nástěnka není v archivu — natrvalo lze smazat jen nástěnku z archivu",
+    "boardCardNotShelved": "Karta je na nástěnce — natrvalo lze smazat jen kartu z archivu nebo ze smazaných",
+    "problemNotArchived": "Úkol není v archivu — natrvalo lze smazat jen úkol z archivu",
     "problemDueInvalid": "Termín je od včerejška do jednoho roku dopředu",
     "problemDueOfficeOnly": "Termín nastavuje jen kancelář"
   },
@@ -3922,11 +3950,11 @@
       "endpointHeading": "Adresa",
       "endpointText": "Streamable HTTP, jedna adresa, jen POST, verze protokolu 2026-07-28 a 2025-03-26 až 2025-11-25. Každý požadavek nese token OAuth nebo klíč v hlavičce Authorization: Bearer, mezera a token. Bez něj server odpoví 401 a řekne, kde se přihlásit (OAuth 2.1 s PKCE).",
       "keyHeading": "Co klíč dovoluje",
-      "keyText": "Asistent smí všechno, co dovoluje jeho připojení nebo klíč, a nic víc. Připojení vzniká na stránce woom, kde se administrátor firmy přihlásí a vybere, co smí; klíč v části Nastavení → API. V obou případech „Jen čtení“ pro dotazy a přehledy, „Operátor“ jen tehdy, když má zakládat a přidělovat úkoly a úklidy. Omezené na některé objekty vidí jen je. Připojení i klíče jsou v Nastavení → API: zrušte, co už není potřeba.",
+      "keyText": "Asistent smí všechno, co dovoluje jeho připojení nebo klíč, a nic víc. Připojení vzniká na stránce woom, kde se administrátor firmy přihlásí a vybere, co smí; klíč v části Nastavení → API. V obou případech „Jen čtení“ pro dotazy a přehledy, „Operátor“ jen tehdy, když má zakládat a přidělovat úkoly a úklidy nebo přidávat karty na nástěnky. Omezené na některé objekty vidí jen je. Připojení i klíče jsou v Nastavení → API: zrušte, co už není potřeba.",
       "dataHeading": "Data, ne pokyny",
       "dataText": "Názvy, nadpisy, popisy a důvody v odpovědích napsali lidé nebo přišly z rezervačních kanálů. Každý nástroj asistentovi říká, ať je bere jako data, nikdy jako pokyny. Jména, kontakty a zprávy hostů se nevydávají vůbec, stejně jako klíče a přístupové kódy.",
       "writesHeading": "Změny",
-      "writesText": "Data mění tři nástroje: založit úkol, přidělit úkol, přidělit úklid. Jsou tak označené, žádají asistenta, ať se vás nejdřív zeptá, a berou klíč idempotence, aby opakování nezaložilo druhý úkol. Žádný nástroj nic nemaže.",
+      "writesText": "Data mění čtyři nástroje: založit úkol, přidělit úkol, přidělit úklid, přidat kartu na nástěnku. Jsou tak označené, žádají asistenta, ať se vás nejdřív zeptá, a berou klíč idempotence, aby opakování nezaložilo druhý úkol. Žádný nástroj nic nemaže.",
       "clientsHeading": "Připojení",
       "claudeCodeText": "V terminálu, bez klíče: přidejte server, pak v Claude Code spusťte /mcp a zvolte přihlášení — v prohlížeči se otevře stránka woom.",
       "claudeCodeKeyText": "Nebo s klíčem: držte ho v proměnné prostředí, ne v historii příkazů.",

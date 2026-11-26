@@ -61,6 +61,8 @@ import { useProblem, useProblemPhotos } from './use-problems';
 
 interface ProblemDetailProps {
   problemId: string;
+  /** The viewer is an admin: an archived task can be deleted for good from its page. */
+  isAdmin?: boolean;
 }
 
 /**
@@ -70,7 +72,7 @@ interface ProblemDetailProps {
  * filters — «К списку заданий» returns to it — and whether its conversation is
  * open.
  */
-export function ProblemDetail({ problemId }: ProblemDetailProps) {
+export function ProblemDetail({ problemId, isAdmin = false }: ProblemDetailProps) {
   const { t } = useTranslation();
   const problem = useProblem(problemId);
   const chat = useChatAddress();
@@ -91,7 +93,7 @@ export function ProblemDetail({ problemId }: ProblemDetailProps) {
     );
   }
 
-  return <ProblemPage problem={problem.data} backHref={backHref} chat={chat} />;
+  return <ProblemPage problem={problem.data} backHref={backHref} chat={chat} isAdmin={isAdmin} />;
 }
 
 /** How long a close waits for its step back to land before it sets the address in place. */
@@ -164,6 +166,7 @@ interface ProblemPageProps {
   problem: Problem;
   backHref: string;
   chat: ChatAddress;
+  isAdmin: boolean;
 }
 
 /**
@@ -173,7 +176,7 @@ interface ProblemPageProps {
  * any more: the header's «Чат» slides it in from the right («Чат»,
  * variant B).
  */
-function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
+function ProblemPage({ problem, backHref, chat, isAdmin }: ProblemPageProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const hasUnread = useUnreadSubjects().problems.has(problem.id);
@@ -208,7 +211,11 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
                 {t('panel.chat.open')}
                 {hasUnread ? <UnreadBadge /> : null}
               </Button>
-              <ProblemActions problem={problem} onDeleted={() => router.replace(backHref)} />
+              <ProblemActions
+                problem={problem}
+                isAdmin={isAdmin}
+                onDeleted={() => router.replace(backHref)}
+              />
             </>
           }
         />

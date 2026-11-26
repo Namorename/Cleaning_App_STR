@@ -19,19 +19,22 @@ interface BoardArchiveProps {
   onOpen?: (cardId: string) => void;
   /** Every manager and admin brings a card back, on a live board. */
   onRestore?: (card: BoardCard) => void;
+  /** An admin deletes a card for good (20261126150000), after a question the caller asks. */
+  onPurge?: (card: BoardCard) => void;
   isBusy?: boolean;
 }
 
 /**
  * The board's archive: the cards put away — done projects, mostly — and,
- * apart, the deleted ones. Nothing is gone for good: each comes back to the
- * column it left with «Вернуть».
+ * apart, the deleted ones. Each comes back to the column it left with
+ * «Вернуть»; only an admin deletes one for good, with «Удалить навсегда».
  */
 export function BoardArchive({
   cards,
   cardHref,
   onOpen,
   onRestore,
+  onPurge,
   isBusy = false,
 }: BoardArchiveProps) {
   const { t } = useTranslation();
@@ -47,6 +50,7 @@ export function BoardArchive({
         cardHref={cardHref}
         onOpen={onOpen}
         onRestore={onRestore}
+        onPurge={onPurge}
         isBusy={isBusy}
       />
       <Shelf
@@ -57,6 +61,7 @@ export function BoardArchive({
         cardHref={cardHref}
         onOpen={onOpen}
         onRestore={onRestore}
+        onPurge={onPurge}
         isBusy={isBusy}
       />
     </div>
@@ -71,10 +76,21 @@ interface ShelfProps {
   cardHref: (cardId: string) => string;
   onOpen?: (cardId: string) => void;
   onRestore?: (card: BoardCard) => void;
+  onPurge?: (card: BoardCard) => void;
   isBusy: boolean;
 }
 
-function Shelf({ title, empty, cards, at, cardHref, onOpen, onRestore, isBusy }: ShelfProps) {
+function Shelf({
+  title,
+  empty,
+  cards,
+  at,
+  cardHref,
+  onOpen,
+  onRestore,
+  onPurge,
+  isBusy,
+}: ShelfProps) {
   const { t } = useTranslation();
   const language = useLanguage();
   const headingId = useId();
@@ -112,17 +128,30 @@ function Shelf({ title, empty, cards, at, cardHref, onOpen, onRestore, isBusy }:
                       .join(' · ')}
                   </span>
                 </div>
-                {onRestore === undefined ? null : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-11"
-                    disabled={isBusy}
-                    onClick={() => onRestore(card)}
-                  >
-                    {t('boards.restoreCard')}
-                  </Button>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {onRestore === undefined ? null : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11"
+                      disabled={isBusy}
+                      onClick={() => onRestore(card)}
+                    >
+                      {t('boards.restoreCard')}
+                    </Button>
+                  )}
+                  {onPurge === undefined ? null : (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      className="h-11"
+                      disabled={isBusy}
+                      onClick={() => onPurge(card)}
+                    >
+                      {t('boards.purgeCard')}
+                    </Button>
+                  )}
+                </div>
               </li>
             );
           })}
