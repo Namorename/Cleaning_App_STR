@@ -32,22 +32,35 @@ export function queueDay(task: QueueFacts): string {
   return task.due_on ?? dayOfInstant(task.created_at, task.property?.timezone);
 }
 
-/** For `sort`: the effective day, then the level (critical first), then the older first. */
-export function compareQueue(left: QueueFacts, right: QueueFacts): number {
-  const day = queueDay(left).localeCompare(queueDay(right));
-  if (day !== 0) {
-    return day;
+/** Plain order of two ISO strings (days, instants): no locale rules, no allocation. */
+function byText(left: string, right: string): number {
+  if (left < right) {
+    return -1;
   }
-  const level = byUrgencyFirst(problemLevel(left), problemLevel(right));
-  if (level !== 0) {
-    return level;
-  }
-  return left.created_at.localeCompare(right.created_at);
+  return left > right ? 1 : 0;
 }
 
-/** The tasks in queue order, a new array. */
+/** The rest of the order once the days are equal: the level (critical first), then the older first. */
+function byLevelThenAge(left: QueueFacts, right: QueueFacts): number {
+  const level = byUrgencyFirst(problemLevel(left), problemLevel(right));
+  return level !== 0 ? level : byText(left.created_at, right.created_at);
+}
+
+/** For `sort`: the effective day, then the level (critical first), then the older first. */
+export function compareQueue(left: QueueFacts, right: QueueFacts): number {
+  const day = byText(queueDay(left), queueDay(right));
+  return day !== 0 ? day : byLevelThenAge(left, right);
+}
+
+/**
+ * The tasks in queue order, a new array. Each task's day is worked out once — a day made reads its
+ * listing's zone through Intl, too dear to repeat in every comparison of a board of hundreds.
+ */
 export function orderQueue<T extends QueueFacts>(tasks: readonly T[]): T[] {
-  return [...tasks].sort(compareQueue);
+  return tasks
+    .map((task) => ({ task, day: queueDay(task) }))
+    .sort((left, right) => byText(left.day, right.day) || byLevelThenAge(left.task, right.task))
+    .map(({ task }) => task);
 }
 
 /**
