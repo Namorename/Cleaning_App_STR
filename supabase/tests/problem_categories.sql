@@ -198,21 +198,22 @@ select pg_temp.check('nor null',
 
 -- ---------- the functions ----------
 
+-- Since 20261126130000 with the planned day last (p_due_on default null).
 select pg_temp.check('report_problem has one signature, the new one',
   (select string_agg(p.oid::regprocedure::text, '; ')
    from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'report_problem'),
-  'report_problem(uuid,text,text,problem_priority,bigint,uuid,boolean,uuid)');
+  'report_problem(uuid,text,text,problem_priority,bigint,uuid,boolean,uuid,date)');
 select pg_temp.check('update_problem too',
   (select string_agg(p.oid::regprocedure::text, '; ')
    from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'update_problem'),
   'update_problem(uuid,text,text,problem_priority,boolean,uuid)');
 select pg_temp.check('the staff may call report_problem',
   has_function_privilege('authenticated',
-    'public.report_problem(uuid,text,text,public.problem_priority,bigint,uuid,boolean,uuid)', 'execute'),
+    'public.report_problem(uuid,text,text,public.problem_priority,bigint,uuid,boolean,uuid,date)', 'execute'),
   true);
 select pg_temp.check('anon may not',
   has_function_privilege('anon',
-    'public.report_problem(uuid,text,text,public.problem_priority,bigint,uuid,boolean,uuid)', 'execute'),
+    'public.report_problem(uuid,text,text,public.problem_priority,bigint,uuid,boolean,uuid,date)', 'execute'),
   false);
 select pg_temp.check('nor may PUBLIC call update_problem',
   (select bool_or(a.grantee = 0)
