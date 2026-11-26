@@ -15,6 +15,7 @@ import {
 } from '@/features/manager-boards/api';
 import { fetchOfficeTask, fetchOfficeTasks } from '@/features/office/api';
 import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
+import { fetchAdditions } from '@/features/problems/additions';
 import { fetchReportProperties } from '@/features/properties/api';
 import type * as ProblemsApi from '@/features/problems/api';
 import { fetchMyProblems, fetchProblem, fetchProblemCategories } from '@/features/problems/api';
@@ -123,6 +124,8 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchSupplyRequest(ANY_ID),
   () => fetchTaskMedia(ANY_ID),
   () => fetchProblemMedia(ANY_ID),
+  // What the office added to a task: its batches, files and the closing comment (20261126100000).
+  () => fetchAdditions(ANY_ID),
   () => fetchTaskSteps(ANY_ID),
   () => fetchHostSettings(),
   () => fetchMessages(ANY_ID),

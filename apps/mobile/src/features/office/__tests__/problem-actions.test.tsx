@@ -44,6 +44,8 @@ jest.mock('@/features/board/use-board', () => ({
 }));
 
 jest.mock('../problem-api', () => ({ runProblemAction: jest.fn() }));
+// «Фото и видео…» goes on to the screen of the files (20261126100000).
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 function holds(task: BoardProblem, isCurrent = true): void {
   jest.mocked(useBoardProblem).mockReturnValue({
@@ -110,7 +112,7 @@ describe('«Отметить выполненным»', () => {
     await fireEvent.press(sheet.getByRole('button', { name: 'Да, выполнено' }));
 
     await waitFor(() =>
-      expect(sent()).toEqual([{ kind: 'resolve', problemId: PROBLEM_ID, completedBy: null }]),
+      expect(sent()).toEqual([{ kind: 'resolve', problemId: PROBLEM_ID, completedBy: null, closing: null }]),
     );
     await waitFor(() => expect(screen.queryByTestId('resolve-sheet')).toBeNull());
   });
@@ -128,7 +130,7 @@ describe('«Отметить выполненным»', () => {
     await fireEvent.press(sheet.getByRole('button', { name: 'Да, выполнено' }));
 
     await waitFor(() =>
-      expect(sent()).toEqual([{ kind: 'resolve', problemId: PROBLEM_ID, completedBy: TECH_IVAN }]),
+      expect(sent()).toEqual([{ kind: 'resolve', problemId: PROBLEM_ID, completedBy: TECH_IVAN, closing: null }]),
     );
   });
 });
@@ -199,4 +201,41 @@ test('the levers wait for the task as the server says it is now', async () => {
       disabled: true,
     });
   }
+});
+
+describe('«Отметить выполненным» with a comment and files (20261126100000)', () => {
+  test('a comment goes with the closing, in one press', async () => {
+    await show();
+    await fireEvent.press(screen.getByRole('button', { name: 'Отметить выполненным' }));
+    const sheet = within(screen.getByTestId('resolve-sheet'));
+    await fireEvent.changeText(sheet.getByLabelText('Комментарий (необязательно)'), '  Кран заменён  ');
+    await fireEvent.press(sheet.getByRole('button', { name: 'Да, выполнено' }));
+
+    await waitFor(() => expect(runProblemAction).toHaveBeenCalledTimes(1));
+    expect(sent()[0]).toMatchObject({
+      kind: 'resolve',
+      problemId: PROBLEM_ID,
+      completedBy: null,
+      closing: { comment: 'Кран заменён' },
+    });
+    expect(sent()[0]).toHaveProperty('closing.additionId');
+    expect(sent()[0]).toHaveProperty('closing.commentId');
+  });
+
+  test('«Добавить фото или видео» carries the choice and the words on to the screen of the files', async () => {
+    const { router } = jest.requireMock<{ router: { push: jest.Mock } }>('expo-router');
+    await show();
+    await fireEvent.press(screen.getByRole('button', { name: 'Отметить выполненным' }));
+    const sheet = within(screen.getByTestId('resolve-sheet'));
+    await fireEvent.press(sheet.getByRole('radio', { name: /Иван/ }));
+    await fireEvent.changeText(sheet.getByLabelText('Комментарий (необязательно)'), 'Готово');
+    await fireEvent.press(sheet.getByRole('button', { name: 'Добавить фото или видео' }));
+
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/problem/[id]/add-files',
+      params: { id: PROBLEM_ID, mode: 'closing', who: TECH_IVAN, comment: 'Готово' },
+    });
+    expect(runProblemAction).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('resolve-sheet')).toBeNull();
+  });
 });

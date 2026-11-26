@@ -29,6 +29,7 @@ import {
   useUploadingMediaIds,
 } from '@/features/media/use-media';
 import { GuestOriginBlock } from '@/features/problems/guest-origin-block';
+import { ClosingAddition, OfficeAdditions } from '@/features/problems/office-additions';
 import { ProblemDetail, ProblemDetailSkeleton } from '@/features/problems/problem-detail';
 import { canEditProblem, ownFixTaskId } from '@/features/problems/schema';
 import { signalSource } from '@/features/problems/signal-source';
@@ -158,6 +159,9 @@ export default function ProblemRoute() {
     }
   };
 
+  // Closed: resolved or cancelled. The office adds files to a task at work only (20261126100000).
+  const isTaskClosed = problem.data.status === 'resolved' || problem.data.status === 'cancelled';
+
   // The header and its title are the root layout's (app/_layout.tsx).
   return (
     <ProblemDetail
@@ -191,6 +195,14 @@ export default function ProblemRoute() {
       }
       instructions={<PlaceInstructions propertyId={problem.data.property_id} />}
       origin={<GuestOriginBlock problemId={problemId} source={signalSource(problem.data)} />}
+      additions={
+        <OfficeAdditions
+          problemId={problemId}
+          canAdd={isOfficeRole && !isTaskClosed}
+          isClosed={isTaskClosed}
+        />
+      }
+      closingAddition={isTaskClosed ? <ClosingAddition problemId={problemId} /> : undefined}
     />
   );
 }

@@ -57,6 +57,10 @@ jest.mock('expo-router', () => ({
 jest.mock('@/features/auth/session', () => ({ useSession: () => mockSession }));
 
 jest.mock('@/features/problems/use-problems', () => ({ useProblem: () => mockProblemQuery }));
+jest.mock("@/features/problems/use-additions", () => ({
+  useAdditions: () => ({ data: [], error: null }),
+  usePublishOfficeMedia: () => ({ mutate: jest.fn(), isPending: false, error: null }),
+}));
 
 // The head technician's part of the screen reads the task as the board does.
 jest.mock('@/features/board/use-board', () => {

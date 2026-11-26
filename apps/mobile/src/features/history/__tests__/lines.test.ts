@@ -12,7 +12,7 @@ import {
 import { pinToday } from '@/testing/clock';
 
 import { historyWhat, historyWho } from '../lines';
-import type { ProblemEvent } from '../schema';
+import { problemEventListSchema, type ProblemEvent } from '../schema';
 
 /**
  * One line of a task's history per kind of event, with the parameters the
@@ -213,5 +213,69 @@ describe('the people in it', () => {
     expect(
       historyWho({ ...event('accepted'), actor_id: 'f0f0f0f0-0000-4000-8000-000000000000' }, NAMES),
     ).toBe('Сотрудник');
+  });
+});
+
+/**
+ * What the office added to a task (20261126100000): the journal keeps numbers, a stage and ids —
+ * never the words, which stay in the task's chat. The kinds are new; every build before reads a
+ * kind as any string (schema.ts since its first version) and says «Другое событие» for one it
+ * does not know — the line below for a future kind is the very path those builds take.
+ */
+describe('what the office added', () => {
+  const ADDITION = 'f1261200-0000-4000-8000-000000000001';
+  const MESSAGE = 'f1261400-0000-4000-8000-000000000001';
+
+  test('files at work: how many photos and videos, and where', () => {
+    expect(
+      historyWhat(
+        event('media_added', { count: 3, photos: 2, videos: 1, at: 'open', addition: ADDITION }),
+        NAMES,
+      ),
+    ).toBe('Добавлены файлы: 2 фото, 1 видео · в открытом задании');
+  });
+
+  test('files at the closing, photos only', () => {
+    expect(
+      historyWhat(
+        event('media_added', { count: 1, photos: 1, videos: 0, at: 'closing', addition: ADDITION }),
+        NAMES,
+      ),
+    ).toBe('Добавлены файлы: 1 фото · при закрытии');
+  });
+
+  test('a comment, in an open task, at the closing, after it — and no words of it', () => {
+    expect(historyWhat(event('comment_added', { at: 'open', message: MESSAGE }), NAMES)).toBe(
+      'Добавлен комментарий · в открытом задании',
+    );
+    expect(historyWhat(event('comment_added', { at: 'closing', message: MESSAGE }), NAMES)).toBe(
+      'Добавлен комментарий · при закрытии',
+    );
+    expect(historyWhat(event('comment_added', { at: 'closed', message: MESSAGE }), NAMES)).toBe(
+      'Добавлен комментарий · в закрытом задании',
+    );
+  });
+
+  test('odd parameters are dropped, never a broken line', () => {
+    expect(
+      historyWhat(event('media_added', { photos: 'two', videos: -1, at: 'later' }), NAMES),
+    ).toBe('Добавлены файлы: —');
+    expect(historyWhat(event('comment_added', { at: 42 }), NAMES)).toBe('Добавлен комментарий');
+  });
+
+  test('a build that does not know a kind reads its row and says «Другое событие»', () => {
+    const rows = problemEventListSchema.parse([
+      {
+        id: 7,
+        problem_id: PROBLEM_ID,
+        task_id: null,
+        kind: 'media_added',
+        actor_id: null,
+        created_at: '2026-11-26T10:00:00+00:00',
+        params: { count: 1, photos: 1, videos: 0, at: 'open', addition: ADDITION },
+      },
+    ]);
+    expect(rows[0].kind).toBe('media_added');
+    expect(historyWhat(event('photos_and_more_added', { count: 3 }), NAMES)).toBe('Другое событие');
   });
 });

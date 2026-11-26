@@ -79,6 +79,13 @@ interface ProblemDetailProps {
    * a report of the staff.
    */
   origin?: ReactNode;
+  /**
+   * «Добавлено менеджером» (owner, 2026-11-26): the office's photos and videos, under the
+   * report's own; the route builds it (features/problems/office-additions.tsx).
+   */
+  additions?: ReactNode;
+  /** What the manager sent with the closing, beside who did it and who closed it. */
+  closingAddition?: ReactNode;
 }
 
 /**
@@ -109,6 +116,8 @@ export function ProblemDetail({
   dispatch,
   instructions,
   origin,
+  additions,
+  closingAddition,
 }: ProblemDetailProps) {
   const { t, i18n } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -181,6 +190,7 @@ export function ProblemDetail({
             </Text>
           );
         })}
+        {closingAddition}
       </Card>
 
       {dispatch}
@@ -209,6 +219,8 @@ export function ProblemDetail({
           isCapturing={isCapturing}
         />
       </View>
+
+      {additions}
 
       {notice !== null ? (
         <Text accessibilityLiveRegion="polite" tone="secondary">

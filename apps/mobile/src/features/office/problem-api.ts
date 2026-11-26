@@ -7,9 +7,26 @@ import { supabase } from '@/lib/supabase';
  * anybody else (`serverErrors.managerOnly`) — and answers with the row, which
  * nobody reads: the screens read the task again.
  */
+/**
+ * What the manager sends with a closing (20261126100000): the batch its files went into, and the
+ * comment with the id of its message. Left out, the closing is exactly the one of before.
+ */
+export interface ClosingAddition {
+  additionId: string;
+  /** The comment, trimmed; null without one. */
+  comment: string | null;
+  /** The id of the comment's message in the task's chat, made on the phone. */
+  commentId: string;
+}
+
 export type ProblemAction =
   /** Closed as done by hand, naming who did the work; null: nobody, the manager alone. */
-  | { kind: 'resolve'; problemId: string; completedBy: string | null }
+  | {
+      kind: 'resolve';
+      problemId: string;
+      completedBy: string | null;
+      closing?: ClosingAddition | null;
+    }
   /** Cancelled with its live repair; the reason may stay unsaid. */
   | { kind: 'cancel'; problemId: string; reason: string | null }
   /** A resolved or cancelled task open again; its closed repair stays as history. */
@@ -20,17 +37,34 @@ export type ProblemAction =
 
 export type ProblemActionKind = ProblemAction['kind'];
 
-function resolveArgs(problemId: string, completedBy: string | null) {
+export function resolveArgs(
+  problemId: string,
+  completedBy: string | null,
+  closing: ClosingAddition | null = null,
+) {
+  // The closing's batch and words, when the manager added any; left out, the call of before.
+  const extra =
+    closing === null
+      ? {}
+      : {
+          p_addition_id: closing.additionId,
+          ...(closing.comment === null
+            ? {}
+            : { p_comment_id: closing.commentId, p_comment: closing.comment }),
+        };
   // Naming nobody is said as «alone»; saying neither is the old panel's «not stated».
   return completedBy === null
-    ? { p_id: problemId, p_alone: true }
-    : { p_id: problemId, p_completed_by: completedBy };
+    ? { p_id: problemId, p_alone: true, ...extra }
+    : { p_id: problemId, p_completed_by: completedBy, ...extra };
 }
 
 function send(action: ProblemAction) {
   switch (action.kind) {
     case 'resolve':
-      return supabase.rpc('resolve_problem', resolveArgs(action.problemId, action.completedBy));
+      return supabase.rpc(
+        'resolve_problem',
+        resolveArgs(action.problemId, action.completedBy, action.closing ?? null),
+      );
     case 'cancel':
       return supabase.rpc('cancel_problem', {
         p_id: action.problemId,

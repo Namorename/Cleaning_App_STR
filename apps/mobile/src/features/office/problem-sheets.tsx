@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -12,6 +13,8 @@ import { ROW_HEIGHT, Spacing, type Theme } from '@/constants/theme';
 import { personName } from '@/features/board/format';
 import { isStaffTechnician, type StaffMember } from '@/features/board/schema';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+
+import type { ClosingAddition } from './problem-api';
 
 /** The longest reason the sheet takes; the panel's field has no more room in practice. */
 const MAX_REASON_LENGTH = 500;
@@ -56,26 +59,48 @@ export function whoDidItChoices(
   ];
 }
 
+/** The longest comment: a message of the task's chat (chat_body_max_length). */
+const MAX_COMMENT_LENGTH = 4000;
+
 interface ResolveSheetProps {
   title: string;
   people: readonly WhoDidIt[];
   isBusy: boolean;
   error: Error | null;
-  /** Who did the work; null: nobody, the manager did it alone. */
-  onConfirm: (completedBy: string | null) => void;
+  /**
+   * Who did the work (null: nobody, the manager did it alone), and the comment with the ids the
+   * sheet made for it (null: none — the closing of before).
+   */
+  onConfirm: (completedBy: string | null, closing: ClosingAddition | null) => void;
+  /** «Фото и видео…»: the closing goes on in the screen of the files, with what is chosen here. */
+  onAddFiles?: (completedBy: string | null, comment: string) => void;
   onClose: () => void;
 }
 
 /**
  * «Отметить выполненным?» with «Кто выполнил» (owner, 09.11): «Никто, менеджер
- * сам» unless somebody is named. A refusal stays on the sheet.
+ * сам» unless somebody is named. Since 26.11 a comment, optional, and «Фото и
+ * видео…», which carries the closing on to the screen of the files (a camera
+ * and a gallery do not open over a sheet). A refusal stays on the sheet.
  */
-export function ResolveSheet({ title, people, isBusy, error, onConfirm, onClose }: ResolveSheetProps) {
+export function ResolveSheet({
+  title,
+  people,
+  isBusy,
+  error,
+  onConfirm,
+  onAddFiles,
+  onClose,
+}: ResolveSheetProps) {
   const { t } = useTranslation();
   const [chosenId, setChosenId] = useState<string | null>(null);
+  const [comment, setComment] = useState('');
+  // Made once with the sheet: a press repeated after a lost answer replays the same message.
+  const [ids] = useState(() => ({ additionId: randomUUID(), commentId: randomUUID() }));
   const active = people.filter((person) => person.isActive);
   const switchedOff = people.filter((person) => !person.isActive);
   const close = isBusy ? noop : onClose;
+  const words = comment.trim();
 
   return (
     <BottomSheet
@@ -115,13 +140,37 @@ export function ResolveSheet({ title, people, isBusy, error, onConfirm, onClose 
           ))}
         </View>
         {chosenId === null ? null : <Text tone="secondary">{t('office.problem.hint')}</Text>}
+        <TextField
+          label={t('problems.additions.comment')}
+          isDisabled={isBusy}
+          maxLength={MAX_COMMENT_LENGTH}
+          multiline
+          onChangeText={setComment}
+          value={comment}
+        />
+        <Text variant="caption" tone="secondary">
+          {t('problems.additions.commentHint')}
+        </Text>
       </ScrollView>
       {error !== null ? <FailureText error={error} /> : null}
       <Button
         label={t('office.problem.resolveConfirm')}
         isBusy={isBusy}
-        onPress={() => onConfirm(chosenId)}
+        onPress={() =>
+          onConfirm(
+            chosenId,
+            words === '' ? null : { additionId: ids.additionId, comment: words, commentId: ids.commentId },
+          )
+        }
       />
+      {onAddFiles === undefined ? null : (
+        <Button
+          variant="outline"
+          label={t('problems.additions.add')}
+          isDisabled={isBusy}
+          onPress={() => onAddFiles(chosenId, comment)}
+        />
+      )}
       <Button variant="outline" label={t('office.problem.keep')} isDisabled={isBusy} onPress={close} />
     </BottomSheet>
   );

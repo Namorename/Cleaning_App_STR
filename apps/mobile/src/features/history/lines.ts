@@ -39,6 +39,12 @@ const clockTime = z
   .optional()
   .catch(undefined);
 
+/** A count the migrations write as a whole number; anything else is dropped. */
+const count = z.number().int().nonnegative().optional().catch(undefined);
+
+/** Where the office added something (20261126100000): at work, at the closing, after it. */
+const stage = z.enum(['open', 'closing', 'closed']).optional().catch(undefined);
+
 const paramsSchema = z.object({
   to: text,
   from: text,
@@ -48,6 +54,9 @@ const paramsSchema = z.object({
   from_date: calendarDay,
   time_from: clockTime,
   time_to: clockTime,
+  photos: count,
+  videos: count,
+  at: stage,
 });
 
 type Params = z.infer<typeof paramsSchema>;
@@ -94,6 +103,33 @@ function takenOffKey({ cause }: Params): string {
   return cause === 'account_disabled'
     ? 'problems.history.takenOffAccountDisabled'
     : 'problems.history.takenOff';
+}
+
+const STAGE_KEYS = {
+  open: 'problems.history.atOpen',
+  closing: 'problems.history.atClosing',
+  closed: 'problems.history.atClosed',
+} as const;
+
+/** The line and, where the row says it, where the office added it: «… · при закрытии». */
+function withStage(line: string, { at }: Params): string {
+  return at === undefined ? line : [line, i18n.t(STAGE_KEYS[at])].join(PART_SEPARATOR);
+}
+
+/**
+ * «Добавлены файлы: 2 фото, 1 видео» (20261126100000). The journal keeps numbers only; a row
+ * without them says the files were added and no more.
+ */
+function mediaAddedLine(params: Params): string {
+  const parts = [
+    params.photos === undefined || params.photos === 0
+      ? null
+      : i18n.t('problems.history.photos', { count: params.photos }),
+    params.videos === undefined || params.videos === 0
+      ? null
+      : i18n.t('problems.history.videos', { count: params.videos }),
+  ].filter((part): part is string => part !== null);
+  return i18n.t('problems.history.mediaAdded', { what: parts.length === 0 ? '—' : parts.join(', ') });
 }
 
 /** The kinds that are one fixed phrase each. */
@@ -146,6 +182,10 @@ export function historyWhat(event: ProblemEvent, names: Names): string {
         from: jobStatus(params.from),
         to: jobStatus(params.to),
       });
+    case 'media_added':
+      return withStage(mediaAddedLine(params), params);
+    case 'comment_added':
+      return withStage(i18n.t('problems.history.commentAdded'), params);
     default:
       return i18n.t('problems.history.unknown');
   }

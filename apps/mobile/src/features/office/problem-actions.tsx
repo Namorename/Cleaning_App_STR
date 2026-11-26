@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
@@ -130,7 +131,16 @@ export function OfficeProblemActions({ problemId }: OfficeProblemActionsProps) {
           people={whoDidItChoices(staff.data ?? [], liveHolder(task), names)}
           isBusy={action.isPending}
           error={action.error}
-          onConfirm={(completedBy) => send({ kind: 'resolve', problemId, completedBy })}
+          onConfirm={(completedBy, closing) =>
+            send({ kind: 'resolve', problemId, completedBy, closing })
+          }
+          onAddFiles={(completedBy, comment) => {
+            setAsked(null);
+            router.push({
+              pathname: '/problem/[id]/add-files',
+              params: { id: problemId, mode: 'closing', who: completedBy ?? 'alone', comment },
+            });
+          }}
           onClose={() => setAsked(null)}
         />
       ) : null}

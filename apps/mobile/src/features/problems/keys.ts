@@ -2,6 +2,8 @@ export const problemKeys = {
   all: ['problems'] as const,
   mine: () => ['problems', 'mine'] as const,
   one: (problemId: string) => ['problems', 'one', problemId] as const,
+  /** What the office added to the task (20261126100000); a closing reads it again with the rest. */
+  additions: (problemId: string) => ['problems', 'additions', problemId] as const,
   /**
    * Where a task from a guest came from (`useGuestOrigin`). Keyed by the
    * person: what the server tells depends on who asks — the head technician

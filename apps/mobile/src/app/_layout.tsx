@@ -196,6 +196,20 @@ export default function RootLayout() {
                       title: t('problems.editTitle'),
                     }}
                   />
+                  {/* The office's photos and videos for a task, and the closing that takes them
+                      (20261126100000); the video's camera draws its own header, as a step's. */}
+                  <Stack.Screen
+                    name="problem/[id]/add-files"
+                    options={({ route }) => ({
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title:
+                        (route.params as { mode?: string } | undefined)?.mode === 'closing'
+                          ? t('office.problem.resolveTitle')
+                          : t('problems.additions.dialogTitle'),
+                    })}
+                  />
+                  <Stack.Screen name="problem/[id]/record" options={{ headerShown: false }} />
                   {/* The head technician's history of a task (features/history). */}
                   <Stack.Screen
                     name="problem/[id]/history"

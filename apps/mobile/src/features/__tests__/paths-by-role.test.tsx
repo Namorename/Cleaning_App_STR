@@ -114,6 +114,10 @@ jest.mock('@/features/board/use-board', () => {
 });
 
 jest.mock('@/features/history/use-history', () => ({ useProblemEvents: jest.fn() }));
+jest.mock("@/features/problems/use-additions", () => ({
+  useAdditions: () => ({ data: [], error: null }),
+  usePublishOfficeMedia: () => ({ mutate: jest.fn(), isPending: false, error: null }),
+}));
 
 // The manager's levers on a task: sent at once, never queued (features/office).
 const mockLever = { mutate: jest.fn() };
@@ -316,6 +320,8 @@ describe.each([
 });
 
 /** The manager's levers by the state of the task, as the panel offers them. */
+/** The office adds photos and videos to a task at work (20261126100000). */
+const OFFICE_ADD = 'Добавить фото или видео';
 const LIVE_LEVERS = ['Отметить выполненным', 'Отменить задание', 'Удалить в архив'];
 
 describe.each([
@@ -340,7 +346,7 @@ describe.each([
   test('a waiting task offers the hand-out, its history and the manager’s levers', async () => {
     await render(<ProblemRoute />);
 
-    expect(buttons()).toEqual([...FIELD, 'История', 'Назначить', ...LIVE_LEVERS].sort());
+    expect(buttons()).toEqual([...FIELD, 'История', 'Назначить', OFFICE_ADD, ...LIVE_LEVERS].sort());
   });
 
   test('a held task offers «Снять с работы» beside the levers', async () => {
@@ -348,7 +354,7 @@ describe.each([
 
     await render(<ProblemRoute />);
 
-    expect(buttons()).toEqual([...FIELD, 'История', 'Снять с работы', ...LIVE_LEVERS].sort());
+    expect(buttons()).toEqual([...FIELD, 'История', 'Снять с работы', OFFICE_ADD, ...LIVE_LEVERS].sort());
   });
 
   test('a closed task opens again or goes to the archive', async () => {
