@@ -2902,6 +2902,10 @@
       "atClosing": "Při uzavření",
       "closingComment": "Komentář při uzavření",
       "noneYet": "Zatím nic nepřidáno"
+    },
+    "fixWork": {
+      "title": "Práce technika",
+      "by": "{{name}} · {{status}}"
     }
   },
   "supplies": {

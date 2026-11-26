@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import ProblemRoute from '@/app/problem/[id]';
@@ -107,9 +107,16 @@ jest.mock('@/features/media/use-media', () => {
     useLocalMedia: () => ({ data: {} }),
     useMediaUrls: () => ({ data: {} }),
     useProblemMedia: () => ({ data: [] }),
+    useTaskMedia: () => ({ data: [], error: null }),
     useUploadingMediaIds: () => new Set(),
   };
 });
+
+// The repair's steps as the technician left them («Работа техника», fix-work.test.tsx).
+const mockFixSteps: { data: unknown[]; error: Error | null } = { data: [], error: null };
+jest.mock('@/features/steps/use-steps', () => ({ useTaskSteps: () => mockFixSteps }));
+// The office's levers have their own tests (features/office); here they draw nothing.
+jest.mock('@/features/office/problem-actions', () => ({ OfficeProblemActions: () => null }));
 
 function problem(overrides: Partial<Problem> = {}): Problem {
   return {
@@ -279,6 +286,56 @@ describe('the head technician’s part, by role', () => {
     for (const name of DISPATCH) {
       expect(screen.queryByRole('button', { name })).toBeNull();
     }
+  });
+});
+
+// 2026-11-26 («Sofa/gauč»): the technician's photos showed as «Загружено» on his phone and
+// nowhere on the office's; those who hand the repair out see his work on the task's screen.
+describe('the technician’s work, by role', () => {
+  beforeEach(() => {
+    mockFixSteps.data = [
+      {
+        id: 'e1e2e3e4-4444-4444-8444-e1e2e3e40001',
+        task_id: FIX_TASK,
+        sort_order: 1,
+        type: 'photos_before',
+        required: true,
+        title: 'Фото проблемы',
+        title_i18n: {},
+        instructions: null,
+        instructions_i18n: {},
+        min_photos: null,
+        max_photos: null,
+        completed_at: '2026-11-26T12:26:30+00:00',
+        skipped_at: null,
+        waived_at: null,
+        waive_reason: null,
+      },
+    ];
+    mockProblemQuery.data = problem({
+      reported_by: SOMEONE_ELSE,
+      status: 'resolved',
+      fix_tasks: [{ id: FIX_TASK, assignee_id: SOMEONE_ELSE, status: 'done' }],
+    });
+  });
+
+  test.each(['manager', 'admin', 'reception', 'head_tech'])(
+    'a %s sees the done repair’s steps',
+    async (role) => {
+      mockSession.session.user.app_metadata.role = role;
+
+      await render(<ProblemRoute />);
+
+      expect(within(screen.getByTestId('fix-work')).getByText('1. Фото проблемы')).toBeTruthy();
+    },
+  );
+
+  test.each(['tech', 'cleaner'])('a %s is not shown somebody else’s work', async (role) => {
+    mockSession.session.user.app_metadata.role = role;
+
+    await render(<ProblemRoute />);
+
+    expect(screen.queryByTestId('fix-work')).toBeNull();
   });
 });
 

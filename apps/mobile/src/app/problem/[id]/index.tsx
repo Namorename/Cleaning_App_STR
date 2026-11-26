@@ -28,6 +28,7 @@ import {
   useRemoveMedia,
   useUploadingMediaIds,
 } from '@/features/media/use-media';
+import { FixWork } from '@/features/problems/fix-work';
 import { GuestOriginBlock } from '@/features/problems/guest-origin-block';
 import { ClosingAddition, OfficeAdditions } from '@/features/problems/office-additions';
 import { ProblemDetail, ProblemDetailSkeleton } from '@/features/problems/problem-detail';
@@ -196,11 +197,16 @@ export default function ProblemRoute() {
       instructions={<PlaceInstructions propertyId={problem.data.property_id} />}
       origin={<GuestOriginBlock problemId={problemId} source={signalSource(problem.data)} />}
       additions={
-        <OfficeAdditions
-          problemId={problemId}
-          canAdd={isOfficeRole && !isTaskClosed}
-          isClosed={isTaskClosed}
-        />
+        <>
+          {/* The technician's steps and files, for those who hand the repair out: his own
+              screen showed them to him alone (2026-11-26). */}
+          {isDispatcher ? <FixWork fixTasks={problem.data.fix_tasks} /> : null}
+          <OfficeAdditions
+            problemId={problemId}
+            canAdd={isOfficeRole && !isTaskClosed}
+            isClosed={isTaskClosed}
+          />
+        </>
       }
       closingAddition={isTaskClosed ? <ClosingAddition problemId={problemId} /> : undefined}
     />

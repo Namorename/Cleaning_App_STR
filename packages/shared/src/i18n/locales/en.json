@@ -2850,6 +2850,10 @@
       "atClosing": "At the closing",
       "closingComment": "Comment at the closing",
       "noneYet": "Nothing added yet"
+    },
+    "fixWork": {
+      "title": "Technician's job",
+      "by": "{{name}} · {{status}}"
     }
   },
   "supplies": {

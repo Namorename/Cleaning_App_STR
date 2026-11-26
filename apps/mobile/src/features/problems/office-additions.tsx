@@ -1,21 +1,16 @@
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { ErrorBanner } from '@/components/error-banner';
 import { Text } from '@/components/text';
-import { Radius, Spacing, type Theme } from '@/constants/theme';
-import { PhotoViewerHost } from '@/features/media/photo-viewer-host';
-import { useMediaUrls } from '@/features/media/use-media';
-import { viewerItemsOf, type ViewerTile } from '@/features/media/viewer-items';
-import { clockText } from '@/features/video/recording';
-import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { Spacing } from '@/constants/theme';
 
-import { currentClosingAddition, shownFiles, type Addition, type AdditionFile } from './additions';
+import { currentClosingAddition, shownFiles, type Addition } from './additions';
 import { formatReportedAt } from './format';
+import { MediaTiles } from './media-tiles';
 import { useAdditions } from './use-additions';
 
 interface OfficeAdditionsProps {
@@ -106,23 +101,7 @@ interface AdditionBatchProps {
 /** One batch: «Пётр, 26 нояб., 14:05» over its tiles. */
 function AdditionBatch({ addition }: AdditionBatchProps) {
   const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
   const files = useMemo(() => shownFiles(addition), [addition]);
-  const paths = useMemo(() => files.map((file) => file.storage_path), [files]);
-  const urls = useMediaUrls(paths);
-  const tiles = useMemo<(ViewerTile & { file: AdditionFile })[]>(
-    () =>
-      files.map((file) => ({
-        id: file.id,
-        kind: file.kind,
-        uri: urls.data?.[file.storage_path] ?? null,
-        file,
-      })),
-    [files, urls.data],
-  );
-  const viewerItems = useMemo(() => viewerItemsOf(tiles), [tiles]);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const close = useCallback(() => setOpenId(null), []);
 
   return (
     <View style={layout.batch}>
@@ -132,75 +111,12 @@ function AdditionBatch({ addition }: AdditionBatchProps) {
           when: formatReportedAt(addition.published_at),
         })}
       </Text>
-      {files.length === 0 ? null : (
-        <View style={layout.tiles}>
-          {tiles.map((tile, index) => {
-            const word =
-              tile.file.kind === 'video'
-                ? t('problems.additions.fileVideo')
-                : t('problems.additions.filePhoto');
-            return (
-              <Pressable
-                key={tile.id}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  tile.file.kind === 'video'
-                    ? t('media.openVideo')
-                    : t('media.openPhoto', { index: index + 1, total: tiles.length })
-                }
-                disabled={tile.uri === null}
-                onPress={() => setOpenId(tile.id)}
-                style={styles.tile}
-              >
-                {tile.file.kind === 'photo' && tile.uri !== null ? (
-                  <Image source={{ uri: tile.uri }} contentFit="cover" style={styles.picture} />
-                ) : (
-                  <View style={[styles.picture, styles.video]}>
-                    <Text weight={700} tone="secondary">
-                      {word}
-                    </Text>
-                    {tile.file.duration_sec === null ? null : (
-                      <Text variant="caption" tone="secondary">
-                        {clockText(Math.round(tile.file.duration_sec))}
-                      </Text>
-                    )}
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-      {openId !== null ? (
-        <PhotoViewerHost items={viewerItems} total={tiles.length} openId={openId} onClose={close} />
-      ) : null}
+      <MediaTiles files={files} />
     </View>
   );
 }
 
-const TILE = 88;
-
 const layout = StyleSheet.create({
   block: { gap: Spacing.sm },
   batch: { gap: Spacing.xs },
-  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
 });
-
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    tile: {
-      width: TILE,
-      height: TILE,
-      borderRadius: Radius.md,
-      overflow: 'hidden',
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-    },
-    picture: { width: '100%', height: '100%' },
-    video: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: Spacing.xs,
-      backgroundColor: theme.surfaceAlt,
-    },
-  });

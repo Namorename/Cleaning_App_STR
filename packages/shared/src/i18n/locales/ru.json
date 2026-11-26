@@ -2902,6 +2902,10 @@
       "atClosing": "При закрытии",
       "closingComment": "Комментарий при закрытии",
       "noneYet": "Пока ничего не добавлено"
+    },
+    "fixWork": {
+      "title": "Работа техника",
+      "by": "{{name}} · {{status}}"
     }
   },
   "supplies": {

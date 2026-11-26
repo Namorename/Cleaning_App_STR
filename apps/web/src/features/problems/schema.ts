@@ -198,6 +198,17 @@ export function liveFixTask(problem: Pick<Problem, 'fix_tasks'>): FixTask | null
   );
 }
 
+/**
+ * The fix attempts that are over — done, cancelled or expired — newest day first. Their steps and
+ * what the technician photographed or filmed on them stay on the task's page: a technician
+ * finishes the job a minute after the photos, so the live attempt alone showed almost none.
+ */
+export function pastFixTasks(problem: Pick<Problem, 'fix_tasks'>): FixTask[] {
+  return [...problem.fix_tasks]
+    .filter((task) => (CLOSED_TASK_STATUSES as readonly string[]).includes(task.status))
+    .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date));
+}
+
 export function isProblemClosed(problem: Pick<Problem, 'status'>): boolean {
   return problem.status === 'resolved' || problem.status === 'cancelled';
 }

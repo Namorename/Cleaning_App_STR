@@ -100,7 +100,7 @@ vi.mock('../use-problems', () => ({
   useProblemPhotos: () => queries.photos(),
   useAdditions: () => queries.additions(),
   usePublishOfficeFiles: () => ({ ...idle, mutate: mutations.publish }),
-  useFixTaskSteps: () => queries.steps(),
+  useFixTaskSteps: (taskId: string) => queries.steps(taskId),
   useStaff: () => queries.staff(),
   useWorkers: () => queries.workers(),
   useNameProblemWorker: () => ({ ...idle, mutate: mutations.nameWorker }),
@@ -583,6 +583,132 @@ describe('ProblemDetail', () => {
     expect(screen.getByText('Выполнил: Petr Fixer')).toBeInTheDocument();
     expect(screen.getByText('Закрыл: менеджер Olga Boss')).toBeInTheDocument();
     expect(screen.queryByText('Техник ещё не назначен')).not.toBeInTheDocument();
+  });
+
+  // 2026-11-26 («Sofa/gauč»): a technician finishes the job a minute after its photos, and the
+  // steps went with the live attempt — a closed task showed «Выполнил» and none of his photos.
+  test('a closed task keeps the done repair: its steps, who did it and his photos', () => {
+    queries.problem.mockReturnValue(
+      loaded({
+        ...assigned,
+        status: 'resolved',
+        resolved_at: '2026-09-10T09:40:00+00:00',
+        fix_tasks: [{ ...assigned.fix_tasks[0], status: 'done' }],
+        completed_by: TECH_ID,
+        completed_by_source: 'recorded',
+        closed_by: TECH_ID,
+        closed_how: 'worker',
+        closed_at: '2026-09-10T09:40:00+00:00',
+        closing: { completed_by: { name: 'Petr Fixer', role: 'tech' }, closed_by: null },
+      }),
+    );
+    queries.steps.mockReturnValue(
+      loaded({
+        steps: [
+          {
+            id: STEP_ID,
+            sort_order: 1,
+            type: 'photos_before',
+            required: true,
+            title: 'Фото проблемы',
+            title_i18n: null,
+            completed_at: '2026-09-10T09:30:00+00:00',
+            skipped_at: null,
+            waived_at: null,
+          },
+        ],
+        mediaByStep: {
+          [STEP_ID]: [
+            {
+              id: 'abababab-abab-4bab-8bab-000000000001',
+              step_id: STEP_ID,
+              storage_path: 'h/t/fix-1.jpg',
+              created_at: '2026-09-10T09:29:00+00:00',
+              source: 'camera',
+              kind: 'photo',
+              duration_sec: null,
+              url: 'https://storage.example/fix-1.jpg',
+            },
+            {
+              id: 'abababab-abab-4bab-8bab-000000000002',
+              step_id: STEP_ID,
+              storage_path: 'h/t/fix-2.jpg',
+              created_at: '2026-09-10T09:29:30+00:00',
+              source: 'camera',
+              kind: 'photo',
+              duration_sec: null,
+              url: 'https://storage.example/fix-2.jpg',
+            },
+          ],
+        },
+      }),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.getByText('Выполнил: Petr Fixer')).toBeInTheDocument();
+    const work = screen.getByRole('region', { name: 'Шаги работы' });
+    expect(within(work).getByTestId('past-fix-work')).toHaveTextContent(/Petr Fixer.*Выполнена/);
+    const step = within(work).getByText('1. Фото проблемы').closest('li') as HTMLElement;
+    const second = within(step).getByRole('button', { name: 'Открыть фото 2 из 2' });
+    expect(second.querySelector('img')).toHaveAttribute('src', 'https://storage.example/fix-2.jpg');
+    expect(within(step).getByRole('button', { name: 'Открыть фото 1 из 2' })).toBeInTheDocument();
+  });
+
+  test('an attempt that never started adds nothing; the live one and an earlier one both show', () => {
+    queries.problem.mockReturnValue(
+      loaded({
+        ...assigned,
+        status: 'open',
+        fix_tasks: [{ ...assigned.fix_tasks[0], status: 'cancelled' }],
+      }),
+    );
+    queries.steps.mockReturnValue(loaded({ steps: [], mediaByStep: {} }));
+    const { unmount } = render(<ProblemDetail problemId={PROBLEM_ID} />);
+    expect(screen.getByText('Техник ещё не назначен')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Шаги работы' })).not.toBeInTheDocument();
+    unmount();
+
+    // Taken off after he started, then handed to somebody else: both attempts, the live one first.
+    queries.problem.mockReturnValue(
+      loaded({
+        ...assigned,
+        fix_tasks: [
+          {
+            ...assigned.fix_tasks[0],
+            id: GONE_ID,
+            status: 'cancelled',
+            scheduled_date: '2026-09-09',
+          },
+          assigned.fix_tasks[0],
+        ],
+      }),
+    );
+    queries.steps.mockReturnValue(
+      loaded({
+        steps: [
+          {
+            id: STEP_ID,
+            sort_order: 1,
+            type: 'photos_before',
+            required: true,
+            title: 'Фото проблемы',
+            title_i18n: null,
+            completed_at: null,
+            skipped_at: null,
+            waived_at: null,
+          },
+        ],
+        mediaByStep: {},
+      }),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+    const sections = screen.getAllByRole('region', { name: 'Шаги работы' });
+    expect(sections).toHaveLength(2);
+    // Each attempt reads its own steps: the earlier one is not the live one's again.
+    expect(queries.steps).toHaveBeenCalledWith(GONE_ID);
+    expect(queries.steps).toHaveBeenCalledWith(TASK_ID);
+    expect(within(sections[0]).queryByTestId('past-fix-work')).toBeNull();
+    expect(within(sections[1]).getByTestId('past-fix-work')).toHaveTextContent(/Отменена/);
   });
 
   test('a resolved task with the worker not stated takes one named afterwards', async () => {

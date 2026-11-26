@@ -6,6 +6,7 @@ import {
   isProblemClosed,
   liveFixTask,
   matchesQuery,
+  pastFixTasks,
   problemSchema,
   stepState,
   type Problem,
@@ -87,6 +88,39 @@ describe('liveFixTask', () => {
       fix_tasks: [{ ...row.fix_tasks[0], status: 'done' }],
     });
     expect(liveFixTask(problem)).toBeNull();
+  });
+});
+
+describe('pastFixTasks', () => {
+  // The attempts whose steps and photos stay on the page once they are over (2026-11-26).
+  test('keeps done, cancelled and expired attempts, newest day first, and never the live one', () => {
+    const attempt = (id: string, status: string, scheduledDate: string) => ({
+      ...row.fix_tasks[0],
+      id,
+      status,
+      scheduled_date: scheduledDate,
+    });
+    const problem = problemSchema.parse({
+      ...row,
+      fix_tasks: [
+        attempt('aaaaaaaa-aaaa-4aaa-8aaa-000000000001', 'cancelled', '2026-09-08'),
+        attempt('aaaaaaaa-aaaa-4aaa-8aaa-000000000002', 'done', '2026-09-12'),
+        attempt('aaaaaaaa-aaaa-4aaa-8aaa-000000000003', 'assigned', '2026-09-13'),
+        attempt('aaaaaaaa-aaaa-4aaa-8aaa-000000000004', 'expired', '2026-09-10'),
+      ],
+    });
+
+    expect(pastFixTasks(problem).map((task) => task.status)).toEqual([
+      'done',
+      'expired',
+      'cancelled',
+    ]);
+    expect(problem.fix_tasks.map((task) => task.status)).toEqual([
+      'cancelled',
+      'done',
+      'assigned',
+      'expired',
+    ]);
   });
 });
 

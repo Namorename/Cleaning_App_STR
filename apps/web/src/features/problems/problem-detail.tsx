@@ -34,7 +34,7 @@ import {
   type ProblemPageAddress,
 } from './address';
 import { AssignForm } from './assign-form';
-import { FixTaskSteps } from './fix-task-steps';
+import { FixTaskSteps, PastFixWork } from './fix-task-steps';
 import { EditProblemButton } from './edit-problem-dialog';
 import { GuestMessageBlock } from './guest-message';
 import { GuestOriginBlock } from './guest-origin';
@@ -49,6 +49,7 @@ import {
   isProblemArchived,
   isProblemClosed,
   liveFixTask,
+  pastFixTasks,
   type FixTask,
   type Problem,
   problemPlace,
@@ -275,6 +276,12 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
                 <FixTaskSteps taskId={fixTask.id} />
               </DetailSection>
             ) : null}
+            {/* The attempts that are over keep their steps and the technician's photos: until
+                2026-11-26 they went with the attempt, and a repair done a minute after its
+                photos showed none of them. */}
+            {pastFixTasks(problem).map((past) => (
+              <PastFixWork key={past.id} fixTask={past} />
+            ))}
           </CardContent>
         </Card>
       </div>
