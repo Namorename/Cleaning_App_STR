@@ -32,6 +32,12 @@ begin
     raise exception 'Chats are still on for %: run wagner-chats-off.sql first', c_host;
   end if;
 
+  -- The rows held first: nobody makes a task of one of them while they go.
+  perform 1
+  from public.signal_findings f
+  join public.guest_signals s on s.id = f.signal_id
+  where s.kind = 'message' and f.host_id = c_host and f.problem_id is null
+  for update of f;
   select coalesce(array_agg(f.id order by f.id), '{}') into v_ids
   from public.signal_findings f
   join public.guest_signals s on s.id = f.signal_id
@@ -44,7 +50,7 @@ begin
   update public.issue_facts i set finding_id = null where i.finding_id = any (v_ids);
   get diagnostics v_labels = row_count;
 
-  delete from public.signal_findings f where f.id = any (v_ids);
+  delete from public.signal_findings f where f.id = any (v_ids) and f.problem_id is null;
   get diagnostics v_count = row_count;
   if v_count <> c_expected then
     raise exception 'Deleted %, expected %', v_count, c_expected;

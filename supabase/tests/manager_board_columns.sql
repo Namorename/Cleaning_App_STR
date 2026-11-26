@@ -203,6 +203,20 @@ select pg_temp.check('1.14 its owner makes it hers alone again',
 select pg_temp.check('1.15 and the other manager reads nothing again',
   pg_temp.reads(pg_temp.ina(), pg_temp.bid(1)), '0 0 0 0 0');
 
+select pg_temp.as_server();
+update public.manager_board_steps set id = pg_temp.sid(1) where card_id = pg_temp.cid(1);
+select pg_temp.as_user(pg_temp.ina());
+select pg_temp.check('1.16 a repeat of a write naming a known id answers nothing of the board not shared',
+  array[pg_temp.refusal(format('select public.save_manager_comment(%L, %L, ''x'')', pg_temp.eid(1), pg_temp.cid(3))),
+        pg_temp.refusal(format('select public.save_manager_step(%L, %L, ''x'')', pg_temp.sid(1), pg_temp.cid(3))),
+        pg_temp.refusal(format('select public.duplicate_manager_card(%L, %L, ''x'')', pg_temp.cid(3), pg_temp.cid(1))),
+        pg_temp.refusal(format('select public.save_manager_card(%L, %L, ''x'', '''', null, null, null, ''open'')', pg_temp.cid(1), pg_temp.bid(2)))],
+  array['serverErrors.boardCommentNotYours', 'serverErrors.boardStepNotFound', 'serverErrors.boardCardNotFound',
+        'serverErrors.boardCardNotFound']);
+select pg_temp.check('1.17 and wrote nothing',
+  (select pg_temp.reads(pg_temp.boss(), pg_temp.bid(1))), '1 2 1 1 4');
+select pg_temp.as_user(pg_temp.boss());
+
 -- ===========================================================================
 -- 2. A card given to another manager on a board not shared
 -- ===========================================================================
@@ -324,6 +338,10 @@ select pg_temp.check('3.14 each with a «moved» line naming both columns and ke
    from public.manager_board_entries e
    where e.card_id in (pg_temp.cid(4), pg_temp.cid(5)) and e.kind = 'moved'),
   '2 true');
+select pg_temp.check('3.14a each line names the stage the card reads as after the delete',
+  (select bool_and(e.facts ->> 'to' = c.column_key and (e.facts ->> 'to_column')::uuid = c.column_id)
+   from public.manager_board_entries e join public.manager_board_cards c on c.id = e.card_id
+   where e.card_id in (pg_temp.cid(4), pg_temp.cid(5)) and e.kind = 'moved'), true);
 select pg_temp.check('3.15 a repeat of the delete changes nothing',
   pg_temp.refusal(format('select public.delete_manager_board_column(%L)',
     (select id from public.manager_board_columns where board_id = pg_temp.bid(2) and title = 'Parts'))),
@@ -482,6 +500,9 @@ select pg_temp.check('5.9 and the old owner may not hand it over again, nor rena
   array[pg_temp.refusal(format('select public.transfer_manager_board(%L, %L)', pg_temp.bid(1), pg_temp.boss())),
         pg_temp.refusal(format('select public.save_manager_board(%L, ''Back'')', pg_temp.bid(1)))],
   array['serverErrors.boardNotFound', 'serverErrors.boardNotFound']);
+
+select pg_temp.check('5.9a her repeat of the handover, after a lost answer, answers the board as it stands',
+  (select pg_temp.who(b.owner_id) from public.transfer_manager_board(pg_temp.bid(1), pg_temp.ina()) b), 'ina');
 
 select pg_temp.as_user(pg_temp.ina());
 select pg_temp.check('5.10 a new card is the new owner''s',

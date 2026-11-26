@@ -8,6 +8,14 @@
 -- (save them first if wanted: select id, due_on from public.problems where due_on is not null).
 do $undo$
 begin
+  perform set_config('lock_timeout', '3s', true);
+  if not exists (select 1 from pg_attribute a
+                 where a.attrelid = 'public.problems'::regclass and a.attname = 'due_on'
+                   and not a.attisdropped) then
+    raise notice '20261126130000 is not in this database: nothing to undo';
+    return;
+  end if;
+
   drop function if exists public.set_problem_due_date(uuid, date);
   drop function if exists public.report_problem(uuid, text, text, public.problem_priority, bigint, uuid, boolean, uuid, date);
 

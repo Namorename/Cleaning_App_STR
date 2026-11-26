@@ -6,7 +6,8 @@
 -- - the board functions of 20261119143000 come back byte for byte (taken from the stand before the
 --   migration): manager_board_for_cards, manager_board_for_edit, manager_card_for_edit,
 --   save_manager_board(uuid, text), save_manager_card(9), move_manager_card(uuid, text),
---   push_board_card_titles; the new functions go;
+--   push_board_card_titles, save_manager_comment, save_manager_step, duplicate_manager_card; the
+--   new functions go;
 -- - the read policies of the four tables of boards read the whole office again;
 -- - cards keep their four keys (column_key already holds the stage of each card's column); the
 --   column of columns, the table of columns and the table of transfers go: a column's own name
@@ -16,6 +17,12 @@
 --   the enum value board_transferred stays (Postgres does not drop one).
 do $undo$
 begin
+  perform set_config('lock_timeout', '3s', true);
+  if to_regclass('public.manager_board_columns') is null then
+    raise notice '20261126120000 is not in this database: nothing to undo';
+    return;
+  end if;
+
   drop trigger if exists manager_board_cards_column on public.manager_board_cards;
   drop trigger if exists manager_boards_first_columns on public.manager_boards;
   drop trigger if exists manager_board_transfers_push on public.manager_board_transfers;
@@ -383,6 +390,233 @@ AS $function$
   from public.manager_board_cards c
   join public.manager_boards b on b.id = c.board_id
   where c.id = any (p_card_ids);
+$function$
+$q$;
+
+  execute $q$
+CREATE OR REPLACE FUNCTION public.save_manager_comment(p_id uuid, p_card_id uuid, p_body text)
+ RETURNS manager_board_entries
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_body  text := btrim(coalesce(p_body, ''), E' \t\r\n');
+  v_card  public.manager_board_cards;
+  v_entry public.manager_board_entries;
+begin
+  if not public.is_full_manager() then
+    raise exception 'Only a manager may do this'
+      using errcode = 'insufficient_privilege', hint = 'serverErrors.managerOnly';
+  end if;
+  if p_id is null then
+    raise exception 'A comment needs an id' using errcode = 'invalid_parameter_value', hint = 'serverErrors.unknown';
+  end if;
+  if v_body = '' then
+    raise exception 'A comment needs words'
+      using errcode = 'check_violation', hint = 'serverErrors.commentEmpty';
+  end if;
+  if char_length(v_body) > 4000 then
+    raise exception 'A comment is at most 4000 characters'
+      using errcode = 'check_violation', hint = 'serverErrors.commentTooLong',
+            detail = jsonb_build_object('limit', 4000)::text;
+  end if;
+
+  select e.* into v_entry
+  from public.manager_board_entries e
+  where e.id = p_id and e.host_id = public.current_host_id();
+
+  if found and p_card_id is not null then
+    -- A repeat of a write (a write names its card, a change of words does not): the comment as
+    -- it stands, whatever was done to it since.
+    return v_entry;
+  end if;
+
+  if not found then
+    if p_card_id is null then
+      raise exception 'Comment % not found', p_id
+        using errcode = 'no_data_found', hint = 'serverErrors.boardCommentNotYours';
+    end if;
+    v_card := public.manager_card_for_edit(p_card_id, false);
+    insert into public.manager_board_entries (id, host_id, card_id, kind, body, author_id)
+    values (p_id, v_card.host_id, v_card.id, 'comment', v_body, (select auth.uid()))
+    on conflict (id) do nothing
+    returning * into v_entry;
+    if v_entry.id is null then
+      -- Written meanwhile by a repeat (or another company's id): the comment as it stands.
+      select e.* into v_entry
+      from public.manager_board_entries e
+      where e.id = p_id and e.host_id = v_card.host_id;
+      if not found then
+        raise exception 'Comment % not found', p_id
+          using errcode = 'no_data_found', hint = 'serverErrors.boardCommentNotYours';
+      end if;
+    end if;
+    return v_entry;
+  end if;
+
+  v_card := public.manager_card_for_edit(v_entry.card_id, false);
+  if v_entry.kind <> 'comment' or v_entry.author_id is distinct from (select auth.uid()) then
+    raise exception 'Only its author changes comment %', p_id
+      using errcode = 'insufficient_privilege', hint = 'serverErrors.boardCommentNotYours';
+  end if;
+
+  select e.* into v_entry from public.manager_board_entries e where e.id = p_id for update;
+  if v_entry.body is distinct from v_body then
+    update public.manager_board_entries e
+    set body = v_body, edited_at = now()
+    where e.id = v_entry.id
+    returning e.* into v_entry;
+  end if;
+  return v_entry;
+end;
+$function$
+$q$;
+
+  execute $q$
+CREATE OR REPLACE FUNCTION public.save_manager_step(p_id uuid, p_card_id uuid, p_body text)
+ RETURNS manager_board_steps
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_body text := btrim(coalesce(p_body, ''), E' \t\r\n');
+  v_card public.manager_board_cards;
+  v_step public.manager_board_steps;
+begin
+  if not public.is_full_manager() then
+    raise exception 'Only a manager may do this'
+      using errcode = 'insufficient_privilege', hint = 'serverErrors.managerOnly';
+  end if;
+  if p_id is null then
+    raise exception 'A step needs an id' using errcode = 'invalid_parameter_value', hint = 'serverErrors.unknown';
+  end if;
+  if char_length(v_body) not between 1 and 500 then
+    raise exception 'A step needs words, up to 500 characters'
+      using errcode = 'check_violation', hint = 'serverErrors.boardStepInvalid',
+            detail = jsonb_build_object('max', 500)::text;
+  end if;
+
+  if exists (select 1 from public.manager_board_steps s where s.id = p_id) then
+    if p_card_id is not null then
+      -- A repeat of an add (an add names its card, a change of words does not): the step as it
+      -- stands, whatever was done to it since, if it is the caller's company's.
+      select s.* into v_step
+      from public.manager_board_steps s
+      where s.id = p_id and s.host_id = public.current_host_id();
+      if not found then
+        raise exception 'Step % not found', p_id
+          using errcode = 'no_data_found', hint = 'serverErrors.boardStepNotFound';
+      end if;
+      return v_step;
+    end if;
+    v_card := public.manager_step_card(p_id);
+  else
+    if p_card_id is null then
+      raise exception 'Step % not found', p_id
+        using errcode = 'no_data_found', hint = 'serverErrors.boardStepNotFound';
+    end if;
+    v_card := public.manager_card_for_edit(p_card_id, false);
+    if (select count(*) from public.manager_board_steps s where s.card_id = v_card.id) >= 100 then
+      raise exception 'A card holds up to 100 steps'
+        using errcode = 'check_violation', hint = 'serverErrors.boardTooManySteps',
+              detail = jsonb_build_object('max', 100)::text;
+    end if;
+    insert into public.manager_board_steps (id, host_id, card_id, body, sort_order, created_by)
+    values (p_id, v_card.host_id, v_card.id, v_body,
+            coalesce((select max(s.sort_order) from public.manager_board_steps s
+                      where s.card_id = v_card.id), 0) + 1,
+            (select auth.uid()))
+    on conflict (id) do nothing
+    returning * into v_step;
+    if v_step.id is null then
+      -- Added meanwhile by a repeat: that step, as it stands.
+      select s.* into v_step
+      from public.manager_board_steps s
+      where s.id = p_id and s.host_id = v_card.host_id;
+      if not found then
+        raise exception 'Step % not found', p_id
+          using errcode = 'no_data_found', hint = 'serverErrors.boardStepNotFound';
+      end if;
+    end if;
+    return v_step;
+  end if;
+
+  select s.* into v_step
+  from public.manager_board_steps s
+  where s.id = p_id and s.card_id = v_card.id
+  for update;
+  if not found then
+    raise exception 'Step % not found', p_id
+      using errcode = 'no_data_found', hint = 'serverErrors.boardStepNotFound';
+  end if;
+
+  if v_step.body is distinct from v_body then
+    update public.manager_board_steps s
+    set body = v_body, updated_at = now()
+    where s.id = v_step.id
+    returning s.* into v_step;
+  end if;
+  return v_step;
+end;
+$function$
+$q$;
+
+  execute $q$
+CREATE OR REPLACE FUNCTION public.duplicate_manager_card(p_source_id uuid, p_id uuid, p_title text)
+ RETURNS manager_board_cards
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_title  text := btrim(coalesce(p_title, ''), E' \t\r\n');
+  v_source public.manager_board_cards;
+  v_card   public.manager_board_cards;
+begin
+  if char_length(v_title) not between 1 and 200 then
+    raise exception 'A card needs a title of up to 200 characters'
+      using errcode = 'check_violation', hint = 'serverErrors.boardCardTitleInvalid',
+            detail = jsonb_build_object('max', 200)::text;
+  end if;
+  v_source := public.manager_card_for_edit(p_source_id, true);
+
+  insert into public.manager_board_cards
+    (id, host_id, board_id, title, description, column_key, color, due_on, property_id, created_by,
+     assignee_id)
+  values
+    (p_id, v_source.host_id, v_source.board_id, v_title, v_source.description, 'open',
+     v_source.color, null, v_source.property_id, (select auth.uid()),
+     -- The board's owner, if they can hold a card: an active manager or admin of the company.
+     (select p.id
+      from public.manager_boards b
+      join public.profiles p on p.id = b.owner_id
+      where b.id = v_source.board_id and p.host_id = b.host_id and p.is_active
+        and p.role in ('manager', 'admin')))
+  on conflict (id) do nothing
+  returning * into v_card;
+
+  if v_card.id is null then
+    -- A repeat: the copy made the first time, if it is the caller's company's.
+    select c.* into v_card
+    from public.manager_board_cards c
+    where c.id = p_id and c.host_id = v_source.host_id;
+    if not found then
+      raise exception 'Card % not found', p_id
+        using errcode = 'no_data_found', hint = 'serverErrors.boardCardNotFound';
+    end if;
+    return v_card;
+  end if;
+
+  insert into public.manager_board_steps (id, host_id, card_id, body, sort_order, created_by)
+  select gen_random_uuid(), v_card.host_id, v_card.id, s.body,
+         row_number() over (order by s.sort_order, s.created_at, s.id)::integer,
+         (select auth.uid())
+  from public.manager_board_steps s
+  where s.card_id = v_source.id;
+  return v_card;
+end;
 $function$
 $q$;
 
