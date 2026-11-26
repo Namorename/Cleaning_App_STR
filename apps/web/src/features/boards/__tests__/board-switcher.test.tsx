@@ -80,7 +80,7 @@ function show(activeId: string | null = null) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <BoardSwitcher activeId={activeId} />
+      <BoardSwitcher activeId={activeId} viewerId="viewer-1" />
     </QueryClientProvider>,
   );
 }
@@ -258,12 +258,33 @@ describe('the person’s own order of the tabs', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  test('an order that cannot be read leaves the tabs as they always stood, and says nothing', async () => {
+  test('an order that cannot be read leaves the tabs as they always stood, still, and says nothing', async () => {
     fetchBoardTabOrder.mockRejectedValueOnce(new Error('no such table'));
     show();
     await settled();
     expect(tabNames()).toEqual(['Задания техников', 'Назначено мне', 'Проекты', 'Закупки']);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    // A move on the default order would overwrite the one that could not be read.
+    expect(tab('Проекты')).toHaveAttribute('draggable', 'false');
+    expect(tab('Проекты')).not.toHaveAccessibleDescription(/Вкладки досок можно перетащить/);
+  });
+
+  test('until her order is read the tabs stand still; then they move', async () => {
+    let answer: (order: string[] | null) => void = () => {};
+    fetchBoardTabOrder.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    );
+    show();
+    await waitFor(() => expect(fetchBoardTabOrder).toHaveBeenCalled());
+    expect(tab('Проекты')).toHaveAttribute('draggable', 'false');
+    fireEvent.keyDown(tab('Проекты'), { key: ' ' });
+    expect(screen.getByRole('status')).toHaveTextContent('');
+
+    await act(async () => answer([OTHER, 'tech']));
+    await waitFor(() => expect(tab('Проекты')).toHaveAttribute('draggable', 'true'));
   });
 
   test('every tab is draggable, «Задания техников» and «Назначено мне» too, and says how', async () => {

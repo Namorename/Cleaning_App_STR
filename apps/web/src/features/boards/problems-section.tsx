@@ -43,7 +43,7 @@ export function ProblemsSection({ viewer, hasBoards = true }: ProblemsSectionPro
 
   return (
     <div className={BOARD_PAGE_CLASS}>
-      <BoardSwitcher activeId={boardId} />
+      <BoardSwitcher activeId={boardId} viewerId={viewer.id} />
       {boardId === null ? (
         <ProblemsView isAdmin={viewer.isAdmin} />
       ) : boardId === MY_CARDS ? (
