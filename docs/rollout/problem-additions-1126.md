@@ -33,6 +33,13 @@ ff-only в `main`) и «публикуй field» (OTA preview, затем field)
 
 | UTC | Шаг | Итог |
 |---|---|---|
+| 12:35 | проба облака до | = `BEFORE` репетиции во всех полях схемы: голова `20261119143000`, md5 функций, права, политики, проверка владельца; добавлений 0, открытых заданий 56 |
+| 12:42 | застава + `db push` | sha256 `0dd57a91…` = файлу, голова `20261119143000`, сухой прогон назвал ровно `20261126100000_problem_additions.sql`; push 12:42:24, exit 0 |
+| 12:43 | проба облака после | = `AFTER` репетиции; `problem_additions`: `authenticated:SELECT` и ничего у `anon`/`PUBLIC`; внутренние функции (`publish_problem_addition`, `problem_closing_addition`, `journal_office_comment`) клиентам недоступны |
+| — | функции | нет: `supabase/functions/` не менялся |
+| 12:44 | `main` | `987b11e..8abd414` ff; Vercel Production Ready (`woom-8o6wctivy`), `/login` 200 |
+| 13:00 | OTA №27 preview | группа `89f5d2f8-bfdb-4da3-9f9a-57704acdfd69` (Android `01a217f1-587a-7865…`, iOS `01a217f1-587a-72db…`), 1.2.0, `8abd414`; `migration list` — всё в облаке; натив против `902a440` не менялся; `bundle-check` против №26 — OK; dist — `~/dev-tools/str-ops/day-1126/dist-ota27` |
+| 13:06 | OTA №27 field | `update:republish` → группа `80622bf2-e095-4529-9148-43ff32cc493d` (Android `01a217f7-2544-7d7a…`, iOS `01a217f7-2544-71ef…`); в field пришло и всё из №26 (19.11) |
 
 ## Откат
 
