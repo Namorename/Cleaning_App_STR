@@ -54,14 +54,15 @@ describe('«Карточки из чатов» in the settings of «Гости»
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  test('a manager sees it and its words, and cannot press it', () => {
+  test('a manager sees it, with no words under it, and cannot press it', () => {
     render(<ChatCardsSwitch isAdmin={false} />);
 
     expect(screen.getByRole('switch', { name: 'Карточки из чатов' })).toHaveAttribute(
       'aria-disabled',
       'true',
     );
-    expect(screen.getByText(/модель для чатов не вызывается/)).toBeInTheDocument();
+    // The owner, 2026-11-26: the switch alone, no line of explanation under it.
+    expect(screen.queryByText(/модель для чатов не вызывается/)).toBeNull();
   });
 
   test('while the switch is not read it cannot be pressed', () => {

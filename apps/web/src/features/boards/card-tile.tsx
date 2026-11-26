@@ -104,7 +104,7 @@ export function CardTile({
             openPlainly(event, onOpen === undefined ? undefined : () => onOpen(card.id))
           }
           scroll={false}
-          className="font-medium break-words outline-none after:absolute after:inset-0 after:rounded-lg"
+          className="text-base leading-snug font-semibold break-words outline-none after:absolute after:inset-0 after:rounded-lg"
         >
           {card.title}
         </Link>

@@ -97,7 +97,7 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
                       <SourceBadge source={problem.source} />
                       <Link
                         href={problemHref(problem.id, from)}
-                        className="font-medium hover:underline"
+                        className="text-base leading-snug font-semibold hover:underline"
                       >
                         {problem.title}
                       </Link>

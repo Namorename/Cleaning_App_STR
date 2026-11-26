@@ -73,7 +73,8 @@ const BOARD_SELECT =
   'id, title, owner_id, archived_at, created_at, shared, ' +
   'owner:profiles!manager_boards_owner_id_fkey(full_name)';
 
-const COLUMN_SELECT = 'id, board_id, title, preset, position, is_done, legacy_key, deleted_at';
+const COLUMN_SELECT =
+  'id, board_id, title, preset, position, is_done, legacy_key, deleted_at, created_at';
 
 const CARD_FIELDS =
   'id, board_id, title, description, column_id, column_key, color, due_on, property_id, ' +

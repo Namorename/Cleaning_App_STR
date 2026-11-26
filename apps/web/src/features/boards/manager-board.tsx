@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { BoardColumnFrame } from '@/components/board/board-column';
+import { cardColorStyle, SWATCH_CLASS } from '@/components/board/card-color';
 import { useColumnDrag } from '@/components/board/use-column-drag';
 import { StatusBadge } from '@/components/status-badge';
 import { TONE_MARK_BG } from '@/lib/design/tone-classes';
@@ -94,7 +95,10 @@ export function ManagerBoard({
                   </span>
                 </StatusBadge>
               }
-              markClassName={TONE_MARK_BG[problemStatusTone(lane.stage)]}
+              markClassName={
+                lane.color === null ? TONE_MARK_BG[problemStatusTone(lane.stage)] : SWATCH_CLASS
+              }
+              markStyle={cardColorStyle(lane.color)}
               count={inLane.length}
               isDroppable={drag.isDroppable(lane.key)}
               isOver={drag.isOver(lane.key)}

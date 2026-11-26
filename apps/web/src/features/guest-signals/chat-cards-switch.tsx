@@ -53,7 +53,6 @@ export function ChatCardsSwitch({ isAdmin }: ChatCardsSwitchProps) {
           }
         />
       </label>
-      <p className="text-muted-foreground">{t('panel.guests.settings.chatCardsHint')}</p>
       {readFailure === null ? null : (
         <p role="alert" className="text-destructive">
           {t('panel.settings.loadError')}

@@ -942,8 +942,7 @@
         "autoCap": "Nejvýše úkolů vytvořených hned za den",
         "autoCapSave": "Uložit",
         "autoCapHint": "Od {{min}} do {{max}}; nad strop čekají nálezy na manažera.",
-        "chatCards": "Karty z chatů",
-        "chatCardsHint": "Vypnuto — z konverzací s hosty nevznikají nové karty: konverzace se nečtou a pro chaty se nevolá žádný model; karty z chatů se zde nezobrazují. Zapnutím se vše vrátí, jak bylo. Je to tentýž přepínač jako „Úkoly z chatů“ v nastavení firmy."
+        "chatCards": "Karty z chatů"
       },
       "channel": {
         "airbnb": "Airbnb",

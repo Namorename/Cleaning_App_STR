@@ -938,8 +938,7 @@
         "autoCap": "Tasks created at once, a day at most",
         "autoCapSave": "Save",
         "autoCapHint": "From {{min}} to {{max}}; past the ceiling the findings wait for a manager.",
-        "chatCards": "Cards from chats",
-        "chatCardsHint": "Off — no new cards come from conversations with guests: the conversations are not read and no model is called for chats; cards from chats are not shown here. Turning it on brings the work back as it was. It is the same switch as “Tasks from chats” in the company settings."
+        "chatCards": "Cards from chats"
       },
       "channel": {
         "airbnb": "Airbnb",

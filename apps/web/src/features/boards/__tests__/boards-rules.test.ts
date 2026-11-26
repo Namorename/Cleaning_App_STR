@@ -169,9 +169,46 @@ describe('the lanes of a board (20261126120000)', () => {
 
   test('are the live columns of the board in order, a preset by its word', () => {
     expect(columnLanes(columns, BOARD, presetName)).toEqual([
-      { key: 'c1', name: '[open]', stage: 'open' },
-      { key: 'c2', name: 'Ждём', stage: 'in_progress' },
+      { key: 'c1', name: '[open]', stage: 'open', color: null },
+      { key: 'c2', name: 'Ждём', stage: 'in_progress', color: 'orchid' },
     ]);
+  });
+
+  // The owner, 2026-11-26: every column a manager adds has a stripe of its own colour.
+  test('an added column has its own stripe, kept when others move or go', () => {
+    const added = [
+      makeColumn({ id: 'a3', title: 'C', position: 2, created_at: '2026-11-26T12:00:03Z' }),
+      makeColumn({ id: 'a1', title: 'A', position: 4, created_at: '2026-11-26T12:00:01Z' }),
+      makeColumn({ id: 'a2', title: 'B', position: 3, created_at: '2026-11-26T12:00:02Z' }),
+      makeColumn({ id: 'p1', preset: 'open', position: 1, created_at: '2026-11-26T11:00:00Z' }),
+    ];
+    const colors = columnLanes(added, BOARD, presetName).map((lane) => lane.color);
+    expect(colors).toEqual([null, 'olive', 'teal', 'orchid']);
+    expect(new Set(colors.filter((color) => color !== null)).size).toBe(3);
+
+    const reordered = added.map((column) =>
+      column.id === 'a1'
+        ? { ...column, position: 2 }
+        : column.id === 'a3'
+          ? { ...column, position: 4 }
+          : column,
+    );
+    const afterMove = new Map(
+      columnLanes(reordered, BOARD, presetName).map((lane) => [lane.key, lane.color]),
+    );
+    expect([afterMove.get('a1'), afterMove.get('a2'), afterMove.get('a3')]).toEqual([
+      'orchid',
+      'teal',
+      'olive',
+    ]);
+
+    const afterDelete = added.map((column) =>
+      column.id === 'a1' ? { ...column, deleted_at: '2026-11-26T13:00:00Z' } : column,
+    );
+    const left = new Map(
+      columnLanes(afterDelete, BOARD, presetName).map((lane) => [lane.key, lane.color]),
+    );
+    expect([left.get('a2'), left.get('a3')]).toEqual(['teal', 'olive']);
   });
 
   test('are the four stages on «Назначено мне»', () => {

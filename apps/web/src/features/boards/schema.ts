@@ -45,6 +45,9 @@ export const boardColumnRowSchema = z.object({
   is_done: z.boolean(),
   legacy_key: columnSchema,
   deleted_at: z.string().nullable(),
+  // When it was made: the order an added column takes its stripe's colour in (addedColumnColors);
+  // the server always answers it, a row without it is ordered by id.
+  created_at: z.string().optional(),
 });
 export type ColumnRow = z.infer<typeof boardColumnRowSchema>;
 export const boardColumnRowListSchema = z.array(boardColumnRowSchema);

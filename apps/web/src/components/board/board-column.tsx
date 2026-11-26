@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode, Ref } from 'react';
+import type { CSSProperties, ReactNode, Ref } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -11,8 +11,10 @@ interface BoardColumnFrameProps {
   label: string;
   /** What heads the column: its badge. */
   heading: ReactNode;
-  /** The tone stripe above the head (a `bg-tone-*-mark` class). */
+  /** The tone stripe above the head (a `bg-tone-*-mark` class, or a colour's swatch class). */
   markClassName: string;
+  /** The colour variables a swatch class reads (cardColorStyle), for a column with its own colour. */
+  markStyle?: CSSProperties;
   /** The count in the head: every item of the column, shown or not. */
   count: number;
   /** The dragged item may be dropped here. */
@@ -40,6 +42,7 @@ export function BoardColumnFrame({
   label,
   heading,
   markClassName,
+  markStyle,
   count,
   isDroppable = false,
   isOver = false,
@@ -65,7 +68,11 @@ export function BoardColumnFrame({
         isDroppable && (isOver ? 'bg-accent outline-solid' : 'outline-dashed'),
       )}
     >
-      <span aria-hidden="true" className={cn('h-1 rounded-full', markClassName)} />
+      <span
+        aria-hidden="true"
+        className={cn('h-1 rounded-full', markClassName)}
+        style={markStyle}
+      />
       <header className="flex items-center justify-between gap-2 px-1">
         {heading}
         <span className="text-xs font-semibold text-muted-foreground tabular-nums">{count}</span>

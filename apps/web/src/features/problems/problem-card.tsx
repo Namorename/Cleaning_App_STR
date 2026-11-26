@@ -103,7 +103,7 @@ export function ProblemCard({
         <Link
           id={titleId}
           href={problemHref(problem.id, from)}
-          className="font-medium outline-none after:absolute after:inset-0 after:rounded-lg"
+          className="text-base leading-snug font-semibold outline-none after:absolute after:inset-0 after:rounded-lg"
         >
           {problem.title}
         </Link>

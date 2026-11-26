@@ -1,4 +1,11 @@
-import { BOARD_COLUMNS, columnName, liveColumns, type BoardColumn } from '@str-ops/shared';
+import {
+  BOARD_COLUMNS,
+  addedColumnColors,
+  columnName,
+  liveColumns,
+  type BoardColumn,
+  type CardColor,
+} from '@str-ops/shared';
 
 import type { BoardCard, ColumnRow } from './schema';
 
@@ -12,6 +19,8 @@ export interface BoardLane {
   readonly name: string;
   /** The stage whose tone and glyph head it (`problems.statuses.*`). */
   readonly stage: BoardColumn;
+  /** The stripe of a column a manager added (its own colour); null: the stage's tone. */
+  readonly color: CardColor | null;
 }
 
 /** Names a preset column, or a stage, in the reader's language: `key => t(…statuses.<key>)`. */
@@ -23,16 +32,23 @@ export function columnLanes(
   boardId: string,
   presetName: PresetName,
 ): BoardLane[] {
+  const colors = addedColumnColors(columns.filter((column) => column.board_id === boardId));
   return liveColumns(columns, boardId).map((column) => ({
     key: column.id,
     name: columnName(column, presetName),
     stage: column.legacy_key,
+    color: colors.get(column.id) ?? null,
   }));
 }
 
 /** The four stages as lanes, under the technicians' board's words. */
 export function stageLanes(presetName: PresetName): BoardLane[] {
-  return BOARD_COLUMNS.map((stage) => ({ key: stage, name: presetName(stage), stage }));
+  return BOARD_COLUMNS.map((stage) => ({
+    key: stage,
+    name: presetName(stage),
+    stage,
+    color: null,
+  }));
 }
 
 /**

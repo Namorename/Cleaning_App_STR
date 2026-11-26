@@ -1,4 +1,4 @@
-import { BOARD_COLUMNS, LAST_BOARD_COLUMN, type BoardColumn } from './cards';
+import { BOARD_COLUMNS, LAST_BOARD_COLUMN, type BoardColumn, type CardColor } from './cards';
 
 /**
  * A manager board's own columns (20261126120000, docs/manager-boards.md «Этап 4»). Every board has
@@ -23,6 +23,8 @@ export interface BoardColumnRow {
   /** The stage older clients read its cards by; `resolved` for a finishing column. */
   readonly legacy_key: string;
   readonly deleted_at: string | null;
+  /** When it was made; absent in a row an older reader did not ask for. */
+  readonly created_at?: string;
 }
 
 /** The server's limits (save_manager_board_column): a name of 1..40, up to 12 live columns. */
@@ -32,7 +34,10 @@ export const BOARD_COLUMN_LIMITS = {
 } as const;
 
 /** A board's live columns in their order. */
-export function liveColumns<T extends BoardColumnRow>(columns: readonly T[], boardId?: string): T[] {
+export function liveColumns<T extends BoardColumnRow>(
+  columns: readonly T[],
+  boardId?: string,
+): T[] {
   return columns
     .filter(
       (column) =>
@@ -79,6 +84,43 @@ export function isInDoneColumn(card: { readonly column_key: string }): boolean {
 /** The live columns a column's cards may move to when it is deleted: every other one. */
 export function moveTargets<T extends BoardColumnRow>(columns: readonly T[], leaving: string): T[] {
   return liveColumns(columns).filter((column) => column.id !== leaving);
+}
+
+/**
+ * The stripes of the columns a manager added (owner, 2026-11-26): each its own colour of the card
+ * palette, in the order they were made — not the colours the four presets draw in (violet, blue,
+ * green), so a new column never looks like one of them while the palette lasts.
+ */
+export const CUSTOM_COLUMN_COLORS: readonly CardColor[] = [
+  'orchid',
+  'teal',
+  'olive',
+  'sky',
+  'slate',
+  'green',
+  'violet',
+  'blue',
+];
+
+/**
+ * The colour of every column a manager added, by its id: the palette in the order the board's added
+ * columns were made, deleted ones counted — a column keeps its colour when another is moved or
+ * deleted. A preset column has none (it draws in its stage's tone).
+ */
+export function addedColumnColors(columns: readonly BoardColumnRow[]): Map<string, CardColor> {
+  const added = columns
+    .filter((column) => column.preset === null)
+    .sort(
+      (left, right) =>
+        (left.created_at ?? '').localeCompare(right.created_at ?? '') ||
+        left.id.localeCompare(right.id),
+    );
+  return new Map(
+    added.map((column, index) => [
+      column.id,
+      CUSTOM_COLUMN_COLORS[index % CUSTOM_COLUMN_COLORS.length],
+    ]),
+  );
 }
 
 /** May one more column be added? */

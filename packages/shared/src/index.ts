@@ -133,6 +133,8 @@ export {
 } from './boards/cards';
 export {
   BOARD_COLUMN_LIMITS,
+  CUSTOM_COLUMN_COLORS,
+  addedColumnColors,
   canAddColumn,
   canDeleteColumn,
   columnName,
