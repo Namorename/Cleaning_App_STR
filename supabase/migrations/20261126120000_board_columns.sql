@@ -27,7 +27,8 @@
 -- a finishing column is 'resolved'; of the other live columns in order, the first is 'open', the
 -- last (of two or more) 'in_progress', any between 'assigned'. A board of the four presets reads
 -- exactly as before. A move or a new card by a key lands in the board's first column of that stage,
--- else the nearest stage; a move to the stage the card already stands in changes nothing. A trigger
+-- else the nearest stage — never a finishing column for a stage not done while the board has another
+-- (nor the reverse); a move to the stage the card already stands in changes nothing. A trigger
 -- keeps column_key and column_id agreeing on every insert and update, whatever function wrote it.
 --
 -- Handing a board over. Its owner or an admin hands it to another active manager or admin of the
@@ -273,8 +274,10 @@ create policy "the office reads the columns of the boards it sees"
 
 /**
  * The column a writer that names one of the four keys means: the board's first live column of
- * that stage, else of the nearest stage (the earlier column on a tie). Never null for a board
- * with a live column. Internal.
+ * that stage, else of the nearest stage (the earlier column on a tie) — but never a finishing
+ * column for a key that is not 'resolved', nor a column not finishing for 'resolved', while the
+ * board has one of the other kind: a card is never finished, nor taken out of done, by a move to a
+ * stage the board lacks. Never null for a board with a live column. Internal.
  */
 create function public.manager_board_column_for(p_board_id uuid, p_key text)
 returns uuid
@@ -285,7 +288,8 @@ as $$
   select col.id
   from public.manager_board_columns col
   where col.board_id = p_board_id and col.deleted_at is null
-  order by abs(array_position(array['open', 'assigned', 'in_progress', 'resolved'], col.legacy_key)
+  order by col.is_done is distinct from (p_key = 'resolved'),
+           abs(array_position(array['open', 'assigned', 'in_progress', 'resolved'], col.legacy_key)
                - array_position(array['open', 'assigned', 'in_progress', 'resolved'], p_key)),
            col.position, col.created_at, col.id
   limit 1

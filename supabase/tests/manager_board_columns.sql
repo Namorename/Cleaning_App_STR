@@ -417,6 +417,22 @@ select pg_temp.check('4.11 a column of another board is refused even to the serv
                          pg_temp.kid(11), pg_temp.cid(43))),
   'serverErrors.boardColumnUnknown');
 
+select pg_temp.as_user(pg_temp.boss());
+select public.save_manager_board(pg_temp.bid(4), 'Two columns', true);
+select public.delete_manager_board_column(pg_temp.col(pg_temp.bid(4), 'assigned'));
+select public.delete_manager_board_column(pg_temp.col(pg_temp.bid(4), 'in_progress'));
+select public.save_manager_card(pg_temp.cid(44), pg_temp.bid(4), 'Two', '', null, null, null, 'open');
+select pg_temp.check('4.12 a board of «open» and a finishing column: a move to «in_progress» stays out of the finishing one',
+  (select pg_temp.at(c.id) from public.move_manager_card(pg_temp.cid(44), 'in_progress') c),
+  'open:open');
+select pg_temp.check('4.13 and «resolved» finishes it',
+  (select pg_temp.at(c.id) from public.move_manager_card(pg_temp.cid(44), 'resolved') c),
+  'resolved:resolved');
+select pg_temp.check('4.14 a move back to «assigned» takes it out of done into the column not finishing',
+  (select pg_temp.at(c.id) from public.move_manager_card(pg_temp.cid(44), 'assigned') c),
+  'open:open');
+select pg_temp.as_server();
+
 -- ===========================================================================
 -- 5. Handing a board over
 -- ===========================================================================
