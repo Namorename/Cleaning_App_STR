@@ -74,9 +74,10 @@
  * soon as `scrollbar-width` or `scrollbar-color` is set, so the standard pair is given only to
  * an engine without them (Firefox).
  */
+/* Quiet at rest; under the pointer at least 3:1 against the page and a card, both themes. */
 :root {
-  --scrollbar-thumb: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
-  --scrollbar-thumb-hover: color-mix(in oklch, var(--muted-foreground) 65%, transparent);
+  --scrollbar-thumb: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklch, var(--muted-foreground) 75%, transparent);
 }
 
 @supports not selector(::-webkit-scrollbar) {
