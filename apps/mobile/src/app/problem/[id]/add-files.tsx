@@ -1,7 +1,8 @@
 import { ADDITION_MAX_FILES } from '@str-ops/shared';
 import { randomUUID } from 'expo-crypto';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { usePreventRemove } from 'expo-router/react-navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
@@ -16,7 +17,13 @@ import { personName, staffNames } from '@/features/board/format';
 import { useStaffDirectory } from '@/features/board/use-board';
 import { useProblemAction } from '@/features/office/use-office';
 import { OfficeFilesEditor } from '@/features/problems/office-files-editor';
-import { endFlow, officeFlow, uploadPicks, useOfficeFlow } from '@/features/problems/office-picks';
+import {
+  endFlow,
+  isFlowCurrent,
+  officeFlow,
+  uploadPicks,
+  useOfficeFlow,
+} from '@/features/problems/office-picks';
 import { usePublishOfficeMedia } from '@/features/problems/use-additions';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
@@ -59,8 +66,16 @@ export default function OfficeFilesRoute() {
   const [commentId] = useState(() => randomUUID());
   const [isSending, setSending] = useState(false);
 
-  // The files are given up with the screen: added, closed with, or left.
-  useEffect(() => () => endFlow(problemId), [problemId]);
+  // The files are given up with the screen: added, closed with, or left. A send still on its
+  // way after that stops: the go it belonged to is over (office-picks.ts isFlowCurrent).
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      endFlow(problemId);
+    };
+  }, [problemId]);
 
   const failedCount = flow.picks.filter((pick) => pick.status === 'failed').length;
   const doneCount = flow.picks.filter((pick) => pick.status === 'done').length;
@@ -74,9 +89,15 @@ export default function OfficeFilesRoute() {
     }
   };
 
-  /** Show the batch (at work), or close with it (at the closing). */
-  const finish = (arrived: number) => {
-    const { additionId } = officeFlow(problemId);
+  // While the files are on their way the screen stays: no swipe back, no system back.
+  const navigation = useNavigation();
+  usePreventRemove(isBusy, () => {});
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: !isBusy });
+  }, [navigation, isBusy]);
+
+  /** Show the batch (at work), or close with it (at the closing), under the batch it was sent in. */
+  const finish = (arrived: number, additionId: string = officeFlow(problemId).additionId) => {
     if (mode === 'open') {
       publish.mutate(additionId, { onSuccess: leave });
       return;
@@ -96,14 +117,21 @@ export default function OfficeFilesRoute() {
   };
 
   const send = async () => {
+    // The batch as the send began: the closing or the publication takes this one and no other.
+    const { additionId } = officeFlow(problemId);
     setSending(true);
     try {
       const outcome = await uploadPicks(problemId);
+      if (outcome.isEnded || !isMounted.current || !isFlowCurrent(problemId, additionId)) {
+        return;
+      }
       if (outcome.failed === 0) {
-        finish(outcome.done);
+        finish(outcome.done, additionId);
       }
     } finally {
-      setSending(false);
+      if (isMounted.current) {
+        setSending(false);
+      }
     }
   };
 

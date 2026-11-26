@@ -37,7 +37,7 @@ select
    where a.attrelid = 'public.task_media'::regclass and a.attname = 'addition_id'
      and not a.attisdropped) as addition_column,
   (select string_agg(coalesce(g.grantee::regrole::text, 'PUBLIC') || ':' || g.privilege_type, ','
-                     order by 1)
+                     order by g.grantee, g.privilege_type)
    from pg_class c, aclexplode(c.relacl) g
    where c.oid = to_regclass('public.problem_additions')
      and (g.grantee = 0 or g.grantee in ('anon'::regrole, 'authenticated'::regrole))) as additions_grants,

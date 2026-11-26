@@ -34,6 +34,8 @@ export interface BoardMoves {
   /** The first of the board's writes that failed, in the reader's words. */
   failure: ServerErrorText | null;
   isResolving: boolean;
+  /** The refusal of a closing that carried a comment or files; the dialog shows it. */
+  resolveError: unknown;
   isUnassigning: boolean;
   /** What a drop on a column — or the menu's «Перевести в …» — does. */
   moveTo: (problem: Problem, status: BoardStatus) => void;
@@ -83,6 +85,7 @@ export function useBoardMoves(): BoardMoves {
     notice,
     failure: failed === undefined ? null : serverErrorText(failed.error),
     isResolving: resolve.isPending,
+    resolveError: resolve.isError ? resolve.error : null,
     isUnassigning: unassign.isPending,
     moveTo: (problem, status) => {
       clearOutcome();
@@ -105,7 +108,8 @@ export function useBoardMoves(): BoardMoves {
       if (pending?.kind === 'resolve') {
         resolve.mutate(
           { problemId: pending.problem.id, ...choice },
-          { onSettled: closeIf(pending) },
+          // What was typed and picked stays on a refusal; nothing added closes as before.
+          choice.closing === null ? { onSettled: closeIf(pending) } : { onSuccess: closeIf(pending) },
         );
       }
     },

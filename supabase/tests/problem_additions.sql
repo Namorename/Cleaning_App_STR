@@ -422,4 +422,79 @@ select pg_temp.check('10c but not the files of a task at work',
   (select count(*) from public.task_media_to_purge(10000) m
    where m.id in (pg_temp.mid(1), pg_temp.mid(2), pg_temp.mid(21))), 0::bigint);
 
+-- ---------- 11. what no client may call, and somebody else's batch ----------
+
+select pg_temp.check('11a the helpers are nobody''s to call: publish, the closing''s part, the trigger',
+  (select bool_or(has_function_privilege(r, f, 'execute'))
+   from unnest(array['anon', 'authenticated']) r,
+        unnest(array['public.publish_problem_addition(uuid, text, uuid)',
+                     'public.problem_closing_addition(public.problems, uuid, uuid, text)',
+                     'public.journal_office_comment()']) f), false);
+select pg_temp.check('11b anon calls none of the levers',
+  (select bool_or(has_function_privilege('anon', f, 'execute'))
+   from unnest(array['public.add_office_media(uuid, uuid, uuid, public.media_kind, text, integer,'
+                     || ' integer, integer, numeric, timestamptz, public.media_source)',
+                     'public.publish_office_media(uuid)',
+                     'public.resolve_problem(uuid, uuid, boolean, uuid, uuid, text)']) f), false);
+
+select pg_temp.as_person(4);
+select public.report_problem(pg_temp.pid(10), 'Task 10', null, 'normal', 900261001);
+select pg_temp.as_person(1);
+select pg_temp.photo(80, 50, 10);
+select pg_temp.as_person(2);
+select pg_temp.check('11c the reception does not add to the manager''s batch',
+  pg_temp.refusal($q$select pg_temp.photo(81, 50, 10)$q$), 'serverErrors.additionNotFound');
+select pg_temp.check('11d nor closes with it',
+  pg_temp.refusal($q$select public.resolve_problem(p_id => pg_temp.pid(10), p_alone => true,
+    p_addition_id => pg_temp.aid(50))$q$), 'serverErrors.additionNotFound');
+select pg_temp.as_person(8);
+select pg_temp.check('11e another company does not find the task to add to',
+  pg_temp.refusal($q$select pg_temp.photo(82, 50, 10)$q$), 'serverErrors.problemNotFound');
+
+select pg_temp.as_person(1);
+select public.send_message(pg_temp.cid(20), '', null, pg_temp.pid(10), null, 1::smallint);
+select pg_temp.check('11f a message of photos alone is no comment in the journal',
+  pg_temp.events(10, 'comment_added'), 0::bigint);
+select public.send_message(pg_temp.cid(21), 'В другом задании', null, pg_temp.pid(1));
+select pg_temp.check('11g a closing does not take a message of another task as its comment',
+  pg_temp.refusal($q$select public.resolve_problem(p_id => pg_temp.pid(10), p_alone => true,
+    p_addition_id => pg_temp.aid(51), p_comment_id => pg_temp.cid(21), p_comment => 'x')$q$),
+  'serverErrors.closingAdditionInvalid');
+
+select pg_temp.as_postgres();
+select pg_temp.arrive(80);
+select pg_temp.as_person(1);
+select public.confirm_task_media(pg_temp.mid(80));
+select public.cancel_problem(pg_temp.pid(10));
+select pg_temp.check('11h a batch is not shown on a task cancelled meanwhile',
+  pg_temp.refusal($q$select public.publish_office_media(pg_temp.aid(50))$q$),
+  'serverErrors.additionTaskClosed');
+
+select pg_temp.as_person(4);
+select public.report_problem(pg_temp.pid(11), 'Task 11', null, 'normal', 900261001);
+select pg_temp.as_person(1);
+select public.resolve_problem(pg_temp.pid(11), null::uuid, true);
+select pg_temp.check('11i the old code''s call, by position, closes as it always did',
+  (select status::text || ':' || closed_how from public.problems where id = pg_temp.pid(11)),
+  'resolved:manager_self');
+
+-- A batch whose arrived file the sweep took (left on its way past the upload window).
+select pg_temp.as_person(4);
+select public.report_problem(pg_temp.pid(12), 'Task 12', null, 'normal', 900261001);
+select pg_temp.as_person(1);
+select pg_temp.photo(84, 54, 12);
+select pg_temp.photo(85, 54, 12);
+select pg_temp.as_postgres();
+select pg_temp.arrive(84);
+select pg_temp.arrive(85);
+select pg_temp.as_person(1);
+select public.confirm_task_media(pg_temp.mid(84));
+select public.confirm_task_media(pg_temp.mid(85));
+select pg_temp.as_postgres();
+update public.task_media set purged_at = now() where id = pg_temp.mid(85);
+select pg_temp.as_person(1);
+select public.publish_office_media(pg_temp.aid(54));
+select pg_temp.check('11j a file the sweep took is not counted as added',
+  (pg_temp.event(12, 'media_added') ->> 'count')::integer, 1);
+
 rollback;

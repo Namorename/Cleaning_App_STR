@@ -210,16 +210,18 @@ function AddFilesDialog({ problemId, onClose }: AddFilesDialogProps) {
 
 interface ClosingAdditionProps {
   problemId: string;
+  /** Resolved or cancelled: an archived task still open has no closing to show. */
+  isClosed: boolean;
 }
 
 /**
  * What the manager sent with the closing, beside «Кто выполнил / закрыл»: the comment (its words
  * live in the task's chat) and the files. Nothing when the closing brought neither.
  */
-export function ClosingAddition({ problemId }: ClosingAdditionProps) {
+export function ClosingAddition({ problemId, isClosed }: ClosingAdditionProps) {
   const { t } = useTranslation();
   const additions = useAdditions(problemId);
-  const closing = currentClosingAddition(additions.data ?? [], true);
+  const closing = currentClosingAddition(additions.data ?? [], isClosed);
   if (closing === null) {
     return null;
   }

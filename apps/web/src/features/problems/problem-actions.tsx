@@ -167,8 +167,13 @@ export function ProblemActions({ problem, onDeleted }: ProblemActionsProps) {
         open={pending === 'resolve'}
         problem={problem}
         isBusy={isBusy}
+        error={resolve.isError ? resolve.error : null}
         onConfirm={(choice) =>
-          resolve.mutate({ problemId: problem.id, ...choice }, { onSettled: close })
+          resolve.mutate(
+            { problemId: problem.id, ...choice },
+            // What was typed and picked stays on a refusal; nothing added closes as before.
+            choice.closing === null ? { onSettled: close } : { onSuccess: close },
+          )
         }
         onClose={close}
       />

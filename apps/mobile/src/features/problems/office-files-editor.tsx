@@ -13,6 +13,7 @@ import { MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme
 import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
 import { attachFailure } from '@/features/media/failure';
 import { mediaFileUri } from '@/features/media/media-path';
+import { clockText } from '@/features/video/recording';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import { addPick, hasRoom, removePick, useOfficeFlow, type OfficePick } from './office-picks';
@@ -148,12 +149,14 @@ function PickTile({ pick, canRemove, onRemove, styles }: PickTileProps) {
       ? t('problems.additions.fileVideo')
       : t('problems.additions.filePhoto');
   return (
-    <View
-      testID="office-pick"
-      accessible
-      accessibilityLabel={`${name}: ${t(`media.status.${statusWord(pick.status)}`)}`}
-      style={[styles.tile, pick.status === 'failed' && styles.failed]}
-    >
+    <View testID="office-pick" style={[styles.tile, pick.status === 'failed' && styles.failed]}>
+      {/* The picture is one element for the reader; «Убрать» beside it is a button of its own. */}
+      <View
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={`${name}: ${t(`media.status.${statusWord(pick.status)}`)}`}
+        style={styles.picture}
+      >
       {captured.kind === 'video' ? (
         <View style={[styles.picture, styles.video]}>
           <Text weight={700} tone="secondary">
@@ -161,13 +164,14 @@ function PickTile({ pick, canRemove, onRemove, styles }: PickTileProps) {
           </Text>
           {captured.durationSec === null ? null : (
             <Text variant="caption" tone="secondary">
-              {`${Math.round(captured.durationSec)} s`}
+              {clockText(Math.round(captured.durationSec))}
             </Text>
           )}
         </View>
       ) : (
         <Image source={{ uri: mediaFileUri(captured.uri) }} contentFit="cover" style={styles.picture} />
       )}
+      </View>
       {pick.status === 'done' ? (
         <View style={styles.badge}>
           <Icon name="status.done" tone="primary" />
@@ -177,7 +181,7 @@ function PickTile({ pick, canRemove, onRemove, styles }: PickTileProps) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('problems.additions.remove', { name })}
-          hitSlop={Spacing.sm}
+          hitSlop={Spacing.md}
           onPress={onRemove}
           style={styles.remove}
         >

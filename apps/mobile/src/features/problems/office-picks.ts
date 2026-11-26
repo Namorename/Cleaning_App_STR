@@ -2,7 +2,7 @@ import { ADDITION_MAX_FILES } from '@str-ops/shared';
 import { randomUUID } from 'expo-crypto';
 import { useSyncExternalStore } from 'react';
 
-import { confirmMedia, uploadMediaFile, uploadVideoFile } from '@/features/media/api';
+import { confirmMedia, removeMedia, uploadMediaFile, uploadVideoFile } from '@/features/media/api';
 import type { CapturedMedia } from '@/features/media/capture';
 import { discardFile } from '@/features/media/file';
 
@@ -55,9 +55,19 @@ function flowOf(problemId: string): OfficeFlow {
   return fresh;
 }
 
+/** A change to a go that is still on; a go already ended stays ended (nothing recreates it). */
 function update(problemId: string, change: (flow: OfficeFlow) => OfficeFlow): void {
-  flows.set(problemId, change(flowOf(problemId)));
+  const current = flows.get(problemId);
+  if (current === undefined) {
+    return;
+  }
+  flows.set(problemId, change(current));
   emit();
+}
+
+/** Whether the go of this batch is still on: the screen was not left meanwhile. */
+export function isFlowCurrent(problemId: string, additionId: string): boolean {
+  return flows.get(problemId)?.additionId === additionId;
 }
 
 /** The go of a task as the screens draw it. */
@@ -81,6 +91,7 @@ export function addPick(problemId: string, captured: CapturedMedia): boolean {
     discardFile(captured.uri);
     return false;
   }
+  // flowOf above has made the go if there was none.
   update(problemId, (flow) => ({
     ...flow,
     picks: [...flow.picks, { captured, status: 'ready', error: null }],
@@ -90,11 +101,16 @@ export function addPick(problemId: string, captured: CapturedMedia): boolean {
 
 /** A file taken out before it was added; its copy on the phone goes with it. */
 export function removePick(problemId: string, mediaId: string): void {
-  const going = flowOf(problemId).picks.find((pick) => pick.captured.id === mediaId);
+  const going = flows.get(problemId)?.picks.find((pick) => pick.captured.id === mediaId);
   if (going === undefined || going.status === 'uploading' || going.status === 'done') {
     return;
   }
   discardFile(going.captured.uri);
+  // A file that failed may have its row already: taken back, it no longer counts towards the
+  // batch's ten. One that never got a row is refused, which changes nothing.
+  if (going.status === 'failed') {
+    void removeMedia(mediaId).catch(() => undefined);
+  }
   update(problemId, (flow) => ({
     ...flow,
     picks: flow.picks.filter((pick) => pick.captured.id !== mediaId),
@@ -126,6 +142,8 @@ export function endFlow(problemId: string): void {
 export interface UploadOutcome {
   done: number;
   failed: number;
+  /** The go ended while its files were on their way (the screen was left): nothing follows. */
+  isEnded: boolean;
 }
 
 /** One file down the pipeline: the row, the file onto its path, the confirmation. */
@@ -157,6 +175,9 @@ export async function uploadPicks(problemId: string): Promise<UploadOutcome> {
   let done = 0;
   let failed = 0;
   for (const pick of picks) {
+    if (!isFlowCurrent(problemId, additionId)) {
+      return { done, failed, isEnded: true };
+    }
     if (pick.status === 'done') {
       done += 1;
       continue;
@@ -171,5 +192,5 @@ export async function uploadPicks(problemId: string): Promise<UploadOutcome> {
       setStatus(problemId, pick.captured.id, 'failed', error);
     }
   }
-  return { done, failed };
+  return { done, failed, isEnded: !isFlowCurrent(problemId, additionId) };
 }

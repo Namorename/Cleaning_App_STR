@@ -149,6 +149,17 @@ const TASK_KINDS: Record<string, Record<Language, string>> = {
   archived: { en: 'put in the archive', cs: 'přesunutí do archivu', ru: 'убрано в архив' },
   unarchived: { en: 'brought back', cs: 'nebo zpět', ru: 'или возвращено' },
   status_changed: { en: 'statuses', cs: 'stavy', ru: 'статусы' },
+  // What the office added to a task (20261126100000): how many files, and that there was a comment.
+  media_added: {
+    en: 'photos or videos added (how many files)',
+    cs: 'přidání fotek nebo videí (kolik souborů)',
+    ru: 'добавлены фото или видео (сколько файлов)',
+  },
+  comment_added: {
+    en: 'a manager’s comment — without its text',
+    cs: 'komentář manažera — bez jeho textu',
+    ru: 'комментарий менеджера — без самого текста',
+  },
 };
 
 /** The log's one name on the whole page, and its row of section 2. */
@@ -419,14 +430,19 @@ describe('the work log text matches the journals in the schema', () => {
     const SQL = withoutComments(ALL_SQL);
     const ADDED = /alter type public\.task_event_kind add value if not exists '([a-z_]+)';/g;
     const added = [...SQL.matchAll(ADDED)].map((match) => match[1]);
+    // The tasks journal gains the office's additions the same way (20261126100000).
+    const ADDED_TASKS = /alter type public\.problem_event_kind add value if not exists '([a-z_]+)';/g;
+    const addedTasks = [...SQL.matchAll(ADDED_TASKS)].map((match) => match[1]);
     expect([...enumLabels(TASK_EVENTS_SQL, 'task_event_kind'), ...added].sort()).toEqual(
       Object.keys(CLEANING_KINDS).sort(),
     );
-    expect(enumLabels(PROBLEM_EVENTS_SQL, 'problem_event_kind').sort()).toEqual(
+    expect([...enumLabels(PROBLEM_EVENTS_SQL, 'problem_event_kind'), ...addedTasks].sort()).toEqual(
       Object.keys(TASK_KINDS).sort(),
     );
     // Nothing else changes them: no rename, no kind that skips the list above.
-    expect(SQL.replace(ADDED, '')).not.toMatch(/alter type public\.(task|problem)_event_kind/);
+    expect(SQL.replace(ADDED, '').replace(ADDED_TASKS, '')).not.toMatch(
+      /alter type public\.(task|problem)_event_kind/,
+    );
   });
 
   test('cleanings are every task without a task of the board; repairs go to the tasks journal', () => {
@@ -504,15 +520,21 @@ describe('the work log text matches the journals in the schema', () => {
       .sort();
     expect(writers).toEqual([
       'journal_cleaning_time',
+      // The office's comment in a task's thread: the message's ids, never its body (20261126100000).
+      'journal_office_comment',
       'journal_problem_change',
       'journal_repair_change',
       'journal_task_change',
+      // The office's files: counted, never shown (20261126100000).
+      'publish_problem_addition',
     ]);
 
     // Every column of tasks and problems the journals read: none of them is text a person types.
     const allowed = [
       'archived_at',
       'assignee_id',
+      // A message's author and thread, ids both (journal_office_comment, 20261126100000).
+      'author_id',
       'host_id',
       'id',
       // The days a manager's hours were set for, or undone on (20261027120000).
@@ -524,6 +546,7 @@ describe('the work log text matches the journals in the schema', () => {
       'reservation_id',
       'scheduled_date',
       'status',
+      'thread_id',
       'time_from',
       'time_to',
     ];
@@ -543,6 +566,8 @@ describe('the work log text matches the journals in the schema', () => {
               'str_ops.task_cause',
               'str_ops.take_off_cause',
               'str_ops.head_tech_dispatch',
+              // Said by resolve_problem around the closing's comment: a code (20261126100000).
+              'str_ops.problem_addition',
             ].includes(setting),
         ),
       ).toEqual([]);

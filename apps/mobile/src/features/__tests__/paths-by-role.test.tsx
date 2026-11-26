@@ -114,7 +114,7 @@ jest.mock('@/features/board/use-board', () => {
 });
 
 jest.mock('@/features/history/use-history', () => ({ useProblemEvents: jest.fn() }));
-jest.mock("@/features/problems/use-additions", () => ({
+jest.mock('@/features/problems/use-additions', () => ({
   useAdditions: () => ({ data: [], error: null }),
   usePublishOfficeMedia: () => ({ mutate: jest.fn(), isPending: false, error: null }),
 }));

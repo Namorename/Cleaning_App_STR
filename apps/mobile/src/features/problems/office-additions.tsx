@@ -11,6 +11,7 @@ import { Radius, Spacing, type Theme } from '@/constants/theme';
 import { PhotoViewerHost } from '@/features/media/photo-viewer-host';
 import { useMediaUrls } from '@/features/media/use-media';
 import { viewerItemsOf, type ViewerTile } from '@/features/media/viewer-items';
+import { clockText } from '@/features/video/recording';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import { currentClosingAddition, shownFiles, type Addition, type AdditionFile } from './additions';
@@ -142,8 +143,11 @@ function AdditionBatch({ addition }: AdditionBatchProps) {
               <Pressable
                 key={tile.id}
                 accessibilityRole="button"
-                accessibilityLabel={t('media.openPhoto', { index: index + 1, total: tiles.length })}
-                accessibilityHint={word}
+                accessibilityLabel={
+                  tile.file.kind === 'video'
+                    ? t('media.openVideo')
+                    : t('media.openPhoto', { index: index + 1, total: tiles.length })
+                }
                 disabled={tile.uri === null}
                 onPress={() => setOpenId(tile.id)}
                 style={styles.tile}
@@ -157,7 +161,7 @@ function AdditionBatch({ addition }: AdditionBatchProps) {
                     </Text>
                     {tile.file.duration_sec === null ? null : (
                       <Text variant="caption" tone="secondary">
-                        {`${Math.round(tile.file.duration_sec)} s`}
+                        {clockText(Math.round(tile.file.duration_sec))}
                       </Text>
                     )}
                   </View>

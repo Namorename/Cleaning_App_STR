@@ -29,7 +29,7 @@ begin
   drop function if exists public.publish_problem_addition(uuid, text, uuid);
   drop function if exists public.problem_addition_max_files();
 
-create function public.resolve_problem(
+create or replace function public.resolve_problem(
   p_id           uuid,
   p_completed_by uuid default null,
   p_alone        boolean default null

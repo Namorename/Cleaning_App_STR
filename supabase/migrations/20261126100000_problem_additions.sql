@@ -354,10 +354,12 @@ declare
   v_photos   integer;
   v_videos   integer;
 begin
+  -- Not arrived, or arrived and already taken by the sweep (a batch left on its way for more
+  -- than the upload window): left out alike.
   update public.task_media m
   set deleted_at = now()
   where m.addition_id = p_addition_id
-    and m.uploaded_at is null
+    and (m.uploaded_at is null or m.purged_at is not null)
     and m.deleted_at is null;
 
   select count(*) filter (where m.kind = 'photo')::integer,
@@ -366,6 +368,7 @@ begin
   from public.task_media m
   where m.addition_id = p_addition_id
     and m.deleted_at is null
+    and m.purged_at is null
     and m.uploaded_at is not null;
 
   if v_photos + v_videos = 0 and p_message_id is null then
@@ -507,6 +510,13 @@ begin
     v_message := public.send_message(p_comment_id, v_words, null, p_problem.id, null,
                                      0::smallint);
     perform set_config('str_ops.problem_addition', '', true);
+    -- send_message hands back an earlier message of the caller's by its id, wherever it was
+    -- written: the closing names only a message of this task's own thread.
+    if not exists (select 1 from public.chat_threads th
+                   where th.id = v_message.thread_id and th.problem_id = p_problem.id) then
+      raise exception 'The comment''s id belongs to another conversation'
+        using errcode = 'check_violation', hint = 'serverErrors.closingAdditionInvalid';
+    end if;
   end if;
 
   perform public.publish_problem_addition(p_addition_id, 'closing', v_message.id);
@@ -655,10 +665,11 @@ comment on function public.journal_office_comment() is
 
 revoke all on function public.journal_office_comment() from public, anon, authenticated;
 
+-- A comment has words: a message of photos alone is not one.
 create trigger chat_messages_journal_office
   after insert on public.chat_messages
   for each row
-  when (new.author_role in ('manager', 'admin', 'reception'))
+  when (new.author_role in ('manager', 'admin', 'reception') and length(btrim(new.body)) > 0)
   execute function public.journal_office_comment();
 
 -- ---------- taking a file back ----------
@@ -774,12 +785,15 @@ $$;
 
 -- «Удалить» a false task stays refused once anybody has worked on it; files the office
 -- added are work (without this the delete would cascade them away, objects and all).
-CREATE OR REPLACE FUNCTION public.mark_signal_false_positive(p_problem_id uuid, p_delete boolean DEFAULT false)
- RETURNS signal_findings
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
+create or replace function public.mark_signal_false_positive(
+  p_problem_id uuid,
+  p_delete     boolean default false
+)
+returns public.signal_findings
+language plpgsql
+security definer
+set search_path = ''
+as $$
 declare
   v_problem public.problems;
   v_finding public.signal_findings;
@@ -867,4 +881,4 @@ begin
   select * into v_finding from public.signal_findings where id = v_finding.id;
   return v_finding;
 end;
-$function$;
+$$;

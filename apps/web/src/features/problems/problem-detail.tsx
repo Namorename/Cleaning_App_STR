@@ -259,7 +259,7 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
             {fixTask === null && isClosed ? (
               <>
                 <ProblemClosing problem={problem} className="gap-1 font-medium" />
-                <ClosingAddition problemId={problem.id} />
+                <ClosingAddition problemId={problem.id} isClosed={isProblemClosed(problem)} />
                 <ProblemWorkerMark problem={problem} />
               </>
             ) : fixTask === null ? (

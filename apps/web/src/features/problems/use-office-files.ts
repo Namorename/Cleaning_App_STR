@@ -133,30 +133,46 @@ export function useOfficeFiles(problemId: string): OfficeFiles {
     picksRef.current = picks;
   }, [picks]);
 
-  // The thumbnails' links go with the form.
-  useEffect(() => () => revoke(picksRef.current), []);
+  // The thumbnails' links go with the form; files still being read after it are let go of.
+  const isAlive = useRef(true);
+  useEffect(() => {
+    isAlive.current = true;
+    return () => {
+      isAlive.current = false;
+      revoke(picksRef.current);
+    };
+  }, []);
 
   const add = useCallback(
     async (files: readonly File[]) => {
       setPreparing(true);
       try {
-        const prepared = await Promise.all(files.map((file) => prepare(file, limits)));
-        const fresh = prepared.flatMap((item) => ('pick' in item ? [item.pick] : []));
-        const refused = prepared.flatMap((item) => ('note' in item ? [item.note] : []));
+        // Only as many as the batch still takes are read at all, one at a time: a photo is
+        // decoded whole to be redrawn, and forty of them at once can take a browser tab down.
         const room = Math.max(0, ADDITION_MAX_FILES - picksRef.current.length);
-        const taken = fresh.slice(0, room);
-        const over = fresh.slice(room);
-        revoke(over);
+        const taken: OfficePick[] = [];
+        const refused: PickNote[] = files.slice(room).map((file) => ({
+          name: file.name,
+          refusal: { key: 'tooMany' as const, count: ADDITION_MAX_FILES },
+        }));
+        for (const file of files.slice(0, room)) {
+          const item = await prepare(file, limits);
+          if ('pick' in item) {
+            taken.push(item.pick);
+          } else {
+            refused.unshift(item.note);
+          }
+        }
+        if (!isAlive.current) {
+          revoke(taken);
+          return;
+        }
         setPicks((current) => [...current, ...taken]);
-        setNotes([
-          ...refused,
-          ...over.map((pick) => ({
-            name: pick.name,
-            refusal: { key: 'tooMany' as const, count: ADDITION_MAX_FILES },
-          })),
-        ]);
+        setNotes(refused);
       } finally {
-        setPreparing(false);
+        if (isAlive.current) {
+          setPreparing(false);
+        }
       }
     },
     [limits],
@@ -169,9 +185,17 @@ export function useOfficeFiles(problemId: string): OfficeFiles {
         return current;
       }
       revoke([going]);
+      // A file that failed may have its row already: taken back, it no longer counts towards
+      // the batch's ten. One that never got a row is refused, which changes nothing.
+      if (going.status === 'failed') {
+        void client.rpc('remove_task_media', { p_id: id }).then(
+          () => undefined,
+          () => undefined,
+        );
+      }
       return current.filter((pick) => pick.id !== id);
     });
-  }, []);
+  }, [client]);
 
   const setStatus = (id: string, status: OfficeFileStatus, error: unknown = null) =>
     setPicks((current) =>

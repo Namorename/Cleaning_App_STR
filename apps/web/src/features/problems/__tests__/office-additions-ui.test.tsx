@@ -194,6 +194,33 @@ describe('«Отметить выполненным» with what the manager adds
     expect(onConfirm).toHaveBeenCalledWith({ completedBy: null, closing: null });
   });
 
+  test('a refused closing with words keeps the dialog, what was typed, and lets it try again', async () => {
+    const onConfirm = vi.fn<(choice: ResolveChoice) => void>();
+    const { rerender } = render(
+      <ResolveDialog open problem={problem} isBusy={false} onConfirm={onConfirm} onClose={vi.fn()} />,
+    );
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Комментарий (необязательно)'), 'Готово');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Да, выполнено' }));
+    const first = onConfirm.mock.calls[0][0];
+
+    rerender(
+      <ResolveDialog
+        open
+        problem={problem}
+        isBusy={false}
+        error={{ message: 'closed meanwhile', hint: 'serverErrors.problemNotOpen' }}
+        onConfirm={onConfirm}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(within(dialog).getByRole('alert')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Комментарий (необязательно)')).toHaveValue('Готово');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Да, выполнено' }));
+    expect(onConfirm).toHaveBeenCalledTimes(2);
+    expect(onConfirm.mock.calls[1][0]).toEqual(first);
+  });
+
   test('a file that is not a photo or a video is not taken, and says so', async () => {
     const { dialog } = openResolve();
     drop(dialog, [new File(['%PDF'], 'act.pdf', { type: 'application/pdf' })]);
@@ -265,7 +292,7 @@ describe('the task page', () => {
     render(
       <>
         <OfficeAdditionsSection problemId={PROBLEM_ID} canAdd={false} isClosed />
-        <ClosingAddition problemId={PROBLEM_ID} />
+        <ClosingAddition problemId={PROBLEM_ID} isClosed />
       </>,
     );
     const block = screen.getByTestId('closing-addition');
@@ -278,7 +305,7 @@ describe('the task page', () => {
 
   test('a closing that brought nothing draws nothing in the closing block', () => {
     additionsState.data = [BATCH];
-    const { container } = render(<ClosingAddition problemId={PROBLEM_ID} />);
+    const { container } = render(<ClosingAddition problemId={PROBLEM_ID} isClosed />);
     expect(container).toBeEmptyDOMElement();
   });
 });

@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
 import type { ClosingAddition } from './api';
-import { OfficeFilesPicker } from './office-files-picker';
+import { OfficeFilesPicker, ServerFailure } from './office-files-picker';
 import { liveFixTask, type Problem } from './schema';
 import { useOfficeFiles } from './use-office-files';
 import { useWorkers } from './use-problems';
@@ -43,6 +43,12 @@ interface ResolveDialogProps {
   problem: Problem | null;
   /** The request is on its way. */
   isBusy: boolean;
+  /**
+   * The refusal of the last closing that carried a comment or files: the dialog stays with what
+   * was typed and picked, to try again under the same ids. A closing of nothing added closes the
+   * dialog either way, as before.
+   */
+  error?: unknown;
   onConfirm: (choice: ResolveChoice) => void;
   onClose: () => void;
 }
@@ -53,7 +59,14 @@ interface ResolveDialogProps {
  * added: the files go first, then the closing takes them and the comment in one transaction —
  * a file that failed keeps the dialog open with the reason, to try again or to close without it.
  */
-export function ResolveDialog({ open, problem, isBusy, onConfirm, onClose }: ResolveDialogProps) {
+export function ResolveDialog({
+  open,
+  problem,
+  isBusy,
+  error = null,
+  onConfirm,
+  onClose,
+}: ResolveDialogProps) {
   const { t } = useTranslation();
   const workers = useWorkers();
   const files = useOfficeFiles(problem?.id ?? '');
@@ -81,6 +94,8 @@ export function ResolveDialog({ open, problem, isBusy, onConfirm, onClose }: Res
   const completedBy = choice === ALONE ? null : choice;
   const words = comment.trim();
   const isWorking = isBusy || files.isUploading;
+  // Sent and not refused: nothing changes any more. Refused: everything as it was, to try again.
+  const isLocked = isSent && error === null;
   const hasFailed = files.failedCount > 0 && !files.isUploading;
 
   /** Close with the files that arrived and the words, if any. */
@@ -137,7 +152,7 @@ export function ResolveDialog({ open, problem, isBusy, onConfirm, onClose }: Res
           })}
           choice={choice}
           onChoice={setChoice}
-          isDisabled={isWorking || isSent}
+          isDisabled={isWorking || isLocked}
         />
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="closing-comment">{t('problems.additions.comment')}</Label>
@@ -145,7 +160,7 @@ export function ResolveDialog({ open, problem, isBusy, onConfirm, onClose }: Res
             id="closing-comment"
             value={comment}
             maxLength={COMMENT_MAX_LENGTH}
-            disabled={isWorking || isSent}
+            disabled={isWorking || isLocked}
             onChange={(event) => setComment(event.target.value)}
             aria-describedby="closing-comment-hint"
             rows={3}
@@ -160,7 +175,7 @@ export function ResolveDialog({ open, problem, isBusy, onConfirm, onClose }: Res
           </span>
           <OfficeFilesPicker
             files={files}
-            isLocked={isWorking || isSent}
+            isLocked={isWorking || isLocked}
             labelledBy="closing-files-label"
           />
         </div>
@@ -172,6 +187,7 @@ export function ResolveDialog({ open, problem, isBusy, onConfirm, onClose }: Res
             })}
           </p>
         ) : null}
+        {isSent && error !== null && !isWorking ? <ServerFailure error={error} /> : null}
         <DialogFooter>
           <Button
             type="button"
@@ -187,7 +203,7 @@ export function ResolveDialog({ open, problem, isBusy, onConfirm, onClose }: Res
               type="button"
               variant="outline"
               className="h-11"
-              disabled={isWorking || isSent}
+              disabled={isWorking || isLocked}
               onClick={() => finish(files.doneCount)}
             >
               {t('problems.additions.closeWithout')}
@@ -196,7 +212,7 @@ export function ResolveDialog({ open, problem, isBusy, onConfirm, onClose }: Res
           <Button
             type="button"
             className="h-11"
-            disabled={isWorking || isSent || files.isPreparing}
+            disabled={isWorking || isLocked || files.isPreparing}
             onClick={() => void confirm()}
           >
             {hasFailed ? t('problems.additions.retry') : t('panel.problems.board.resolveConfirm')}

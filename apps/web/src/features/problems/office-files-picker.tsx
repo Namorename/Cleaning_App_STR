@@ -6,6 +6,7 @@ import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
+import { formatVideoDuration } from '@/features/media/schema';
 import { serverErrorText } from '@/lib/server-error';
 import { cn } from '@/lib/utils';
 
@@ -157,7 +158,7 @@ function PickTile({ pick, canRemove, onRemove }: PickTileProps) {
       {pick.previewUrl === null ? (
         <span className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
           <Play aria-hidden="true" className="size-5" />
-          {pick.durationSec === null ? null : `${Math.round(pick.durationSec)} s`}
+          {formatVideoDuration(pick.durationSec)}
         </span>
       ) : (
         // A blob: link of a file not sent yet: next/image has nothing to optimise here.
@@ -177,7 +178,7 @@ function PickTile({ pick, canRemove, onRemove }: PickTileProps) {
       {canRemove ? (
         <button
           type="button"
-          className="absolute top-1 right-1 rounded-full bg-background/90 p-1 shadow focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          className="absolute top-1 right-1 rounded-full bg-background/90 p-1 shadow after:absolute after:-inset-3 after:content-[''] focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           aria-label={t('problems.additions.remove', { name: pick.name })}
           onClick={onRemove}
         >

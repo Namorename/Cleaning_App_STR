@@ -25,6 +25,7 @@ const mockUploadPhoto = jest.fn();
 const mockUploadVideo = jest.fn();
 const mockConfirm = jest.fn();
 jest.mock('@/features/media/api', () => ({
+  removeMedia: () => Promise.resolve(),
   uploadMediaFile: (...args: unknown[]) => mockUploadPhoto(...args),
   uploadVideoFile: (...args: unknown[]) => mockUploadVideo(...args),
   confirmMedia: (...args: unknown[]) => mockConfirm(...args),
@@ -61,7 +62,9 @@ jest.mock('@/features/media/use-media', () => ({
 
 const mockParams: { current: Record<string, string> } = { current: {} };
 const mockPush = jest.fn();
+jest.mock('expo-router/react-navigation', () => ({ usePreventRemove: jest.fn() }));
 jest.mock('expo-router', () => ({
+  useNavigation: () => ({ setOptions: jest.fn() }),
   router: { back: jest.fn(), canGoBack: () => true, push: (...args: unknown[]) => mockPush(...args) },
   useLocalSearchParams: () => mockParams.current,
 }));
@@ -108,7 +111,7 @@ describe('the files of one go', () => {
     addPick(PROBLEM_ID, video);
     const { additionId } = officeFlow(PROBLEM_ID);
 
-    await expect(uploadPicks(PROBLEM_ID)).resolves.toEqual({ done: 2, failed: 0 });
+    await expect(uploadPicks(PROBLEM_ID)).resolves.toEqual({ done: 2, failed: 0, isEnded: false });
 
     expect(mockAddOfficeMedia.mock.calls.map(([problem, addition]) => [problem, addition])).toEqual([
       [PROBLEM_ID, additionId],
@@ -128,15 +131,27 @@ describe('the files of one go', () => {
     addPick(PROBLEM_ID, second);
     mockUploadPhoto.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('network'));
 
-    await expect(uploadPicks(PROBLEM_ID)).resolves.toEqual({ done: 1, failed: 1 });
+    await expect(uploadPicks(PROBLEM_ID)).resolves.toEqual({ done: 1, failed: 1, isEnded: false });
     expect(officeFlow(PROBLEM_ID).picks.map((pick) => pick.status)).toEqual(['done', 'failed']);
 
-    await expect(uploadPicks(PROBLEM_ID)).resolves.toEqual({ done: 2, failed: 0 });
+    await expect(uploadPicks(PROBLEM_ID)).resolves.toEqual({ done: 2, failed: 0, isEnded: false });
     expect(mockAddOfficeMedia.mock.calls.map(([, , file]) => (file as CapturedMedia).id)).toEqual([
       first.id,
       second.id,
       second.id,
     ]);
+  });
+
+  test('the screen left while the files go: the go ends, nothing more is sent or kept', async () => {
+    addPick(PROBLEM_ID, captured());
+    addPick(PROBLEM_ID, captured());
+    mockUploadPhoto.mockImplementationOnce(async () => {
+      endFlow(PROBLEM_ID);
+    });
+
+    await expect(uploadPicks(PROBLEM_ID)).resolves.toEqual({ done: 1, failed: 0, isEnded: true });
+    expect(mockAddOfficeMedia).toHaveBeenCalledTimes(1);
+    expect(officeFlow(PROBLEM_ID).picks).toHaveLength(0);
   });
 
   test('a file arrived before is not sent again', async () => {

@@ -57,7 +57,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/features/auth/session', () => ({ useSession: () => mockSession }));
 
 jest.mock('@/features/problems/use-problems', () => ({ useProblem: () => mockProblemQuery }));
-jest.mock("@/features/problems/use-additions", () => ({
+jest.mock('@/features/problems/use-additions', () => ({
   useAdditions: () => ({ data: [], error: null }),
   usePublishOfficeMedia: () => ({ mutate: jest.fn(), isPending: false, error: null }),
 }));

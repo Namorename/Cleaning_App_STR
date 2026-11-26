@@ -149,6 +149,7 @@ function BoardQuestions({ moves }: { moves: BoardMoves }) {
         open={pending?.kind === 'resolve'}
         problem={resolving}
         isBusy={moves.isResolving}
+        error={moves.resolveError}
         onConfirm={moves.confirmResolve}
         onClose={moves.closePending}
       />
