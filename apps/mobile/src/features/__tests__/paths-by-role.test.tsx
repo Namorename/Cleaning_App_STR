@@ -129,6 +129,14 @@ jest.mock('@/features/office/use-office', () => ({
     error: null,
     variables: undefined,
   })),
+  // The office plans a task's day (20261126130000); its own tests are features/office.
+  useSetProblemDue: jest.fn(() => ({
+    mutate: jest.fn(),
+    reset: jest.fn(),
+    isPending: false,
+    error: null,
+    variables: undefined,
+  })),
 }));
 
 jest.mock('@/features/host/use-host', () => ({ useGalleryAllowed: () => false }));
@@ -174,7 +182,8 @@ function ownProblem(overrides: Partial<Problem> = {}): Problem {
     cancelled_at: null,
     cancel_reason: null,
     created_at: '2026-10-05T08:00:00+00:00',
-    property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, parent: null },
+    due_on: null,
+    property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, timezone: null, parent: null },
     fix_tasks: [],
     ...overrides,
   };
@@ -322,6 +331,8 @@ describe.each([
 /** The manager's levers by the state of the task, as the panel offers them. */
 /** The office adds photos and videos to a task at work (20261126100000). */
 const OFFICE_ADD = 'Добавить фото или видео';
+/** The office plans the day of a live task (20261126130000); none is planned here. */
+const OFFICE_DUE = 'Выбрать дату';
 const LIVE_LEVERS = ['Отметить выполненным', 'Отменить задание', 'Удалить в архив'];
 
 describe.each([
@@ -346,7 +357,9 @@ describe.each([
   test('a waiting task offers the hand-out, its history and the manager’s levers', async () => {
     await render(<ProblemRoute />);
 
-    expect(buttons()).toEqual([...FIELD, 'История', 'Назначить', OFFICE_ADD, ...LIVE_LEVERS].sort());
+    expect(buttons()).toEqual(
+      [...FIELD, 'История', 'Назначить', OFFICE_ADD, OFFICE_DUE, ...LIVE_LEVERS].sort(),
+    );
   });
 
   test('a held task offers «Снять с работы» beside the levers', async () => {
@@ -354,7 +367,9 @@ describe.each([
 
     await render(<ProblemRoute />);
 
-    expect(buttons()).toEqual([...FIELD, 'История', 'Снять с работы', OFFICE_ADD, ...LIVE_LEVERS].sort());
+    expect(buttons()).toEqual(
+      [...FIELD, 'История', 'Снять с работы', OFFICE_ADD, OFFICE_DUE, ...LIVE_LEVERS].sort(),
+    );
   });
 
   test('a closed task opens again or goes to the archive', async () => {

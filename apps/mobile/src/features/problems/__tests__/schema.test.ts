@@ -10,6 +10,7 @@ import {
   ownFixTaskId,
   problemDraftIssue,
   problemSchema,
+  queueProblems,
   type Problem,
   type ProblemDraft,
 } from '../schema';
@@ -39,7 +40,8 @@ function problem(overrides: Partial<Problem> = {}): Problem {
     cancelled_at: null,
     cancel_reason: null,
     created_at: '2026-11-10T08:05:00+00:00',
-    property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, parent: null },
+    due_on: null,
+    property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, timezone: null, parent: null },
     fix_tasks: [],
     ...overrides,
   };
@@ -204,5 +206,93 @@ describe('problemSchema', () => {
 
     expect(parsed.fix_tasks).toEqual([]);
     expect(parsed.property).toBeUndefined();
+  });
+
+  // A copy an older build saved on the phone has neither the planned day nor the zone
+  // (20261126130000): it reads as nothing planned, the phone's day standing in.
+  test('a row cached before the planned day reads as nothing planned', () => {
+    const { due_on, ...cached } = problem({ due_on: '2026-12-04' });
+    void due_on;
+    const old = { ...cached, property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null } };
+
+    const parsed = problemSchema.parse(old);
+
+    expect(parsed.due_on).toBeNull();
+    expect(parsed.property?.timezone).toBeNull();
+  });
+
+  test('a planned day is read as the server sends it', () => {
+    expect(problemSchema.parse(problem({ due_on: '2026-12-04' })).due_on).toBe('2026-12-04');
+  });
+});
+
+// The owner, 2026-11-26: the technician's «Мои задания» is his queue.
+describe('queueProblems', () => {
+  // Noon on 26.11 by the phone's clock; the listings of these tasks have no zone.
+  const NOW = new Date(2026, 10, 26, 12, 0);
+  let serial = 0;
+  const task = (title: string, overrides: Partial<Problem> = {}) => {
+    serial += 1;
+    return problem({
+      id: `c8000002-0000-4000-8000-${String(serial).padStart(12, '0')}`,
+      title,
+      ...overrides,
+    });
+  };
+  const titles = (group: { data: Problem[] } | undefined) =>
+    (group?.data ?? []).map((one) => one.title);
+
+  test('live by day, then level, then the older first; planned after today under its heading', () => {
+    // As the server reads them: newest reported first.
+    const groups = queueProblems(
+      [
+        task('closed newer', { status: 'resolved', created_at: '2026-11-25T08:00:00+00:00' }),
+        task('planned', { created_at: '2026-11-24T08:00:00+00:00', due_on: '2026-12-04' }),
+        task('critical', {
+          created_at: '2026-11-23T08:00:00+00:00',
+          priority: 'high',
+          critical: true,
+        }),
+        task('normal newer', { created_at: '2026-11-20T10:00:00+00:00' }),
+        task('normal older', { created_at: '2026-11-20T08:00:00+00:00' }),
+        task('closed older', { status: 'cancelled', created_at: '2026-11-19T08:00:00+00:00' }),
+        task('high, due the 20th', {
+          created_at: '2026-11-22T08:00:00+00:00',
+          priority: 'high',
+          due_on: '2026-11-20',
+        }),
+        task('due today', { created_at: '2026-11-25T09:00:00+00:00', due_on: '2026-11-26' }),
+      ],
+      NOW,
+    );
+
+    expect(groups.map((group) => group.key)).toEqual(['active', 'planned', 'closed']);
+    expect(titles(groups[0])).toEqual([
+      'high, due the 20th',
+      'normal older',
+      'normal newer',
+      'critical',
+      'due today',
+    ]);
+    expect(titles(groups[1])).toEqual(['planned']);
+    // The closed ones as before: newest first, as read.
+    expect(titles(groups[2])).toEqual(['closed newer', 'closed older']);
+  });
+
+  test('no heading for what is not there', () => {
+    expect(queueProblems([task('today')], NOW).map((group) => group.key)).toEqual(['active']);
+    expect(
+      queueProblems([task('later', { due_on: '2026-11-27' })], NOW).map((group) => group.key),
+    ).toEqual(['planned']);
+  });
+
+  test('her own reports keep the order of before: newest first, no planned heading', () => {
+    const newer = task('newer', { created_at: '2026-11-25T08:00:00+00:00' });
+    const older = task('older', { created_at: '2026-11-20T08:00:00+00:00', due_on: '2026-12-04' });
+
+    const groups = groupProblems([newer, older]);
+
+    expect(groups.map((group) => group.key)).toEqual(['active']);
+    expect(titles(groups[0])).toEqual(['newer', 'older']);
   });
 });

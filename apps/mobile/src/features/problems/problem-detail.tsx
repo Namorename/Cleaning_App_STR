@@ -23,6 +23,7 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import { closingRowOf } from './closing';
 import {
+  dueDayLine,
   formatReportedAt,
   problemPlace,
   problemPriorityText,
@@ -126,6 +127,7 @@ export function ProblemDetail({
   const level = problemLevel(problem);
   const urgent = urgencyChip(level);
   const plaques = signalBadges(problem, t);
+  const due = dueDayLine(problem, new Date());
   // Its buttons are last: scrolled to the end they stop clear of the system's
   // bar, which the screen is drawn under (components/bottom-inset.ts).
   const end = useScreenEdgePadding(Spacing.lg);
@@ -174,6 +176,14 @@ export function ProblemDetail({
             {problemPriorityText(level)}
           </Text>
         </Fact>
+        {/* The day the office planned it for (owner, 2026-11-26); nothing when none. */}
+        {due === null ? null : (
+          <Fact label={t('problems.due.label')}>
+            <Text align="right" style={layout.value} testID="problem-due-day">
+              {due}
+            </Text>
+          </Fact>
+        )}
         {problem.cancel_reason !== null ? (
           <Fact label={t('problems.cancelReason')}>
             <Text align="right" style={layout.value}>

@@ -4,6 +4,8 @@ import type { ComponentProps } from 'react';
 import { StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
 
 import { BUTTON_HEIGHT, Colors, FontSize, Spacing } from '@/constants/theme';
+import { formatCalendarDate } from '@/features/tasks/format';
+import { calendarDay } from '@/features/tasks/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BOTTOM_INSETS, scrollEndPadding, withBottomInset } from '@/testing/insets';
 
@@ -42,7 +44,8 @@ function problem(overrides: Partial<Problem> = {}): Problem {
     cancelled_at: null,
     cancel_reason: null,
     created_at: CREATED_AT,
-    property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, parent: null },
+    due_on: null,
+    property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, timezone: null, parent: null },
     fix_tasks: [],
     ...overrides,
   };
@@ -86,6 +89,27 @@ describe('today’s screen', () => {
     expect(screen.getByText('Обычная')).toBeTruthy();
     expect(screen.getByText('Подробности')).toBeTruthy();
     expect(screen.getByText('Под раковиной')).toBeTruthy();
+  });
+
+  // The owner, 2026-11-26: the day the office planned is a fact of the screen, for everyone.
+  test('a planned day is a fact: tomorrow by its word and date, a later day by its date', async () => {
+    const tomorrow = calendarDay(new Date(), 1);
+    await render(<ProblemDetail {...props({ problem: problem({ due_on: tomorrow }) })} />);
+
+    expect(screen.getByText('Дата выполнения')).toBeTruthy();
+    expect(screen.getByTestId('problem-due-day').props.children).toBe(
+      `Завтра · ${formatCalendarDate(tomorrow)}`,
+    );
+
+    const later = calendarDay(new Date(), 9);
+    await render(<ProblemDetail {...props({ problem: problem({ due_on: later }) })} />);
+    expect(screen.getByTestId('problem-due-day').props.children).toBe(formatCalendarDate(later));
+  });
+
+  test('nothing planned is no fact at all', async () => {
+    await render(<ProblemDetail {...props()} />);
+
+    expect(screen.queryByText('Дата выполнения')).toBeNull();
   });
 
   test('carries the property’s instructions the route hands it', async () => {

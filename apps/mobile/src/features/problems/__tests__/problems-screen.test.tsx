@@ -4,6 +4,7 @@ import { StyleSheet, type ViewStyle } from 'react-native';
 
 import ProblemsScreen from '@/app/(tabs)/problems';
 import { BUTTON_HEIGHT, Colors, FontSize } from '@/constants/theme';
+import { calendarDay } from '@/features/tasks/schema';
 
 import type { Problem } from '../schema';
 import { useMyProblems } from '../use-problems';
@@ -248,5 +249,61 @@ describe('on the «Абрикос» components', () => {
     const heading = StyleSheet.flatten(screen.getByText('Закрытые').props.style);
     expect(heading.fontSize).toBe(FontSize.caption);
     expect(heading.color).toBe(Colors.light.textSecondary);
+  });
+});
+
+// The owner, 2026-11-26: a technician's «Мои задания» is his queue — the planned day, else the
+// day made; then the level; then the older first — and what is planned after today waits under
+// «Запланировано». A cleaner's reports keep the order of before.
+describe('the technician’s queue', () => {
+  const id = (n: number) => `d1e2f3a4-1111-4111-8111-${String(n).padStart(12, '0')}`;
+  const SHOWN = /^(Срочное|Старше|Новее|Запланировано|На завтра|Закрытые|Закрыто)$/;
+  const shown = () => screen.getAllByText(SHOWN).map((node) => node.props.children);
+
+  beforeEach(() => {
+    answer({
+      // As the server reads them: newest reported first.
+      data: [
+        problem({
+          id: id(11),
+          title: 'На завтра',
+          created_at: '2026-11-22T08:00:00+00:00',
+          due_on: calendarDay(new Date(), 1),
+        }),
+        problem({
+          id: id(12),
+          title: 'Срочное',
+          created_at: '2026-11-21T08:00:00+00:00',
+          priority: 'high',
+        }),
+        problem({ id: id(13), title: 'Новее', created_at: '2026-11-20T10:00:00+00:00' }),
+        problem({ id: id(14), title: 'Старше', created_at: '2026-11-20T08:00:00+00:00' }),
+        problem({ id: id(15), title: 'Закрыто', status: 'resolved' }),
+      ],
+    });
+  });
+
+  test('his live tasks by day, level and age; those planned after today under their heading', async () => {
+    mockRole = 'tech';
+
+    await render(<ProblemsScreen />);
+
+    expect(shown()).toEqual([
+      'Старше',
+      'Новее',
+      'Срочное',
+      'Запланировано',
+      'На завтра',
+      'Закрытые',
+      'Закрыто',
+    ]);
+    expect(screen.getByText('Запланировано').props.accessibilityRole).toBe('header');
+    expect(screen.getByText('Дата: Завтра')).toBeTruthy();
+  });
+
+  test('a cleaner’s reports stay newest first, with no planned heading', async () => {
+    await render(<ProblemsScreen />);
+
+    expect(shown()).toEqual(['На завтра', 'Срочное', 'Новее', 'Старше', 'Закрытые', 'Закрыто']);
   });
 });

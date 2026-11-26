@@ -8,7 +8,7 @@ import {
   problemStatusTone,
 } from '@str-ops/shared';
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Person } from '@/components/person';
@@ -28,7 +28,9 @@ import { useLanguage } from '@/lib/use-language';
 
 import { problemChatHref, problemHref, type ProblemsAddress } from './address';
 import { EMPTY_PROBLEM_FILTERS, filtersKey, type ProblemFilters } from './filters';
+import { listOrder } from './order';
 import { ProblemClosing } from './problem-closing';
+import { DueBadge } from './problem-due';
 import { RepairTail } from './repair-tail';
 import { liveFixTask, problemPlace, repairTail, type Problem } from './schema';
 import { SourceBadge } from './source-badge';
@@ -47,8 +49,11 @@ interface ProblemsTableProps {
  * title with «Из отзыва» or «Из чата» (owner, 2026-11-11), and names the
  * guest's review or chat where the reporter would stand.
  *
- * Newest reported first, a page at a time (owner, 10.10: the page must not
- * grow without end); «Показать ещё» under the table brings the older ones.
+ * The live tasks first, in the technicians' queue order — the planned day or
+ * the day made, the level, the older first — and the closed ones after them,
+ * newest reported first (owner, 2026-11-26: `listOrder`); a planned live task
+ * says its day beside its title. A page at a time (owner, 10.10: the page must
+ * not grow without end); «Показать ещё» under the table brings the rest.
  */
 export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: ProblemsTableProps) {
   const { t } = useTranslation();
@@ -57,9 +62,10 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
   const from: ProblemsAddress = { view: 'list', filters };
   // One instant for the whole table, so every row agrees on a repair's days.
   const now = new Date();
+  const rows = useMemo(() => listOrder(problems), [problems]);
   const tableRef = useRef<HTMLDivElement>(null);
   const paging = useShowMore({
-    total: problems.length,
+    total: rows.length,
     page: LIST_PAGE,
     listRef: tableRef,
     itemSelector: 'tbody > tr',
@@ -82,7 +88,7 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
             </TableRow>
           </TableHeader>
           <TableBody>
-            {problems.slice(0, paging.shown).map((problem) => {
+            {rows.slice(0, paging.shown).map((problem) => {
               const fixTask = liveFixTask(problem);
               return (
                 <TableRow key={problem.id}>
@@ -95,6 +101,7 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
                       >
                         {problem.title}
                       </Link>
+                      <DueBadge problem={problem} now={now} />
                       {unread.problems.has(problem.id) ? (
                         <UnreadChatLink
                           href={problemChatHref(problem.id, from)}
@@ -151,7 +158,7 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
           </TableBody>
         </Table>
       </div>
-      <ShowMoreButton more={paging.more} total={problems.length} onPress={paging.showMore} />
+      <ShowMoreButton more={paging.more} total={rows.length} onPress={paging.showMore} />
     </div>
   );
 }

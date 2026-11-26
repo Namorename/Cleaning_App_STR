@@ -1,7 +1,11 @@
+import { DUE_DAYS_AHEAD } from '@str-ops/shared';
 import { CATALOG_FIXTURE } from '@str-ops/shared/src/testing/problem-categories.fixture';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+
+import { addDays } from '@/features/calendar/dates';
+import { todayIso } from '@/lib/format-date';
 
 import type { ReportCatalog } from '../catalog';
 import { EMPTY_PROBLEM_FILTERS } from '../filters';
@@ -292,5 +296,60 @@ describe('a company that types, and a catalogue that did not load', () => {
 
     expect(field(form)).toBeInTheDocument();
     expect(within(form).queryByLabelText('Что случилось')).not.toBeInTheDocument();
+  });
+});
+
+describe('the day the task is to be done (owner, 2026-11-26)', () => {
+  const today = todayIso();
+  const planned = addDays(today, 10);
+  const dueField = (form: HTMLElement) => within(form).getByLabelText('Дата выполнения');
+
+  test('an optional date, today up to a year ahead, with what it does said under it', () => {
+    catalogState.current = { kind: 'free' };
+    const form = openForm();
+
+    expect(dueField(form)).toHaveAttribute('type', 'date');
+    expect(dueField(form)).toHaveValue('');
+    expect(dueField(form)).not.toBeRequired();
+    expect(dueField(form)).toHaveAttribute('min', today);
+    expect(dueField(form)).toHaveAttribute('max', addDays(today, DUE_DAYS_AHEAD));
+    expect(dueField(form)).toHaveAccessibleDescription(/очередь техников/);
+  });
+
+  test('a typed task sends the day it plans', async () => {
+    catalogState.current = { kind: 'free' };
+    const form = openForm();
+
+    await userEvent.selectOptions(within(form).getByLabelText('Объект'), 'Vinohrady 12');
+    await userEvent.type(within(form).getByLabelText('Что случилось'), 'Течёт кран');
+    fireEvent.change(dueField(form), { target: { value: planned } });
+    await userEvent.click(within(form).getByRole('button', { name: 'Создать' }));
+
+    expect(report.mock.calls[0][0]).toMatchObject({ title: 'Течёт кран', dueOn: planned });
+  });
+
+  test('a task picked from the catalogue sends it too', async () => {
+    const form = openForm();
+
+    await userEvent.selectOptions(within(form).getByLabelText('Объект'), 'Karlín 3');
+    await userEvent.click(field(form));
+    await userEvent.click(within(form).getByRole('option', { name: /^Царапины/ }));
+    fireEvent.change(dueField(form), { target: { value: planned } });
+    await userEvent.click(within(form).getByRole('button', { name: 'Создать' }));
+
+    expect(report.mock.calls[0][0]).toMatchObject({ propertyId: 2, dueOn: planned });
+  });
+
+  test('no day planned sends none: the call of before', async () => {
+    catalogState.current = { kind: 'free' };
+    const form = openForm();
+
+    await userEvent.selectOptions(within(form).getByLabelText('Объект'), 'Vinohrady 12');
+    await userEvent.type(within(form).getByLabelText('Что случилось'), 'Течёт кран');
+    fireEvent.change(dueField(form), { target: { value: planned } });
+    fireEvent.change(dueField(form), { target: { value: '' } });
+    await userEvent.click(within(form).getByRole('button', { name: 'Создать' }));
+
+    expect(report.mock.calls[0][0]).not.toHaveProperty('dueOn');
   });
 });

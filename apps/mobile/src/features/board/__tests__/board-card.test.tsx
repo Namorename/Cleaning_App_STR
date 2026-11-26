@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { formatCalendarDate } from '@/features/tasks/format';
 import { calendarDay } from '@/features/tasks/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { i18n } from '@/i18n';
@@ -340,6 +341,72 @@ describe('a repair whose day has passed', () => {
       expect(screen.getByText('Просрочено')).toBeTruthy();
       expect(screen.getByText('Висит 3 дня')).toBeTruthy();
     });
+  });
+
+  // The owner, 2026-11-26: a task planned ahead does not hang before its day, however early its
+  // repair was booked; once the day is behind, the days count from it.
+  test('a repair booked early for a day still ahead neither hangs nor is overdue', async () => {
+    const problem = boardProblem({
+      status: 'assigned',
+      due_on: calendarDay(new Date(), 2),
+      fix_tasks: [repair({ scheduled_date: daysAgo(5) })],
+    });
+
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+    expect(screen.queryByText('Просрочено')).toBeNull();
+    expect(screen.queryByText(/Висит/)).toBeNull();
+  });
+
+  test('once the planned day is behind, it hangs from that day', async () => {
+    const problem = boardProblem({
+      status: 'assigned',
+      due_on: daysAgo(2),
+      fix_tasks: [repair({ scheduled_date: daysAgo(5) })],
+    });
+
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+    expect(screen.getByText('Висит 2 дня')).toBeTruthy();
+    expect(screen.queryByText('Просрочено')).toBeNull();
+  });
+});
+
+describe('the day the office planned (owner, 2026-11-26)', () => {
+  const dayFromNow = (days: number) => calendarDay(new Date(), days);
+
+  test.each([
+    [0, 'Дата: Сегодня'],
+    [1, 'Дата: Завтра'],
+  ])('%i day(s) ahead reads «%s», heard with the card', async (days, words) => {
+    const problem = boardProblem({ due_on: dayFromNow(days) });
+
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+    expect(within(screen.getByTestId('board-due')).getByText(words)).toBeTruthy();
+    expect(screen.getByRole('button').props.accessibilityLabel).toContain(words);
+  });
+
+  test('a later day reads as the date', async () => {
+    const day = dayFromNow(9);
+    const problem = boardProblem({ due_on: day });
+
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+    expect(screen.getByText(`Дата: ${formatCalendarDate(day)}`)).toBeTruthy();
+  });
+
+  test.each([
+    ['nothing is planned', boardProblem()],
+    ['it is closed', boardProblem({ status: 'resolved', due_on: dayFromNow(1) })],
+    [
+      'it is archived',
+      boardProblem({ archived_at: '2026-11-20T08:00:00Z', due_on: dayFromNow(1) }),
+    ],
+  ])('says no day when %s', async (_when, problem) => {
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+    expect(screen.queryByTestId('board-due')).toBeNull();
   });
 });
 

@@ -42,6 +42,7 @@ import { formatClock } from './format';
 import { ProblemActions } from './problem-actions';
 import { ClosingAddition, OfficeAdditionsSection } from './problem-additions';
 import { ProblemClosing, ProblemWorkerMark } from './problem-closing';
+import { ProblemDueSection } from './problem-due';
 import { ProblemPhotos } from './problem-photos';
 import { ProblemThemeBlock } from './problem-theme';
 import { RepairTail } from './repair-tail';
@@ -257,6 +258,11 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-5 text-sm">
+            {/* The day the task is planned for (owner, 2026-11-26): the work is booked from it.
+                A closed task keeps the day it had, and says nothing of one it never had. */}
+            {isClosed && problem.due_on === null ? null : (
+              <ProblemDueSection problem={problem} canChange={!isClosed} />
+            )}
             {fixTask === null && isClosed ? (
               <>
                 <ProblemClosing problem={problem} className="gap-1 font-medium" />
@@ -269,7 +275,12 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
               <FixTaskSummary fixTask={fixTask} tail={repairTail(problem)} />
             )}
             {isClosed ? null : (
-              <AssignForm key={fixTask?.id ?? 'new'} problem={problem} fixTask={fixTask} />
+              // A new planned day starts a new repair's form from it (assignDay).
+              <AssignForm
+                key={`${fixTask?.id ?? 'new'}:${problem.due_on ?? ''}`}
+                problem={problem}
+                fixTask={fixTask}
+              />
             )}
             {fixTask !== null ? (
               <DetailSection title={t('panel.problems.detail.steps')}>

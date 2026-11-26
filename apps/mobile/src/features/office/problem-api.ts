@@ -1,3 +1,5 @@
+import type { Database } from '@str-ops/shared';
+
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -81,6 +83,29 @@ function send(action: ProblemAction) {
 
 export async function runProblemAction(action: ProblemAction): Promise<void> {
   const { error } = await send(action);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export interface ProblemDueVariables {
+  problemId: string;
+  /** `YYYY-MM-DD`; null clears the day. */
+  dueOn: string | null;
+}
+
+type ProblemDueArgs = Database['public']['Functions']['set_problem_due_date']['Args'];
+
+/**
+ * The office plans the day a task is to be done, or clears it (set_problem_due_date,
+ * 20261126130000): the office of the company only (`serverErrors.managerOnly`), any status; a day
+ * out of range is refused (`serverErrors.problemDueInvalid`). No journal line and no push.
+ */
+export async function setProblemDue({ problemId, dueOn }: ProblemDueVariables): Promise<void> {
+  // The generated type has no null for an argument without a default; null is what clears it.
+  const args = { p_id: problemId, p_due_on: dueOn } as ProblemDueArgs;
+  const { error } = await supabase.rpc('set_problem_due_date', args);
 
   if (error) {
     throw error;

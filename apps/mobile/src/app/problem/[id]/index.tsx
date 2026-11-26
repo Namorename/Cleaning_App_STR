@@ -16,6 +16,7 @@ import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
 import { attachFailure } from '@/features/media/failure';
 import { useGalleryAllowed } from '@/features/host/use-host';
 import { OfficeProblemActions } from '@/features/office/problem-actions';
+import { OfficeProblemDue } from '@/features/office/problem-due';
 import { toLocalRecord, type LocalMediaRecord } from '@/features/media/local-store';
 import { mediaOfProblem } from '@/features/media/schema';
 import {
@@ -190,6 +191,8 @@ export default function ProblemRoute() {
         isDispatcher ? (
           <>
             <ProblemDispatch problemId={problemId} />
+            {/* The office plans the task's day (owner, 2026-11-26), then its other levers. */}
+            {isOfficeRole ? <OfficeProblemDue problemId={problemId} /> : null}
             {isOfficeRole ? <OfficeProblemActions problemId={problemId} /> : null}
           </>
         ) : undefined

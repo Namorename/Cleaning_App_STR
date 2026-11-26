@@ -1,7 +1,7 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { formatGuestDate } from '@str-ops/shared';
-import { beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest';
 
 import { problemSchema, type Problem } from '../schema';
 
@@ -59,6 +59,7 @@ const mutations = {
   nameWorker: vi.fn(),
   edit: vi.fn(),
   publish: vi.fn(),
+  setDue: vi.fn(),
 };
 /** Where the page sends the manager after a delete. */
 const router = { replace: vi.fn() };
@@ -110,6 +111,7 @@ vi.mock('../use-problems', () => ({
   useReopenProblem: () => ({ ...idle, mutate: mutations.reopen }),
   useArchiveProblem: () => ({ ...idle, mutate: mutations.archive }),
   useEditProblemText: () => ({ ...idle, mutate: mutations.edit }),
+  useSetProblemDueDate: () => ({ ...idle, mutate: mutations.setDue }),
   useUnarchiveProblem: () => ({ ...idle, mutate: mutations.unarchive }),
   useMarkFalsePositive: () => ({
     ...idle,
@@ -182,6 +184,7 @@ vi.mock('next/navigation', async () => {
 import { ICONS } from '@str-ops/shared';
 
 import { expectPageTitle } from '@/components/page-header.expect';
+import { formatDay } from '@/lib/format-date';
 
 import { ProblemDetail } from '../problem-detail';
 
@@ -1224,5 +1227,99 @@ describe('«Изменить» (owner, 2026-11-19)', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(mutations.edit).not.toHaveBeenCalled();
+  });
+});
+
+describe('«Дата выполнения» (owner, 2026-11-26)', () => {
+  // The listing has no zone here: the device's day stands in, pinned by the clock.
+  const TODAY = '2026-11-26';
+  const PLANNED = '2026-12-04';
+  const section = () =>
+    screen.getByRole('heading', { name: 'Дата выполнения' }).closest('section') as HTMLElement;
+  // A date as the page reads it, its spaces as the queries collapse them.
+  const shown = (day: string) => formatDay(day, 'ru').replace(/\s+/g, ' ');
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${TODAY}T10:00:00`));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('a task with no day says so, and the office plans one from today to a year ahead', async () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+    expect(within(section()).getByText('Без даты')).toBeInTheDocument();
+
+    await userEvent.click(within(section()).getByRole('button', { name: 'Выбрать дату' }));
+    const field = within(section()).getByLabelText('Дата выполнения');
+    expect(field).toHaveAttribute('min', TODAY);
+    expect(field).toHaveAttribute('max', '2027-11-27');
+    // Nothing to clear yet.
+    expect(within(section()).queryByRole('button', { name: 'Убрать дату' })).toBeNull();
+
+    fireEvent.change(field, { target: { value: PLANNED } });
+    await userEvent.click(within(section()).getByRole('button', { name: 'Сохранить дату' }));
+
+    expect(mutations.setDue).toHaveBeenCalledWith(
+      { problemId: PROBLEM_ID, dueOn: PLANNED },
+      expect.anything(),
+    );
+  });
+
+  test('a planned day is shown, changed from it, or cleared', async () => {
+    queries.problem.mockReturnValue(loaded({ ...assigned, due_on: PLANNED }));
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+    expect(within(section()).getByText(shown(PLANNED))).toBeInTheDocument();
+
+    await userEvent.click(within(section()).getByRole('button', { name: 'Изменить дату' }));
+    expect(within(section()).getByLabelText('Дата выполнения')).toHaveValue(PLANNED);
+    await userEvent.click(within(section()).getByRole('button', { name: 'Убрать дату' }));
+
+    expect(mutations.setDue).toHaveBeenCalledWith(
+      { problemId: PROBLEM_ID, dueOn: null },
+      expect.anything(),
+    );
+  });
+
+  test('tomorrow reads as a word beside the date', () => {
+    queries.problem.mockReturnValue(loaded({ ...assigned, due_on: '2026-11-27' }));
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(within(section()).getByText(`Завтра · ${shown('2026-11-27')}`)).toBeInTheDocument();
+  });
+
+  test('a closed task keeps its day without the lever; one it never had is not mentioned', () => {
+    const closed = { ...assigned, status: 'resolved' as const, fix_tasks: [] };
+    queries.problem.mockReturnValue(loaded({ ...closed, due_on: PLANNED }));
+    const { unmount } = render(<ProblemDetail problemId={PROBLEM_ID} />);
+    expect(within(section()).getByText(shown(PLANNED))).toBeInTheDocument();
+    expect(within(section()).queryByRole('button')).toBeNull();
+    unmount();
+
+    queries.problem.mockReturnValue(loaded(closed));
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+    expect(screen.queryByRole('heading', { name: 'Дата выполнения' })).toBeNull();
+  });
+
+  test('a repair booked before a day planned ahead neither hangs nor is overdue', () => {
+    // The repair stands on 2026-09-10, long past; the task is planned for next week.
+    queries.problem.mockReturnValue(loaded({ ...assigned, due_on: PLANNED }));
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.queryByText('Просрочено')).toBeNull();
+    expect(screen.queryByText(/^Висит/)).toBeNull();
+  });
+
+  test('a new repair starts on the planned day; a day already past starts today', () => {
+    const open = { ...assigned, status: 'open' as const, fix_tasks: [] };
+    queries.problem.mockReturnValue(loaded({ ...open, due_on: PLANNED }));
+    const { unmount } = render(<ProblemDetail problemId={PROBLEM_ID} />);
+    expect(screen.getByLabelText('Дата')).toHaveValue(PLANNED);
+    unmount();
+
+    queries.problem.mockReturnValue(loaded({ ...open, due_on: '2026-11-25' }));
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+    expect(screen.getByLabelText('Дата')).toHaveValue(TODAY);
   });
 });

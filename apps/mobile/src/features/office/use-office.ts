@@ -12,7 +12,12 @@ import {
   restoreCleaning,
   type AssignCleaningVariables,
 } from './api';
-import { runProblemAction, type ProblemAction } from './problem-api';
+import {
+  runProblemAction,
+  setProblemDue,
+  type ProblemAction,
+  type ProblemDueVariables,
+} from './problem-api';
 import { officeTaskListSchema, officeTaskSchema, type DayRange, type OfficeTask } from './schema';
 
 /**
@@ -29,6 +34,8 @@ export const officeKeys = {
   dispatch: ['office', 'dispatch'] as const,
   /** The manager's levers on a task. */
   problem: ['office', 'problem'] as const,
+  /** The office plans a task's day (20261126130000). */
+  problemDue: ['office', 'problem-due'] as const,
 };
 
 /** Module-level, so a query runs them only when its data changes. */
@@ -135,5 +142,22 @@ export function useProblemAction() {
       void refreshTaskLists(queryClient);
       return queryClient.invalidateQueries({ queryKey: problemKeys.all });
     },
+  });
+}
+
+/**
+ * «Дата выполнения»: the office plans a task's day or clears it — online only, as the levers are:
+ * sent at once or not at all, never queued. The tasks — board, lists, screens — are read again
+ * before it counts as done: they reorder, and a repair's «Висит» counts from the day.
+ */
+export function useSetProblemDue() {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, ProblemDueVariables>({
+    mutationFn: setProblemDue,
+    mutationKey: officeKeys.problemDue,
+    networkMode: 'always',
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: problemKeys.all }),
   });
 }

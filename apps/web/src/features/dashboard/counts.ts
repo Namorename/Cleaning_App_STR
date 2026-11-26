@@ -7,11 +7,15 @@ import {
 } from '@/features/problems/filters';
 import { isProblemArchived, isProblemClosed, type Problem } from '@/features/problems/schema';
 import { isInTab, type SupplyRequest } from '@/features/supplies/schema';
-import { isRepairOverdue, isTechnicianOff } from '@/features/tasks/repairs';
+import {
+  isRepairOverdue,
+  isTechnicianOff,
+  repairTailDay,
+  repairTailOf,
+} from '@/features/tasks/repairs';
 import {
   isTaskClosed,
   isTechnicianJob,
-  tailOf,
   UNDER_WAY_STATUSES,
   type CalendarTask,
   type LiveRepair,
@@ -159,15 +163,21 @@ export function newSupplyCount(requests: readonly Pick<SupplyRequest, 'status'>[
 /** A repair left behind, and which of the two signals it gives — one or both. */
 export interface StuckRepair {
   repair: LiveRepair;
-  /** Whole days past its day in its listing's zone; 0 while its day has not passed. */
+  /**
+   * Whole days past its day in its listing's zone — its own day, or its task's planned day when
+   * that is later (`repairTailOf`); 0 while that day has not passed.
+   */
   days: number;
   isOverdue: boolean;
   isTechnicianOff: boolean;
 }
 
+/** The day it hangs from first, so the longest hanging is the first to chase; then the id. */
 function byDayThenId(a: StuckRepair, b: StuckRepair): number {
-  if (a.repair.scheduled_date !== b.repair.scheduled_date) {
-    return a.repair.scheduled_date < b.repair.scheduled_date ? -1 : 1;
+  const left = repairTailDay(a.repair);
+  const right = repairTailDay(b.repair);
+  if (left !== right) {
+    return left < right ? -1 : 1;
   }
   return a.repair.id < b.repair.id ? -1 : a.repair.id > b.repair.id ? 1 : 0;
 }
@@ -186,7 +196,7 @@ export function stuckRepairs(
   return repairs
     .map((repair) => ({
       repair,
-      days: tailOf(repair, now)?.days ?? 0,
+      days: repairTailOf(repair, now)?.days ?? 0,
       isOverdue: isRepairOverdue(repair, now),
       isTechnicianOff: isTechnicianOff(repair),
     }))

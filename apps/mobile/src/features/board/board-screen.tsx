@@ -72,7 +72,11 @@ export function BoardScreen() {
     () => (rows === undefined ? undefined : filterBoard(rows, { status, assignee: shownAssignee })),
     [rows, status, shownAssignee],
   );
-  const sections = useMemo(() => (shown === undefined ? undefined : boardSections(shown)), [shown]);
+  // The live part in the technicians' queue; the archive as its pages came, newest first.
+  const sections = useMemo(
+    () => (shown === undefined ? undefined : boardSections(shown, { isQueue: !isArchive })),
+    [shown, isArchive],
+  );
 
   // The marks are asked once for everything the phone holds — the board, and
   // the archive's pages once read — not for what the filters leave: a filter

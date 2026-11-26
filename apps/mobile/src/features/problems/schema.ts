@@ -1,4 +1,10 @@
-import { problemLevel, storedUrgency, type ProblemLevel } from '@str-ops/shared';
+import {
+  orderQueue,
+  problemLevel,
+  storedUrgency,
+  todayInZone,
+  type ProblemLevel,
+} from '@str-ops/shared';
 import { z } from 'zod';
 
 import type { ProblemCategory } from './categories';
@@ -53,6 +59,10 @@ export const problemSchema = z.object({
   // Who did the work and who closed it, with the names (closing.ts).
   ...closingFields,
   created_at: z.string(),
+  // The day the task is to be done, `YYYY-MM-DD`, set by the office
+  // (20261126130000); null when nothing is planned. Absent from a copy an older
+  // build saved on the phone: nothing planned, until the next read.
+  due_on: z.string().nullable().catch(null).default(null),
   // `name` is `text not null` on the table and has always been in the
   // select, so the old `.nullable()` was never real — and the shared
   // labeller needs a string. The house rides along: a report filed from a
@@ -61,6 +71,9 @@ export const problemSchema = z.object({
     .object({
       name: z.string(),
       hostaway_unit_id: z.number().nullable().default(null),
+      // The listing's zone: the queue's days are its calendar's (queue.ts).
+      // Missing from a copy an older build saved; the phone's day stands in.
+      timezone: z.string().nullable().default(null),
       parent: z.object({ name: z.string() }).nullable().default(null),
     })
     .nullable()
@@ -223,17 +236,42 @@ export function isProblemClosed(problem: Problem): boolean {
 }
 
 export interface ProblemGroup {
-  key: 'active' | 'closed';
+  /** «Запланировано» (`planned`) holds the live tasks planned after today, in the queue only. */
+  key: 'active' | 'planned' | 'closed';
   data: Problem[];
+}
+
+function sections(groups: readonly ProblemGroup[]): ProblemGroup[] {
+  return groups.filter((group) => group.data.length > 0);
 }
 
 /** Live reports first, closed ones below, each newest first as the server sends them. */
 export function groupProblems(problems: readonly Problem[]): ProblemGroup[] {
-  const active = problems.filter((problem) => !isProblemClosed(problem));
-  const closed = problems.filter(isProblemClosed);
+  return sections([
+    { key: 'active', data: problems.filter((problem) => !isProblemClosed(problem)) },
+    { key: 'closed', data: problems.filter(isProblemClosed) },
+  ]);
+}
 
-  return [
-    ...(active.length > 0 ? [{ key: 'active' as const, data: active }] : []),
-    ...(closed.length > 0 ? [{ key: 'closed' as const, data: closed }] : []),
-  ];
+/** Planned for a day after today in its listing's zone: it waits under «Запланировано». */
+function isPlannedAhead(problem: Problem, now: Date): boolean {
+  return problem.due_on !== null && problem.due_on > todayInZone(problem.property?.timezone, now);
+}
+
+/**
+ * The technician's «Мои задания» (owner, 2026-11-26): the live tasks in the queue's order — the
+ * planned day, else the day made; then the level; then the older first (`orderQueue`) — those
+ * planned after today under their own heading below today's work; the closed ones under theirs,
+ * newest first as before.
+ */
+export function queueProblems(
+  problems: readonly Problem[],
+  now: Date = new Date(),
+): ProblemGroup[] {
+  const live = orderQueue(problems.filter((problem) => !isProblemClosed(problem)));
+  return sections([
+    { key: 'active', data: live.filter((problem) => !isPlannedAhead(problem, now)) },
+    { key: 'planned', data: live.filter((problem) => isPlannedAhead(problem, now)) },
+    { key: 'closed', data: problems.filter(isProblemClosed) },
+  ]);
 }

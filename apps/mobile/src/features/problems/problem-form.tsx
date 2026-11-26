@@ -18,6 +18,7 @@ import { serverErrorText } from '@/lib/server-error';
 
 import { categoryLevel, type ProblemCategory } from './categories';
 import { CategoryPicker, PriorityChip } from './category-picker';
+import { DueField } from './due-field';
 import {
   MAX_PROBLEM_DESCRIPTION,
   MAX_PROBLEM_PHOTOS,
@@ -62,6 +63,11 @@ interface ProblemFormProps {
   /** The last attempt's failure, shown next to the button so she can retry. */
   error: Error | null;
   notice?: string | null;
+  /**
+   * The day the task is to be done, the office's to plan (owner, 2026-11-26): absent for anybody
+   * else — the server refuses their day (`serverErrors.problemDueOfficeOnly`) — and on an edit.
+   */
+  due?: { value: string | null; onChange: (day: string | null) => void };
 }
 
 /**
@@ -97,6 +103,7 @@ export function ProblemForm({
   onSubmit,
   error,
   notice = null,
+  due,
 }: ProblemFormProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -216,6 +223,10 @@ export function ProblemForm({
               ))}
             </View>
           </View>
+        )}
+
+        {due === undefined ? null : (
+          <DueField value={due.value} onChange={due.onChange} isDisabled={isSubmitting} />
         )}
       </ScrollView>
 

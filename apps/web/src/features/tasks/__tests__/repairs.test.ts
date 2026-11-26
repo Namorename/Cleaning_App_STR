@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest';
 
-import { isRepairOverdue, isTechnicianOff, overdueRepairsByProperty } from '../repairs';
+import {
+  isRepairOverdue,
+  isTechnicianOff,
+  overdueRepairsByProperty,
+  repairTailDay,
+  repairTailOf,
+} from '../repairs';
 import { liveRepairSchema, type LiveRepair } from '../schema';
 
 /**
@@ -53,6 +59,46 @@ describe('a repair is overdue', () => {
     expect(isRepairOverdue(repair({ scheduled_date: '2026-09-24' }), now)).toBe(false);
     expect(isRepairOverdue(repair({ scheduled_date: '2026-09-23' }), now)).toBe(true);
     expect(isRepairOverdue({ ...repair(), status: 'done' }, now)).toBe(false);
+  });
+
+  // The owner, 2026-11-26: a task planned ahead does not hang before its day, however early its
+  // repair was booked; the read embeds the task's day (`problem:problem_id(due_on)`).
+  test('counted from its task’s planned day when that is later', () => {
+    const now = new Date('2026-09-26T10:00:00Z');
+    const planned = (due_on: string | null) =>
+      repair({ scheduled_date: '2026-09-12', problem: { due_on } });
+
+    expect(isRepairOverdue(planned(null), now)).toBe(true);
+    expect(isRepairOverdue(planned('2026-09-30'), now)).toBe(false);
+    expect(repairTailOf(planned('2026-09-30'), now)).toBeNull();
+    expect(repairTailOf(planned('2026-09-24'), now)).toEqual({ days: 2, isOverdue: false });
+    expect(isRepairOverdue(planned('2026-09-23'), now)).toBe(true);
+    // A planned day earlier than the repair's own counts for nothing.
+    const early = repair({ scheduled_date: '2026-09-25', problem: { due_on: '2026-09-01' } });
+    expect(repairTailDay(early)).toBe('2026-09-25');
+  });
+
+  test('a listing’s badge counts from the planned day, and none while it is ahead', () => {
+    const now = new Date('2026-09-26T10:00:00Z');
+    const alerts = overdueRepairsByProperty(
+      [
+        repair({ scheduled_date: '2026-09-12', problem: { due_on: '2026-09-20' } }),
+        repair({ property_id: 2, scheduled_date: '2026-09-12', problem: { due_on: '2026-09-28' } }),
+      ],
+      now,
+    );
+
+    expect(alerts.get(1)?.since).toBe('2026-09-20');
+    expect(alerts.has(2)).toBe(false);
+  });
+
+  test('a repair read before the planned day existed reads as nothing planned', () => {
+    const now = new Date('2026-09-26T10:00:00Z');
+    const old = repair({ scheduled_date: '2026-09-12' });
+
+    expect(old.problem).toBeNull();
+    expect(isRepairOverdue(old, now)).toBe(true);
+    expect(repairTailDay(old)).toBe('2026-09-12');
   });
 });
 

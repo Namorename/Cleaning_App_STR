@@ -10,7 +10,7 @@ import { useRole } from '@/features/auth/use-role';
 import { BoardScreen } from '@/features/board/board-screen';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { ProblemList } from '@/features/problems/problem-list';
-import { groupProblems } from '@/features/problems/schema';
+import { groupProblems, queueProblems } from '@/features/problems/schema';
 import { useMyProblems } from '@/features/problems/use-problems';
 
 const NO_IDS: readonly string[] = [];
@@ -23,7 +23,7 @@ const NO_IDS: readonly string[] = [];
  *
  * A technician has no listings to report on from here: he raises a task from
  * his repair, where its listing fills itself in (docs/tech-plan.md §4). He
- * gets the list without the button.
+ * gets the list without the button, in the queue's order (owner, 2026-11-26).
  *
  * The head technician's tab is not a list of his own at all: it is the board
  * of every task of the company, with its filters (docs/tech-plan.md §3.4, §4),
@@ -41,7 +41,9 @@ export default function ProblemsScreen() {
   if (isOffice(role)) {
     return <OfficeBoard />;
   }
-  return <MyProblems canReport={!isTechnician(role)} />;
+  // A technician's list is his queue (owner, 2026-11-26); a cleaner's, her reports newest first.
+  const isTech = isTechnician(role);
+  return <MyProblems canReport={!isTech} isQueue={isTech} />;
 }
 
 function OfficeBoard() {
@@ -59,13 +61,20 @@ function OfficeBoard() {
 
 interface MyProblemsProps {
   canReport: boolean;
+  /** The technician's queue order, with «Запланировано» (`queueProblems`). */
+  isQueue: boolean;
 }
 
-function MyProblems({ canReport }: MyProblemsProps) {
+function MyProblems({ canReport, isQueue }: MyProblemsProps) {
   const { t } = useTranslation();
   const { data, isPending, error, refetch, isRefetching } = useMyProblems();
 
-  const sections = useMemo(() => (data === undefined ? undefined : groupProblems(data)), [data]);
+  const sections = useMemo(() => {
+    if (data === undefined) {
+      return undefined;
+    }
+    return isQueue ? queueProblems(data, new Date()) : groupProblems(data);
+  }, [data, isQueue]);
 
   // The marks are asked for exactly the reports on this screen.
   const problemIds = useMemo(

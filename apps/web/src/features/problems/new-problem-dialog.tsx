@@ -26,6 +26,7 @@ import { serverErrorText } from '@/lib/server-error';
 import { problemHref, type ProblemsAddress } from './address';
 import type { ReportCatalog, ReportCategory } from './catalog';
 import { CategoryCombobox } from './category-combobox';
+import { dueDayRange } from './due';
 import {
   MAX_PROBLEM_DESCRIPTION,
   MAX_PROBLEM_TITLE,
@@ -42,6 +43,8 @@ interface Draft {
   propertyId: number | null | undefined;
   /** The category picked when the company reports by catalogue; null until one is. */
   categoryId: string | null;
+  /** The day the task is to be done, `YYYY-MM-DD`; empty while none is planned. */
+  dueOn: string;
 }
 
 const EMPTY_DRAFT: Draft = {
@@ -50,7 +53,11 @@ const EMPTY_DRAFT: Draft = {
   priority: 'normal',
   propertyId: undefined,
   categoryId: null,
+  dueOn: '',
 };
+
+/** Ties the date field to the sentence that says what the day does. */
+const DUE_HINT_ID = 'problem-due-hint';
 
 /** The select's values for «not chosen yet» and «Без объекта»; a listing is its id. */
 const PLACE_UNSET = '';
@@ -139,6 +146,9 @@ interface NewProblemDialogProps {
  * types a title and picks the urgency, as before: a task is never held up by
  * the catalogue.
  *
+ * Either way the office may plan the day the task is to be done (owner,
+ * 2026-11-26): left empty, nothing is planned and the call is the one of before.
+ *
  * The listing is chosen on purpose, «Без объекта» included: a task with no
  * listing cannot be handed to a technician (assign_problem refuses it, and a
  * listing cannot be added later), and the form says so when it is picked.
@@ -155,6 +165,8 @@ export function NewProblemDialog({ from, onClose }: NewProblemDialogProps) {
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   // Sorted and composed once per list, not once per keystroke.
   const places = useMemo(() => propertyOptions(properties.data ?? []), [properties.data]);
+  // The days the form opened with: today up to a year ahead.
+  const [dueRange] = useState(() => dueDayRange());
 
   const categories = catalog.kind === 'catalog' ? catalog.categories : null;
   const category =
@@ -197,6 +209,8 @@ export function NewProblemDialog({ from, onClose }: NewProblemDialogProps) {
         description: draft.description.trim(),
         propertyId: draft.propertyId,
         ...namedBy(draft, category),
+        // Sent only when a day is planned: without one, the call of before.
+        ...(draft.dueOn === '' ? {} : { dueOn: draft.dueOn }),
       },
       { onSuccess: opened },
     );
@@ -303,6 +317,24 @@ export function NewProblemDialog({ from, onClose }: NewProblemDialogProps) {
               </NativeSelect>
             </div>
           ) : null}
+
+          {/* Either way of naming the task may plan its day (owner, 2026-11-26). */}
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="problem-due">{t('problems.due.label')}</Label>
+            <Input
+              id="problem-due"
+              type="date"
+              className="h-11 w-fit"
+              min={dueRange.min}
+              max={dueRange.max}
+              value={draft.dueOn}
+              aria-describedby={DUE_HINT_ID}
+              onChange={(event) => setDraft({ ...draft, dueOn: event.target.value })}
+            />
+            <p id={DUE_HINT_ID} className="text-xs text-muted-foreground">
+              {t('problems.due.hint')}
+            </p>
+          </div>
 
           {failure === null ? null : (
             <p role="alert" className="text-sm text-destructive">

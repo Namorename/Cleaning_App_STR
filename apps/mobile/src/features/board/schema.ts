@@ -1,3 +1,4 @@
+import { orderQueue } from '@str-ops/shared';
 import { z } from 'zod';
 
 import { isTechnician, knownRole } from '@/features/auth/role';
@@ -46,6 +47,9 @@ export const boardProblemSchema = z.object({
   // Who did the work and who closed it, with the names (problems/closing.ts).
   ...closingFields,
   created_at: z.string(),
+  // The day the office planned it for (20261126130000), null for none; absent
+  // from a board an older build saved — nothing planned until the next read.
+  due_on: z.string().nullable().catch(null).default(null),
   // The house rides along, as on every place the phone names (problems/schema.ts).
   property: z
     .object({
@@ -248,9 +252,19 @@ export function cutBoard(board: BoardRead, limits: BoardLimits): CutBoard {
   };
 }
 
-/** Live tasks first, the closed ones under their heading, as her own list has them. */
-export function boardSections(problems: readonly BoardProblem[]): BoardSection[] {
-  const active = problems.filter((problem) => !isClosed(problem));
+/**
+ * Live tasks first, the closed ones under their heading, as her own list has
+ * them. The live ones of the board stand in the technicians' queue (owner,
+ * 2026-11-26): the planned day, else the day made; then the level; then the
+ * older first (`orderQueue`) — ordered here, after `cutBoard`, which keeps the
+ * newest of each part as read. The archive keeps its pages' order, newest first.
+ */
+export function boardSections(
+  problems: readonly BoardProblem[],
+  { isQueue = true }: { isQueue?: boolean } = {},
+): BoardSection[] {
+  const live = problems.filter((problem) => !isClosed(problem));
+  const active = isQueue ? orderQueue(live) : live;
   const closed = problems.filter(isClosed);
 
   return [

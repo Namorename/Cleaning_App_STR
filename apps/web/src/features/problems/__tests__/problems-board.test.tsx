@@ -737,3 +737,121 @@ describe('ProblemsBoard after the review', () => {
     expect(result.current.shown?.problem.title).toBe('Сломан замок');
   });
 });
+
+// The owner, 2026-11-26: the live columns are the technicians' queue — the planned day, else the
+// day made; then the level; then the older first. «Выполнено» keeps the newest resolved first.
+describe('the board in the queue’s order', () => {
+  const task = (n: number, patch: Record<string, unknown>) =>
+    problemSchema.parse({
+      ...base,
+      id: `99999999-0000-4000-8000-${String(n).padStart(12, '0')}`,
+      status: 'open',
+      fix_tasks: [],
+      ...patch,
+    });
+  const titlesIn = (name: string) =>
+    within(column(name))
+      .getAllByRole('link')
+      .map((link) => link.textContent);
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-26T10:00:00'));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('a live column stands by day, then level, then age; a day planned ahead below', () => {
+    render(
+      <ProblemsBoard
+        problems={[
+          task(1, { title: 'Позже', created_at: '2026-11-24T10:00:00Z', due_on: '2026-12-04' }),
+          task(2, {
+            title: 'Критическая',
+            created_at: '2026-11-23T10:00:00Z',
+            priority: 'high',
+            critical: true,
+          }),
+          task(3, { title: 'Обычная новее', created_at: '2026-11-20T10:00:00Z' }),
+          task(4, { title: 'Обычная старше', created_at: '2026-11-20T08:00:00Z' }),
+          task(5, { title: 'Низкая', created_at: '2026-11-20T07:00:00Z', priority: 'low' }),
+          task(6, {
+            title: 'Срочная на 20-е',
+            created_at: '2026-11-22T10:00:00Z',
+            priority: 'high',
+            due_on: '2026-11-20',
+          }),
+        ]}
+      />,
+    );
+
+    expect(titlesIn('Открыто')).toEqual([
+      'Срочная на 20-е',
+      'Обычная старше',
+      'Обычная новее',
+      'Низкая',
+      'Критическая',
+      'Позже',
+    ]);
+  });
+
+  test('a card says its planned day: «Сегодня», «Завтра», or the date; a resolved one does not', () => {
+    render(
+      <ProblemsBoard
+        problems={[
+          task(1, { title: 'Сегодня', due_on: '2026-11-26' }),
+          task(2, { title: 'Завтра', due_on: '2026-11-27' }),
+          task(3, { title: 'Позже', due_on: '2026-12-04' }),
+          task(4, { title: 'Сделано', status: 'resolved', due_on: '2026-11-27' }),
+          task(5, { title: 'Без даты' }),
+        ]}
+      />,
+    );
+
+    expect(within(card('Сегодня')).getByText('Дата: Сегодня')).toHaveClass('bg-tone-today-bg');
+    expect(within(card('Завтра')).getByText('Дата: Завтра')).toBeInTheDocument();
+    expect(within(card('Позже')).getByText('Дата: 04.12')).toBeInTheDocument();
+    expect(within(card('Сделано')).queryByText(/^Дата:/)).toBeNull();
+    expect(within(card('Без даты')).queryByText(/^Дата:/)).toBeNull();
+  });
+
+  test('a repair past its day hangs, but not before a day its task is planned for', () => {
+    const repair = {
+      id: TASK_ID,
+      assignee_id: TECH_ID,
+      status: 'assigned',
+      scheduled_date: '2026-11-20',
+      time_from: null,
+      time_to: null,
+      assignee: { full_name: 'Petr Fixer' },
+    };
+    render(
+      <ProblemsBoard
+        problems={[
+          task(1, { title: 'Висит', status: 'assigned', fix_tasks: [repair] }),
+          task(2, {
+            title: 'Запланирована',
+            status: 'assigned',
+            due_on: '2026-11-28',
+            fix_tasks: [{ ...repair, id: '44444444-4444-4444-8444-000000000002' }],
+          }),
+          task(3, {
+            title: 'С 24-го',
+            status: 'assigned',
+            due_on: '2026-11-24',
+            fix_tasks: [{ ...repair, id: '44444444-4444-4444-8444-000000000003' }],
+          }),
+        ]}
+      />,
+    );
+
+    expect(within(card('Висит')).getByText('Просрочено')).toBeInTheDocument();
+    expect(within(card('Висит')).getByText('Висит 6 дней')).toBeInTheDocument();
+    expect(within(card('Запланирована')).queryByText('Просрочено')).toBeNull();
+    expect(within(card('Запланирована')).queryByText(/^Висит/)).toBeNull();
+    // Counted from the planned day: two days, not yet overdue.
+    expect(within(card('С 24-го')).queryByText('Просрочено')).toBeNull();
+    expect(within(card('С 24-го')).getByText('Висит 2 дня')).toBeInTheDocument();
+  });
+});

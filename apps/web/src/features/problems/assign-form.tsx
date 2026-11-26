@@ -11,7 +11,7 @@ import { todayIso } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 
 import { formatClock } from './format';
-import type { FixTask, Problem } from './schema';
+import { assignDay, type FixTask, type Problem } from './schema';
 import { useAssignProblem, useStaff } from './use-problems';
 
 interface AssignFormProps {
@@ -28,7 +28,10 @@ export function AssignForm({ problem, fixTask, onAssigned }: AssignFormProps) {
   const staff = useStaff();
   const assign = useAssignProblem();
   const [assigneeId, setAssigneeId] = useState(fixTask?.assignee_id ?? '');
-  const [date, setDate] = useState(fixTask?.scheduled_date ?? todayIso());
+  // A new repair starts on the task's planned day when that is still ahead (owner, 2026-11-26).
+  const [date, setDate] = useState(
+    () => fixTask?.scheduled_date ?? assignDay(problem.due_on, todayIso()),
+  );
   const [timeFrom, setTimeFrom] = useState(
     fixTask?.time_from ? formatClock(fixTask.time_from) : '',
   );

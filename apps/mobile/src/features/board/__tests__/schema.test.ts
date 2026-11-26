@@ -91,6 +91,32 @@ describe('the reader', () => {
     expect(row.property).toBeNull();
   });
 
+  // The planned day (20261126130000) is no key of a board an older build saved.
+  test('a row saved before the planned day reads as nothing planned', () => {
+    const [saved, planned] = boardProblemListSchema.parse([
+      {
+        id: OTHER,
+        property_id: 412432,
+        title: 'Нет горячей воды',
+        priority: 'high',
+        status: 'open',
+        created_at: '2026-10-05T08:00:00+00:00',
+      },
+      {
+        id: THIRD,
+        property_id: 412432,
+        title: 'Сломан замок',
+        priority: 'normal',
+        status: 'open',
+        created_at: '2026-10-05T08:00:00+00:00',
+        due_on: '2026-12-04',
+      },
+    ]);
+
+    expect(saved.due_on).toBeNull();
+    expect(planned.due_on).toBe('2026-12-04');
+  });
+
   test('a person without a name, or of a role this build does not know, is still read', () => {
     const [person] = staffListSchema.parse([
       { id: TECH_IVAN, full_name: null, role: 'plumber', is_active: true },
@@ -241,6 +267,70 @@ describe('the filters', () => {
 
   test('an empty list has no sections', () => {
     expect(boardSections([])).toEqual([]);
+  });
+
+  // The owner, 2026-11-26: the live part is the technicians' queue — the planned day, else the
+  // day made; then the level; then the older first. Ordered after the cut, which keeps the newest.
+  test('the live tasks stand in the queue’s order; the closed keep theirs', () => {
+    const id = (n: number) => `d1e2f3a4-2222-4222-8222-${String(n).padStart(12, '0')}`;
+    const planned = boardProblem({
+      id: id(1),
+      created_at: '2026-11-24T08:00:00+00:00',
+      due_on: '2026-12-04',
+    });
+    const critical = boardProblem({
+      id: id(2),
+      created_at: '2026-11-23T08:00:00+00:00',
+      priority: 'high',
+      critical: true,
+    });
+    const newer = boardProblem({ id: id(3), created_at: '2026-11-20T10:00:00+00:00' });
+    const older = boardProblem({ id: id(4), created_at: '2026-11-20T08:00:00+00:00' });
+    const dueEarlier = boardProblem({
+      id: id(5),
+      created_at: '2026-11-22T08:00:00+00:00',
+      priority: 'high',
+      due_on: '2026-11-20',
+    });
+    const closedNewer = boardProblem({
+      id: id(6),
+      status: 'resolved',
+      created_at: '2026-11-25T08:00:00+00:00',
+    });
+    const closedOlder = boardProblem({
+      id: id(7),
+      status: 'cancelled',
+      created_at: '2026-11-19T08:00:00+00:00',
+    });
+
+    // As read: newest first.
+    const sections = boardSections([
+      closedNewer,
+      planned,
+      critical,
+      newer,
+      older,
+      closedOlder,
+      dueEarlier,
+    ]);
+
+    expect(sections.map((section) => [section.key, ids(section.data)])).toEqual([
+      ['active', [dueEarlier.id, older.id, newer.id, critical.id, planned.id]],
+      ['closed', [closedNewer.id, closedOlder.id]],
+    ]);
+  });
+
+  test('the archive keeps the order of its pages, newest first', () => {
+    const newer = boardProblem({ id: OTHER, archived_at: '2026-11-25T08:00:00+00:00' });
+    const older = boardProblem({
+      id: THIRD,
+      archived_at: '2026-11-20T08:00:00+00:00',
+      created_at: '2026-09-01T08:00:00+00:00',
+    });
+
+    const [section] = boardSections([newer, older], { isQueue: false });
+
+    expect(ids(section.data)).toEqual([OTHER, THIRD]);
   });
 });
 

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { problemSchema, type Problem } from '../schema';
 
@@ -685,9 +685,10 @@ describe('a page at a time', () => {
     expect(done.getByRole('button', { name: 'Показать ещё 3 (всего 13)' })).toBeInTheDocument();
   });
 
+  // Closed tasks keep the order of before; the live ones stand in the queue's (below).
   test('the list shows fifty rows, newest reported first, and fifty more each press', async () => {
     useProblems.mockReturnValue({
-      data: many(60, () => ({})),
+      data: many(60, (n) => ({ status: 'resolved', resolved_at: resolvedAt(n) })),
       isPending: false,
       isError: false,
     });
@@ -875,5 +876,93 @@ describe('the level above high, «Критическая» (20261115090000)', ()
     await userEvent.click(within(form).getByRole('button', { name: 'Создать' }));
 
     expect(report.mock.calls[0][0]).toMatchObject({ priority: 'high', critical: true });
+  });
+});
+
+// The owner, 2026-11-26: the live tasks stand in the technicians' queue — the planned day, else
+// the day made; then the level; then the older first — and the closed ones after them.
+describe('the list in the queue’s order', () => {
+  const task = (id: number, patch: Record<string, unknown>) =>
+    problemSchema.parse({
+      ...problems[0],
+      id: `88888888-0000-4000-8000-${String(id).padStart(12, '0')}`,
+      priority: 'normal',
+      ...patch,
+    });
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-26T10:00:00'));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('live by day, level and age, planned ahead below today’s, closed last as read', () => {
+    useProblems.mockReturnValue({
+      // As the server reads them: newest reported first.
+      data: [
+        task(1, { title: 'Закрыта новая', status: 'resolved', created_at: '2026-11-25T10:00:00Z' }),
+        task(2, { title: 'Позже', created_at: '2026-11-24T10:00:00Z', due_on: '2026-12-04' }),
+        task(3, {
+          title: 'Критическая',
+          created_at: '2026-11-23T10:00:00Z',
+          priority: 'high',
+          critical: true,
+        }),
+        task(4, { title: 'Обычная новее', created_at: '2026-11-20T10:00:00Z' }),
+        task(5, { title: 'Обычная старше', created_at: '2026-11-20T08:00:00Z' }),
+        task(6, {
+          title: 'Закрыта старая',
+          status: 'cancelled',
+          created_at: '2026-11-19T10:00:00Z',
+        }),
+        task(7, {
+          title: 'Срочная на 20-е',
+          created_at: '2026-11-22T10:00:00Z',
+          priority: 'high',
+          due_on: '2026-11-20',
+        }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+    window.history.pushState(null, '', '/problems?view=list');
+    render(<ProblemsView />);
+
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows.map((row) => within(row).getAllByRole('link')[0].textContent)).toEqual([
+      'Срочная на 20-е',
+      'Обычная старше',
+      'Обычная новее',
+      'Критическая',
+      'Позже',
+      'Закрыта новая',
+      'Закрыта старая',
+    ]);
+  });
+
+  test('a planned live task says its day beside its title; a closed one does not', () => {
+    useProblems.mockReturnValue({
+      data: [
+        task(1, { title: 'Сегодня', due_on: '2026-11-26' }),
+        task(2, { title: 'Завтра', due_on: '2026-11-27' }),
+        task(3, { title: 'Позже', due_on: '2026-12-04' }),
+        task(4, { title: 'Закрыта', status: 'resolved', due_on: '2026-11-27' }),
+        task(5, { title: 'Без даты' }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+    window.history.pushState(null, '', '/problems?view=list');
+    render(<ProblemsView />);
+
+    const row = (title: string) =>
+      screen.getByRole('link', { name: title }).closest('tr') as HTMLElement;
+    expect(within(row('Сегодня')).getByText('Дата: Сегодня')).toHaveClass('bg-tone-today-bg');
+    expect(within(row('Завтра')).getByText('Дата: Завтра')).toBeInTheDocument();
+    expect(within(row('Позже')).getByText('Дата: 04.12')).toBeInTheDocument();
+    expect(within(row('Закрыта')).queryByText(/^Дата:/)).toBeNull();
+    expect(within(row('Без даты')).queryByText(/^Дата:/)).toBeNull();
   });
 });

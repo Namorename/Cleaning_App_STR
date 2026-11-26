@@ -28,6 +28,10 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@/hooks/use-reduced-motion', () => ({ useReducedMotion: () => false }));
 
+/** The role in the token: a cleaner unless a test says otherwise. */
+let mockRole: string | null = 'cleaner';
+jest.mock('@/features/auth/use-role', () => ({ useRole: () => mockRole }));
+
 jest.mock('@/features/media/capture', () => ({
   capturePhoto: jest.fn(),
   pickPhotoFromGallery: jest.fn(),
@@ -67,6 +71,7 @@ function placesAre(data: ReportProperty[] | undefined, isPending = false): void 
 beforeEach(() => {
   jest.clearAllMocks();
   mockParams = {};
+  mockRole = 'cleaner';
   jest.mocked(useReportProblem).mockReturnValue({
     mutate,
     isPending: false,
@@ -205,4 +210,92 @@ describe('the level above high, «Критическая» (20261115090000)', ()
     expect(mutate.mock.calls[0][0]).toMatchObject({ priority: 'high' });
     expect(mutate.mock.calls[0][0]).not.toHaveProperty('critical');
   });
+});
+
+// The owner, 2026-11-26: the office plans the day the task is to be done; nobody else may
+// (report_problem refuses a field report naming one: serverErrors.problemDueOfficeOnly).
+describe('the day the task is to be done', () => {
+  const TODAY = '2026-11-18';
+  const day = (date: string) => screen.getByTestId(`month-grid-day-${date}`);
+
+  beforeEach(() => {
+    // Only the clock is faked: the render still waits on real timers.
+    jest.useFakeTimers({
+      doNotFake: [
+        'hrtime',
+        'nextTick',
+        'performance',
+        'queueMicrotask',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+        'requestIdleCallback',
+        'cancelIdleCallback',
+        'setImmediate',
+        'clearImmediate',
+        'setInterval',
+        'clearInterval',
+        'setTimeout',
+        'clearTimeout',
+      ],
+    });
+    jest.setSystemTime(new Date(2026, 10, 18, 12, 0));
+    placesAre([house]);
+  });
+  afterEach(() => jest.useRealTimers());
+
+  test.each(['manager', 'admin', 'reception'])(
+    'the office (%s) picks a day on the month grid, and the report carries it',
+    async (role) => {
+      mockRole = role;
+
+      await render(<NewProblemRoute />);
+      expect(screen.getByText('Без даты')).toBeTruthy();
+      await fireEvent.press(screen.getByRole('button', { name: 'Выбрать дату' }));
+      await fireEvent.press(day(TODAY));
+      await sendWithTitle('Течёт кран');
+
+      expect(screen.getByTestId('problem-due-value').props.children).not.toBe('Без даты');
+      expect(mutate).toHaveBeenCalledWith(expect.objectContaining({ dueOn: TODAY }));
+    },
+  );
+
+  test('the office’s day picked and taken back sends none: the call of before', async () => {
+    mockRole = 'manager';
+
+    await render(<NewProblemRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Выбрать дату' }));
+    await fireEvent.press(day('2026-11-20'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Убрать дату' }));
+    await sendWithTitle('Течёт кран');
+
+    expect(mutate.mock.calls[0][0]).not.toHaveProperty('dueOn');
+  });
+
+  test('a day out of the server’s range is said, not sent; yesterday is in it', async () => {
+    mockRole = 'manager';
+
+    await render(<NewProblemRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Выбрать дату' }));
+    await fireEvent.press(day('2026-11-16'));
+    expect(screen.getByText('Дата выполнения — от вчерашнего дня до года вперёд')).toBeTruthy();
+
+    await fireEvent.press(day('2026-11-17'));
+    await sendWithTitle('Течёт кран');
+
+    expect(mutate).toHaveBeenCalledWith(expect.objectContaining({ dueOn: '2026-11-17' }));
+  });
+
+  test.each(['cleaner', 'tech', 'head_tech', null])(
+    'a form of the field (%s) has no day and never sends one',
+    async (role) => {
+      mockRole = role;
+
+      await render(<NewProblemRoute />);
+      await sendWithTitle('Течёт кран');
+
+      expect(screen.queryByText('Дата выполнения')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Выбрать дату' })).toBeNull();
+      expect(mutate.mock.calls[0][0]).not.toHaveProperty('dueOn');
+    },
+  );
 });

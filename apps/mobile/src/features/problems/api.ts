@@ -12,7 +12,8 @@ const PROBLEM_COLUMNS =
   GUEST_SIGNAL_SOURCE_COLUMNS +
   'description, priority, critical, category_id, status, ' +
   CLOSING_COLUMNS +
-  'resolved_at, cancelled_at, cancel_reason, created_at, property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
+  'resolved_at, cancelled_at, cancel_reason, created_at, due_on, ' +
+  'property:properties(name, hostaway_unit_id, timezone, parent:parent_id(name)), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, assignee_id, status)';
 
 /**
@@ -117,6 +118,14 @@ export interface ReportProblemVariables {
    * report a build before the catalogue queued on the phone.
    */
   categoryId?: string | null;
+  /**
+   * The day the task is to be done, `YYYY-MM-DD` (20261126130000): only the
+   * office plans one — the server refuses anybody else's
+   * (`serverErrors.problemDueOfficeOnly`). Absent or null: nothing said, the
+   * argument is not sent — the call of before, as every report a build before
+   * the day queued on the phone makes.
+   */
+  dueOn?: string | null;
 }
 
 /** File the report. Replayable by id: the server hands the same row back. */
@@ -130,6 +139,7 @@ export async function reportProblem(variables: ReportProblemVariables): Promise<
     p_property_id: variables.propertyId ?? undefined,
     p_task_id: variables.taskId ?? undefined,
     p_category_id: variables.categoryId ?? undefined,
+    p_due_on: variables.dueOn ?? undefined,
   });
 
   if (error) {

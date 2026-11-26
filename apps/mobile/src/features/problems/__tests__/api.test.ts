@@ -102,6 +102,44 @@ test('a correction names the category only when she picked another one', async (
   expect(JSON.parse(JSON.stringify(mockRpc.mock.calls[1][1]))).not.toHaveProperty('p_category_id');
 });
 
+// The owner, 2026-11-26: the office plans the day the task is to be done (20261126130000).
+test('the office’s planned day goes as p_due_on, and the row carries it back', async () => {
+  mockRpc.mockResolvedValue({ data: { ...row, due_on: '2026-12-04' }, error: null });
+
+  const problem = await reportProblem({
+    problemId: row.id,
+    title: 'Кран течёт',
+    description: '',
+    priority: 'normal',
+    propertyId: 412432,
+    dueOn: '2026-12-04',
+  });
+
+  expect(mockRpc).toHaveBeenCalledWith(
+    'report_problem',
+    expect.objectContaining({ p_due_on: '2026-12-04' }),
+  );
+  expect(problem.due_on).toBe('2026-12-04');
+});
+
+// A report queued on the phone is replayed with the variables it was queued with
+// (setMutationDefaults): one a build before the day queued has no such field.
+test('a report queued without the day — a field form, an older build — sends no p_due_on', async () => {
+  mockRpc.mockResolvedValue({ data: row, error: null });
+  const queuedByAnOlderBuild = JSON.parse(
+    JSON.stringify({ problemId: row.id, title: 'Кран течёт', description: '', priority: 'low' }),
+  ) as Parameters<typeof reportProblem>[0];
+
+  const problem = await reportProblem(queuedByAnOlderBuild);
+  await reportProblem({ ...queuedByAnOlderBuild, dueOn: null });
+
+  for (const [, args] of mockRpc.mock.calls) {
+    expect(JSON.parse(JSON.stringify(args))).not.toHaveProperty('p_due_on');
+  }
+  // A row of a server before the column reads as nothing planned.
+  expect(problem.due_on).toBeNull();
+});
+
 test('a row of the server carries its category', async () => {
   mockRpc.mockResolvedValue({
     data: { ...row, category_id: '2ca940fd-288f-43f5-a6df-93145e10cd67' },

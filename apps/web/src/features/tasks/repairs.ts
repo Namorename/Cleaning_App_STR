@@ -1,19 +1,47 @@
-import { isOverdue, type DatedJob, type LiveRepair } from './schema';
+import { plannedTail, tailDay, type JobTail } from '@str-ops/shared';
+
+import { todayIn } from '@/lib/format-date';
+
+import { isTaskClosed, type DatedJob, type LiveRepair } from './schema';
 
 /**
  * The one rule of a repair left behind (docs/f10-plan.md, §6). The calendar's
  * badge and chip, and stage 8's dashboard counters, count by these functions,
  * so the rule has no second copy. Its day rule is the section's own
- * (`isOverdue`): a repair is overdue when any job of «Уборки» would be.
+ * (`tailOf`): a repair hangs and is overdue as any job of «Уборки» would be —
+ * counted from its own day, but never before its task's planned day (owner,
+ * 2026-11-26: `plannedTail`), so a task planned ahead does not hang early.
  */
+
+/** What the rule reads of a repair: its day and zone, and its task's planned day when read. */
+export interface RepairJob extends DatedJob {
+  problem?: { due_on?: string | null } | null;
+}
+
+/** The day a repair hangs from: its own, or its task's planned day when that is later. */
+export function repairTailDay(repair: RepairJob): string {
+  return tailDay(repair.scheduled_date, repair.problem?.due_on) ?? repair.scheduled_date;
+}
+
+/** How long a live repair has hung past `repairTailDay`, in its listing's zone; null while not. */
+export function repairTailOf(repair: RepairJob, now: Date = new Date()): JobTail | null {
+  if (isTaskClosed(repair)) {
+    return null;
+  }
+  return plannedTail(
+    repair.scheduled_date,
+    repair.problem?.due_on,
+    todayIn(repair.property?.timezone, now),
+  );
+}
 
 /**
  * Live and hanging OVERDUE_AFTER_DAYS days or more past its day, counted in
  * the listing's own zone. The sweep no longer closes a repair
  * (20260923130000), so one left behind stays live and keeps its day.
  */
-export function isRepairOverdue(repair: DatedJob, now: Date = new Date()): boolean {
-  return isOverdue(repair, now);
+export function isRepairOverdue(repair: RepairJob, now: Date = new Date()): boolean {
+  return repairTailOf(repair, now)?.isOverdue ?? false;
 }
 
 /** The person on it no longer works here; nobody on it is not that. */
@@ -30,7 +58,7 @@ export interface Technician {
 }
 
 export interface RepairAlert {
-  /** The earliest day an overdue repair of the listing was due. */
+  /** The earliest day an overdue repair of the listing was due (`repairTailDay`). */
   since: string;
   /** The technicians on them, alphabetical, each once. */
   technicians: Technician[];
@@ -64,7 +92,7 @@ export function overdueRepairsByProperty(
   const byProperty = new Map<number, RepairAlert[]>();
   for (const repair of repairs.filter((one) => isRepairOverdue(one, now))) {
     const alert: RepairAlert = {
-      since: repair.scheduled_date,
+      since: repairTailDay(repair),
       technicians:
         repair.assignee_id === null || repair.assignee === null
           ? []

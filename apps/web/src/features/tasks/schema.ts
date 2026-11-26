@@ -188,6 +188,8 @@ export const calendarTaskSchema = taskSchema.extend({
       priority: z.string(),
       // The level above high (20261115090000), over priority `high`.
       critical: z.boolean().catch(false).optional(),
+      // The task's planned day (20261126130000): the repair is overdue from it at the earliest.
+      due_on: z.string().nullable().default(null),
     })
     .nullable()
     .default(null),
@@ -241,6 +243,11 @@ export const liveRepairSchema = z.object({
   assignee_id: z.uuid().nullable(),
   assignee: switchedPersonSchema.nullable(),
   property: dashboardPlaceSchema,
+  // The task's planned day (20261126130000): the repair hangs from it at the earliest (repairs.ts).
+  problem: z
+    .object({ due_on: z.string().nullable().default(null) })
+    .nullable()
+    .default(null),
 });
 export type LiveRepair = z.infer<typeof liveRepairSchema>;
 export const liveRepairListSchema = z.array(liveRepairSchema);
@@ -474,9 +481,10 @@ export type TaskTail = JobTail;
  *
  * The rule is the one shared with the phone's board (packages/shared,
  * schedule/job-tail.ts, owner 2026-11-05): a row counts the days, and from
- * OVERDUE_AFTER_DAYS on it is «Просрочено» — a cleaning in «Уборки», a repair
- * in «Задания», on the calendar's repair marks and the dashboard's repair
- * tiles, which all ask here or `isOverdue`.
+ * OVERDUE_AFTER_DAYS on it is «Просрочено» — a cleaning in «Уборки» here, a
+ * repair in «Задания» (problems/schema.ts `repairTail`), on the calendar's
+ * repair marks and the dashboard's repair tiles (repairs.ts), which count it
+ * from its task's planned day when that is later (`plannedTail`, 2026-11-26).
  *
  * The days run from the task's own day. A row keeps no time of assignment;
  * a repair's day is the one its assignment wrote (assign_problem: the day

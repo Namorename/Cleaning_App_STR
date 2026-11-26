@@ -1,5 +1,15 @@
-import { problemLevelTone, propertyPathOf, type ProblemLevel, type Tone } from '@str-ops/shared';
+import {
+  STATUS_TONE,
+  plannedDay,
+  problemLevelTone,
+  propertyPathOf,
+  todayInZone,
+  type PlannedDay,
+  type ProblemLevel,
+  type Tone,
+} from '@str-ops/shared';
 
+import { formatCalendarDate } from '@/features/tasks/format';
 import { INTL_LOCALES, currentLanguage, i18n } from '@/i18n';
 
 import type { Problem, ProblemStatus } from './schema';
@@ -53,6 +63,64 @@ export function urgencyChip(level: ProblemLevel): UrgencyChip | null {
     return { label: i18n.t('supplies.priorities.urgent'), tone: problemLevelTone('high') };
   }
   return null;
+}
+
+/** «Сегодня», «Завтра», or the day itself — «пт, 4 декабря» — in her language. */
+export function plannedDayText(planned: PlannedDay): string {
+  switch (planned.kind) {
+    case 'today':
+      return i18n.t('problems.due.today');
+    case 'tomorrow':
+      return i18n.t('problems.due.tomorrow');
+    default:
+      return formatCalendarDate(planned.day);
+  }
+}
+
+/** What the planned day's chip reads of a task: a board's row and her own alike. */
+export interface DueFacts {
+  status: ProblemStatus;
+  due_on: string | null;
+  property?: { timezone?: string | null } | null;
+}
+
+/**
+ * «Дата: Завтра» — the day the office planned a live task for (owner,
+ * 2026-11-26), counted in its listing's zone; today's in the today tone, any
+ * other day neutral. Null when nothing is planned, or the task is closed: it
+ * waits for no day.
+ */
+export function dueChip(problem: DueFacts, now: Date): UrgencyChip | null {
+  if (problem.status === 'resolved' || problem.status === 'cancelled') {
+    return null;
+  }
+  const planned = plannedDay(problem.due_on, todayInZone(problem.property?.timezone, now));
+  if (planned === null) {
+    return null;
+  }
+  return {
+    label: i18n.t('problems.due.chip', { when: plannedDayText(planned) }),
+    tone: planned.kind === 'today' ? STATUS_TONE['calendar.today'] : 'neutral',
+  };
+}
+
+/**
+ * The planned day as the task's screen says it, in any status: «Завтра · пт,
+ * 27 ноября» for today and tomorrow, the date alone for any other; null when
+ * nothing is planned.
+ */
+export function dueDayLine(
+  problem: Pick<DueFacts, 'due_on' | 'property'>,
+  now: Date,
+): string | null {
+  if (problem.due_on === null) {
+    return null;
+  }
+  const date = formatCalendarDate(problem.due_on);
+  const planned = plannedDay(problem.due_on, todayInZone(problem.property?.timezone, now));
+  return planned?.kind === 'today' || planned?.kind === 'tomorrow'
+    ? `${plannedDayText(planned)} · ${date}`
+    : date;
 }
 
 /**

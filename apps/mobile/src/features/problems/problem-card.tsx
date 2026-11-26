@@ -9,6 +9,7 @@ import { Text } from '@/components/text';
 import { Spacing } from '@/constants/theme';
 
 import {
+  dueChip,
   formatReportedAt,
   problemPlace,
   problemPriorityText,
@@ -40,7 +41,8 @@ interface ProblemCardProps {
  * red line (docs/redesign-plan.md 2.4) — the word the task screen and the
  * supply request use for the same flag — and one of the level above high
  * «Критическая», filled in the strongest tone (owner, 2026-11-15). A task a guest's review or chat made
- * leads its pills with the source chip (`SourceBadge`, owner 2026-11-11).
+ * leads its pills with the source chip (`SourceBadge`, owner 2026-11-11). A live task the office
+ * planned a day for says it: «Дата: Сегодня», «Дата: Завтра», or the date (owner, 2026-11-26).
  */
 function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCardProps) {
   const { t, i18n } = useTranslation();
@@ -53,6 +55,7 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
   const signal = signalLabel(problem, t);
   const plaques = signalBadges(problem, t);
   const when = formatReportedAt(problem.created_at);
+  const due = dueChip(problem, new Date());
   // The marks are facts of the card, so the reader hears them with the rest.
   const label = [
     t('problems.cardAccessibility', { title, place, status }),
@@ -60,6 +63,7 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
     signal,
     ...plaques,
     urgent?.label ?? null,
+    due?.label ?? null,
     hasUnread ? t('chat.unread') : null,
   ]
     .filter((part) => part !== null)
@@ -78,6 +82,7 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
         {urgent === null ? null : (
           <Badge testID="problem-urgent" label={urgent.label} tone={urgent.tone} />
         )}
+        {due === null ? null : <Badge testID="problem-due" label={due.label} tone={due.tone} />}
         {plaques.map((plaque) => (
           <Badge key={plaque} label={plaque} tone={SIGNAL_BADGE_TONE} />
         ))}

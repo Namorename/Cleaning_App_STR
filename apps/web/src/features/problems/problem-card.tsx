@@ -22,11 +22,13 @@ import { cn } from '@/lib/utils';
 
 import { problemHref, type ProblemsFrom } from './address';
 import { ProblemClosing } from './problem-closing';
+import { DueBadge } from './problem-due';
 import { RepairTail } from './repair-tail';
 import { SourceBadge } from './source-badge';
 import {
   isDraggable,
   liveFixTask,
+  livePlannedDay,
   problemPlace,
   repairTail,
   type BoardStatus,
@@ -51,7 +53,8 @@ interface ProblemCardProps {
 /**
  * One problem on the board (5.4, variant A): compact — the title, which opens
  * the page, the place, the technician and the day; the urgency only when it
- * is not the usual one. Its menu «⋯» moves it between columns, so a move is
+ * is not the usual one, and the planned day of a live task when it has one
+ * («Дата: Завтра», owner 2026-11-26). Its menu «⋯» moves it between columns, so a move is
  * not left to the mouse alone.
  *
  * The title's link covers the card, so the whole card still opens the page;
@@ -71,6 +74,7 @@ export function ProblemCard({
   const titleId = useId();
   const fixTask = liveFixTask(problem);
   const tail = repairTail(problem);
+  const hasDue = livePlannedDay(problem) !== null;
   // On the scale of four: «Критическая» is the strongest chip of the panel.
   const level = problemLevel(problem);
   const draggable = onDragStart !== undefined && isDraggable(problem);
@@ -140,7 +144,11 @@ export function ProblemCard({
           · {formatShortDay(fixTask.scheduled_date, language)}
         </span>
       )}
-      {hasUnread || level !== 'normal' || tail !== null || isGuestSource(problem.source) ? (
+      {hasUnread ||
+      level !== 'normal' ||
+      tail !== null ||
+      hasDue ||
+      isGuestSource(problem.source) ? (
         <div className="flex flex-wrap items-center gap-1">
           <SourceBadge source={problem.source} />
           {level === 'normal' ? null : (
@@ -148,6 +156,7 @@ export function ProblemCard({
               {t(`problems.priorities.${level}`)}
             </StatusBadge>
           )}
+          <DueBadge problem={problem} />
           <RepairTail tail={tail} />
           {hasUnread ? (
             <Badge tone={STATUS_TONE['chat.unread']}>{t('panel.chat.unread')}</Badge>

@@ -117,6 +117,7 @@ const mockFixSteps: { data: unknown[]; error: Error | null } = { data: [], error
 jest.mock('@/features/steps/use-steps', () => ({ useTaskSteps: () => mockFixSteps }));
 // The office's levers have their own tests (features/office); here they draw nothing.
 jest.mock('@/features/office/problem-actions', () => ({ OfficeProblemActions: () => null }));
+jest.mock('@/features/office/problem-due', () => ({ OfficeProblemDue: () => null }));
 
 function problem(overrides: Partial<Problem> = {}): Problem {
   return {
@@ -132,7 +133,8 @@ function problem(overrides: Partial<Problem> = {}): Problem {
     cancelled_at: null,
     cancel_reason: null,
     created_at: '2026-11-10T08:00:00+00:00',
-    property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, parent: null },
+    due_on: null,
+    property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, timezone: null, parent: null },
     fix_tasks: [],
     ...overrides,
   };

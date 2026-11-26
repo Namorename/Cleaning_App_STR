@@ -10,7 +10,7 @@ import {
   fetchOfficeTasks,
   restoreCleaning,
 } from '../api';
-import { runProblemAction } from '../problem-api';
+import { runProblemAction, setProblemDue } from '../problem-api';
 
 /**
  * The office's reads and moves, called as the server takes them: the rows of
@@ -272,5 +272,43 @@ describe('the manager’s levers on a task', () => {
     );
 
     expect(serverErrorText(failure).text).toBe('Это действие доступно только менеджеру');
+  });
+});
+
+// The owner, 2026-11-26: the office plans the day a task is to be done (20261126130000).
+describe('the planned day of a task', () => {
+  const PROBLEM = 'd1e2f3a4-1111-4111-8111-d1e2f3a40001';
+
+  test('a day goes to set_problem_due_date by name', async () => {
+    await setProblemDue({ problemId: PROBLEM, dueOn: '2026-12-04' });
+
+    expect(mockRpc.mock.calls[0][0]).toBe('set_problem_due_date');
+    expect(body(0)).toEqual({ p_id: PROBLEM, p_due_on: '2026-12-04' });
+  });
+
+  test('clearing it sends null itself: the argument has no default to fall back on', async () => {
+    await setProblemDue({ problemId: PROBLEM, dueOn: null });
+
+    expect(body(0)).toEqual({ p_id: PROBLEM, p_due_on: null });
+  });
+
+  test('a day out of range is refused in the reader’s words', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: {
+        message: 'The day of a task is from yesterday to a year ahead, not 2030-01-01',
+        code: '23514',
+        hint: 'serverErrors.problemDueInvalid',
+        details: '{"days": 366}',
+      },
+    });
+
+    const failure = await setProblemDue({ problemId: PROBLEM, dueOn: '2030-01-01' }).catch(
+      (error: unknown) => error,
+    );
+
+    expect(serverErrorText(failure).text).toBe(
+      'Дата выполнения — от вчерашнего дня до года вперёд',
+    );
   });
 });

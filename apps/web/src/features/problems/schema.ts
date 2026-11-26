@@ -1,4 +1,11 @@
-import { CLOSED_HOWS, jobTail, propertyPathOf, type JobTail } from '@str-ops/shared';
+import {
+  CLOSED_HOWS,
+  plannedDay,
+  plannedTail,
+  propertyPathOf,
+  type JobTail,
+  type PlannedDay,
+} from '@str-ops/shared';
 import { z } from 'zod';
 
 import { todayIn } from '@/lib/format-date';
@@ -105,6 +112,11 @@ export const problemSchema = z.object({
   /** Set when the manager put the problem away; it is then off the board and the list. */
   archived_at: z.string().nullable().default(null),
   created_at: z.string(),
+  /**
+   * The day the task is to be done, `YYYY-MM-DD`, set by the office (20261126130000); null when
+   * nothing is planned. The queues order by it, and a repair hangs from it at the earliest.
+   */
+  due_on: z.string().nullable().default(null),
   // The house is joined alongside the row's own name because a cleaning
   // stands on a room, and a room's name — "1 - 2109" — names no house.
   // `parent_id` names the FOREIGN KEY COLUMN: that is what resolves it
@@ -218,16 +230,45 @@ export function isProblemClosed(problem: Pick<Problem, 'status'>): boolean {
  * null (owner, 2026-11-05): «Висит N дней», and «Просрочено» from
  * OVERDUE_AFTER_DAYS on. The rule «Уборки» applies to a cleaning, here for
  * the repairs «Уборки» no longer lists. A closed task waits for nothing.
+ *
+ * Counted from the later of the repair's day and the task's planned day
+ * (`plannedTail`, owner 2026-11-26): a task planned ahead never hangs before its day.
  */
 export function repairTail(
-  problem: Pick<Problem, 'status' | 'fix_tasks' | 'property'>,
+  problem: Pick<Problem, 'status' | 'fix_tasks' | 'property' | 'due_on'>,
   now: Date = new Date(),
 ): JobTail | null {
   const repair = liveFixTask(problem);
   if (repair === null || isProblemClosed(problem)) {
     return null;
   }
-  return jobTail(repair.scheduled_date, todayIn(problem.property?.timezone, now));
+  return plannedTail(
+    repair.scheduled_date,
+    problem.due_on,
+    todayIn(problem.property?.timezone, now),
+  );
+}
+
+/**
+ * The planned day of a live task as a label reads it — today, tomorrow or the day — in its
+ * listing's zone; null when nothing is planned or the task is closed: it waits for no day.
+ */
+export function livePlannedDay(
+  problem: Pick<Problem, 'status' | 'due_on' | 'property'>,
+  now: Date = new Date(),
+): PlannedDay | null {
+  if (isProblemClosed(problem)) {
+    return null;
+  }
+  return plannedDay(problem.due_on, todayIn(problem.property?.timezone, now));
+}
+
+/**
+ * The day the assign form starts from for a new repair: the planned day when it is today or
+ * later, else today (owner, 2026-11-26).
+ */
+export function assignDay(dueOn: string | null, today: string): string {
+  return dueOn !== null && dueOn >= today ? dueOn : today;
 }
 
 export function isProblemArchived(problem: Pick<Problem, 'archived_at'>): boolean {

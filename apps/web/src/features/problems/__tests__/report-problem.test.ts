@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { reportProblem } from '@/features/problems/api';
+import { reportProblem, setProblemDueDate } from '@/features/problems/api';
 
 /**
  * «Новое задание» in the panel writes through the same idempotent RPC the
@@ -156,6 +156,70 @@ describe('reportProblem', () => {
         priority: 'normal',
         propertyId: null,
       }),
+    ).rejects.toBe(refusal);
+  });
+
+  // The day the task is to be done (owner, 2026-11-26; 20261126130000): the office plans it.
+  test('a planned day goes out as p_due_on', async () => {
+    const { client, recorded } = fakeClient();
+
+    await reportProblem(client, {
+      problemId: ROW.id,
+      title: 'Течёт кран',
+      description: '',
+      priority: 'normal',
+      propertyId: 7,
+      dueOn: '2026-12-01',
+    });
+
+    expect(recorded.rpc?.args).toMatchObject({ p_due_on: '2026-12-01' });
+  });
+
+  test('no planned day sends no p_due_on: the call of before', async () => {
+    const { client, recorded } = fakeClient();
+
+    await reportProblem(client, {
+      problemId: ROW.id,
+      title: 'Течёт кран',
+      description: '',
+      priority: 'normal',
+      propertyId: 7,
+      dueOn: null,
+    });
+
+    // Undefined is left out of the request: PostgREST takes the argument's default, null.
+    expect((recorded.rpc?.args as Record<string, unknown>).p_due_on).toBeUndefined();
+  });
+});
+
+describe('setProblemDueDate', () => {
+  test('plans the day through set_problem_due_date', async () => {
+    const { client, recorded } = fakeClient();
+
+    const problem = await setProblemDueDate(client, { problemId: ROW.id, dueOn: '2026-12-01' });
+
+    expect(recorded.rpc).toEqual({
+      name: 'set_problem_due_date',
+      args: { p_id: ROW.id, p_due_on: '2026-12-01' },
+    });
+    expect(recorded.tableWrites).toEqual([]);
+    expect(problem.id).toBe(ROW.id);
+  });
+
+  test('clears it with an explicit null: the argument has no default', async () => {
+    const { client, recorded } = fakeClient();
+
+    await setProblemDueDate(client, { problemId: ROW.id, dueOn: null });
+
+    expect(recorded.rpc?.args).toStrictEqual({ p_id: ROW.id, p_due_on: null });
+  });
+
+  test('a day out of range is refused by the server, passed through as it came', async () => {
+    const refusal = { message: 'out of range', hint: 'serverErrors.problemDueInvalid' };
+    const { client } = fakeClient(refusal);
+
+    await expect(
+      setProblemDueDate(client, { problemId: ROW.id, dueOn: '2030-01-01' }),
     ).rejects.toBe(refusal);
   });
 });

@@ -22,6 +22,7 @@ import {
   reopenProblem,
   reportProblem,
   resolveProblem,
+  setProblemDueDate,
   unarchiveProblem,
   unassignProblem,
   type AssignProblemVariables,
@@ -29,6 +30,7 @@ import {
   type FalsePositiveVariables,
   type ReportProblemVariables,
   type ResolveProblemVariables,
+  type SetProblemDueDateVariables,
 } from './api';
 import { fetchAdditions, publishOfficeFiles } from './additions-api';
 import { fetchReportCatalog, reportCatalogOf, type ReportCatalog } from './catalog';
@@ -212,6 +214,19 @@ export function useEditProblemText() {
   const invalidate = useInvalidateProblems();
   return useMutation({
     mutationFn: (variables: EditProblemTextVariables) => editProblemText(client, variables),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * «Дата выполнения»: the office plans the task's day or clears it. The queues reorder and the
+ * repair's tail counts from it, so the lists, the card and the repairs are read again.
+ */
+export function useSetProblemDueDate() {
+  const client = useSupabase();
+  const invalidate = useInvalidateProblems();
+  return useMutation({
+    mutationFn: (variables: SetProblemDueDateVariables) => setProblemDueDate(client, variables),
     onSuccess: invalidate,
   });
 }

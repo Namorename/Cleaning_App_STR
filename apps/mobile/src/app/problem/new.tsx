@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
+import { isOffice } from '@/features/auth/role';
+import { useRole } from '@/features/auth/use-role';
 import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
 import { attachFailure } from '@/features/media/failure';
 import { useGalleryAllowed } from '@/features/host/use-host';
@@ -31,6 +33,10 @@ const Params = z.object({
  * photos replay under it after a lost connection without duplicates. Photos
  * are kept on the phone until the report goes; the moment it is queued she
  * is taken to the report's own screen, where the uploads show their progress.
+ *
+ * The office — a manager, an admin, the reception — may also plan the day the
+ * task is to be done (owner, 2026-11-26); anybody else's form has no such field
+ * and never sends one.
  */
 export default function NewProblemRoute() {
   const { t } = useTranslation();
@@ -43,6 +49,9 @@ export default function NewProblemRoute() {
   // started from a listing screen keeps that listing.
   const [chosenPropertyId, setChosenPropertyId] = useState<number | null>(propertyId);
   const [draft, setDraft] = useState(EMPTY_PROBLEM_DRAFT);
+  // The day the task is to be done: the office plans it (owner, 2026-11-26), nobody else.
+  const isOfficeRole = isOffice(useRole());
+  const [dueOn, setDueOn] = useState<string | null>(null);
   const [photos, setPhotos] = useState<LocalMediaRecord[]>([]);
   const galleryAllowed = useGalleryAllowed();
   const [isCapturing, setCapturing] = useState(false);
@@ -114,6 +123,8 @@ export default function NewProblemRoute() {
       // Set only by a pick from the catalogue; the server then names the task
       // and sets its urgency from the category.
       categoryId: draft.categoryId,
+      // The office's planned day, sent only when it planned one; never from the field.
+      ...(isOfficeRole && dueOn !== null ? { dueOn } : {}),
       photos,
     });
   };
@@ -139,6 +150,7 @@ export default function NewProblemRoute() {
       onSubmit={onSubmit}
       error={report.error}
       notice={notice}
+      due={isOfficeRole ? { value: dueOn, onChange: setDueOn } : undefined}
     />
   );
 }

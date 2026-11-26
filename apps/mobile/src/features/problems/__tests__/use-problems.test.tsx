@@ -53,8 +53,20 @@ test('her reports saved before the house was asked for read with none, not undef
   expect(result.current.data?.[0].property).toEqual({
     name: '1 - 2109',
     hostaway_unit_id: null,
+    // The zone, asked for since 20261126130000: the phone's day stands in.
+    timezone: null,
     parent: null,
   });
+});
+
+// The owner, 2026-11-26: the planned day is a key no list saved before it has.
+test('her reports saved before the planned day read as nothing planned', async () => {
+  const client = restoredFromDisk(problemKeys.mine(), [REPORT_BEFORE_THE_HOUSE]);
+
+  const { result } = await renderHook(() => useMyProblems(), { wrapper: withClient(client) });
+
+  expect(result.current.error).toBeNull();
+  expect(result.current.data?.[0].due_on).toBeNull();
 });
 
 test('a report opened from that list is read the same way', async () => {

@@ -51,6 +51,8 @@ export function boardProblem(overrides: Partial<BoardProblem> = {}): BoardProble
     status: 'open',
     archived_at: null,
     created_at: '2026-10-05T08:00:00+00:00',
+    // Nothing planned (20261126130000).
+    due_on: null,
     // No zone: the phone's day stands in, the day `today()` writes.
     property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, timezone: null, parent: null },
     fix_tasks: [],

@@ -137,8 +137,9 @@ export const TASK_CLASSES = {
 } as const satisfies Record<string, readonly TaskStatus[]>;
 export type TaskClass = keyof typeof TASK_CLASSES;
 
-// A repair names its problem on the chip, with the problem's priority (§6).
-const CALENDAR_TASK_COLUMNS = `${TASK_COLUMNS}, problem:problem_id(title, priority, critical)`;
+// A repair names its problem on the chip, with the problem's priority (§6), and its planned day:
+// the chip's «Просрочено» counts from it at the earliest (repairs.ts, 20261126130000).
+const CALENDAR_TASK_COLUMNS = `${TASK_COLUMNS}, problem:problem_id(title, priority, critical, due_on)`;
 
 /**
  * One class of tasks on the days `from` up to `to` (exclusive), for the
@@ -211,11 +212,13 @@ export async function fetchTask(client: Client, taskId: string): Promise<Task | 
 // The technician with the switch that says whether they still work here, and
 // the listing joined inner so an archived one's repair falls away (§6). The
 // dashboard names the place, and a room's own name never says which building
-// it is in: the room test and the building come along (propertyPathOf).
+// it is in: the room test and the building come along (propertyPathOf). The task's planned day
+// too: a repair hangs from it at the earliest (repairs.ts, 20261126130000).
 const REPAIR_COLUMNS =
   'id, property_id, problem_id, status, scheduled_date, assignee_id, ' +
   'assignee:profiles!tasks_assignee_id_fkey(full_name, is_active), ' +
-  'property:properties!inner(name, status, timezone, hostaway_unit_id, parent:parent_id(name))';
+  'property:properties!inner(name, status, timezone, hostaway_unit_id, parent:parent_id(name)), ' +
+  'problem:problem_id(due_on)';
 
 /**
  * Every live repair, whatever its day (§6): the sweep no longer closes a

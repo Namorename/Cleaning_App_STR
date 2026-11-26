@@ -13,6 +13,12 @@ import { useTheme } from '@/hooks/use-theme';
 import { ProblemCard } from './problem-card';
 import type { Problem, ProblemGroup } from './schema';
 
+/** The headings of the sections that have one (`queueProblems`, `groupProblems`). */
+const SECTION_HEADINGS = {
+  planned: 'problems.due.planned',
+  closed: 'problems.closedHeading',
+} as const;
+
 interface ProblemListProps {
   sections: ProblemGroup[] | undefined;
   isLoading: boolean;
@@ -25,7 +31,8 @@ interface ProblemListProps {
 }
 
 /**
- * Her reports, live ones first. Loading, error and empty are three different
+ * Her reports, live ones first — for a technician in the queue's order, those
+ * planned after today under «Запланировано» (`queueProblems`). Loading, error and empty are three different
  * answers — the cards' shape said as loading, the error state, the empty
  * state — all of them something a screen reader can reach.
  */
@@ -52,9 +59,10 @@ export function ProblemList({
     [onPress, unreadProblemIds],
   );
 
+  // The live tasks of today and before need no heading; the ones planned ahead and the closed do.
   const renderSectionHeader = useCallback(
     ({ section }: { section: ProblemGroup }) =>
-      section.key === 'closed' ? (
+      section.key === 'active' ? null : (
         <Text
           variant="caption"
           tone="secondary"
@@ -62,9 +70,9 @@ export function ProblemList({
           accessibilityRole="header"
           style={styles.heading}
         >
-          {t('problems.closedHeading')}
+          {t(SECTION_HEADINGS[section.key])}
         </Text>
-      ) : null,
+      ),
     [t],
   );
 

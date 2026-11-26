@@ -3,6 +3,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { Colors, FontSize, Radius } from '@/constants/theme';
+import { formatCalendarDate } from '@/features/tasks/format';
+import { calendarDay } from '@/features/tasks/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { formatReportedAt } from '../format';
@@ -40,7 +42,8 @@ function problem(overrides: Partial<Problem> = {}): Problem {
     cancelled_at: null,
     cancel_reason: null,
     created_at: CREATED_AT,
-    property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, parent: null },
+    due_on: null,
+    property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, timezone: null, parent: null },
     fix_tasks: [],
     ...overrides,
   };
@@ -279,5 +282,44 @@ describe('on the «Абрикос» components', () => {
 
     expect(screen.queryByTestId('problem-urgent')).toBeNull();
     expect(styleOf(screen.getByText('Срочность: Обычная')).fontSize).toBe(FontSize.caption);
+  });
+});
+
+// The owner, 2026-11-26: a live task the office planned a day for says it on its card.
+describe('the day the office planned', () => {
+  const dayFromNow = (days: number) => calendarDay(new Date(), days);
+
+  test.each([
+    [0, 'Дата: Сегодня', light.tone.today.bg],
+    [1, 'Дата: Завтра', light.tone.neutral.bg],
+  ])('%i day(s) ahead reads «%s», heard with the card', async (days, words, fill) => {
+    await render(
+      <ProblemCard problem={problem({ due_on: dayFromNow(days) })} onPress={jest.fn()} />,
+    );
+
+    expect(within(screen.getByTestId('problem-due')).getByText(words)).toBeTruthy();
+    expect(styleOf(screen.getByTestId('problem-due')).backgroundColor).toBe(fill);
+    expect(screen.getByRole('button').props.accessibilityLabel).toContain(words);
+  });
+
+  test('a later day reads as the date', async () => {
+    const day = dayFromNow(9);
+
+    await render(<ProblemCard problem={problem({ due_on: day })} onPress={jest.fn()} />);
+
+    expect(screen.getByText(`Дата: ${formatCalendarDate(day)}`)).toBeTruthy();
+  });
+
+  test('no day when nothing is planned, or the task is closed', async () => {
+    await render(<ProblemCard problem={problem()} onPress={jest.fn()} />);
+    expect(screen.queryByTestId('problem-due')).toBeNull();
+
+    await render(
+      <ProblemCard
+        problem={problem({ status: 'resolved', due_on: dayFromNow(1) })}
+        onPress={jest.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('problem-due')).toBeNull();
   });
 });

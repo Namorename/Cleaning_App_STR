@@ -350,6 +350,21 @@ describe('stuckRepairs', () => {
       [0, false],
     ]);
   });
+
+  // The owner, 2026-11-26: a repair hangs from its task's planned day when that is later.
+  test('a task planned ahead keeps its repair off the list; once passed, counts from it', () => {
+    const ahead = repair('2026-09-20', { problem: { due_on: '2026-10-02' } });
+    const passed = repair('2026-09-10', { problem: { due_on: '2026-09-26' } });
+    const plain = repair('2026-09-25');
+
+    const stuck = stuckRepairs([ahead, passed, plain], NOW);
+
+    // Oldest by the day each hangs from: the 25th, then the 26th.
+    expect(stuck.map((one) => [one.repair.id, one.days])).toEqual([
+      [plain.id, 5],
+      [passed.id, 4],
+    ]);
+  });
 });
 
 describe('repairCounts', () => {

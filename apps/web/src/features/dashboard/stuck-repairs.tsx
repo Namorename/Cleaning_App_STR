@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState, LoadingState } from '@/components/states';
+import { repairTailDay } from '@/features/tasks/repairs';
 import { formatDay } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
@@ -63,7 +64,8 @@ function StuckRepairRow({ stuck }: { stuck: StuckRepair }) {
       ? t('panel.dashboard.repairs.nobody')
       : (repair.assignee?.full_name ?? t('panel.dashboard.repairs.noName'));
   const place = propertyPathOf(repair.property);
-  const day = formatDay(repair.scheduled_date, language);
+  // The day it hangs from — its task's planned day when that is later — so «Висит N дней» adds up.
+  const day = formatDay(repairTailDay(repair), language);
 
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">

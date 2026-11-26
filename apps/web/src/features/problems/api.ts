@@ -28,7 +28,7 @@ export type Client = SupabaseClient<Database>;
 
 const PROBLEM_COLUMNS =
   'id, property_id, task_id, reported_by, title, source, title_i18n, source_facts, description, priority, critical, status, ' +
-  'resolved_at, cancelled_at, cancel_reason, archived_at, created_at, ' +
+  'resolved_at, cancelled_at, cancel_reason, archived_at, created_at, due_on, ' +
   'completed_by, completed_by_source, closed_by, closed_how, closed_cause, closed_at, closing:closing_people, ' +
   'property:properties(name, hostaway_unit_id, timezone, parent:parent_id(name)), ' +
   'reporter:profiles!problems_reported_by_fkey(full_name, role), ' +
@@ -210,6 +210,11 @@ export interface ReportProblemVariables {
    * the call of before, which never names one.
    */
   categoryId?: string | null;
+  /**
+   * The day the task is to be done, `YYYY-MM-DD` (20261126130000): the office's to plan. Absent
+   * or null: nothing planned, and the argument is not sent — the call of before.
+   */
+  dueOn?: string | null;
 }
 
 /**
@@ -230,7 +235,34 @@ export async function reportProblem(
     p_critical: variables.critical,
     p_property_id: variables.propertyId ?? undefined,
     p_category_id: variables.categoryId ?? undefined,
+    p_due_on: variables.dueOn ?? undefined,
   });
+  if (error) {
+    throw error;
+  }
+  return problemSchema.parse(data);
+}
+
+export interface SetProblemDueDateVariables {
+  problemId: string;
+  /** `YYYY-MM-DD`; null clears the day. */
+  dueOn: string | null;
+}
+
+type SetProblemDueDateArgs = Database['public']['Functions']['set_problem_due_date']['Args'];
+
+/**
+ * The office plans the day a task is to be done, or clears it (set_problem_due_date,
+ * 20261126130000): any status, the same day again changes nothing, a day out of range is refused
+ * (serverErrors.problemDueInvalid). No journal line and no push.
+ */
+export async function setProblemDueDate(
+  client: Client,
+  { problemId, dueOn }: SetProblemDueDateVariables,
+): Promise<Problem> {
+  // The generated type has no null for an argument without a default; null is what clears it.
+  const args = { p_id: problemId, p_due_on: dueOn } as SetProblemDueDateArgs;
+  const { data, error } = await client.rpc('set_problem_due_date', args);
   if (error) {
     throw error;
   }

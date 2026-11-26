@@ -1,7 +1,7 @@
 import {
   STATUS_TONE,
   closingLines,
-  jobTail,
+  plannedTail,
   problemLevel,
   problemStatusTone,
   statusIcon,
@@ -18,7 +18,7 @@ import { Icon } from '@/components/icon';
 import { Text } from '@/components/text';
 import { Spacing } from '@/constants/theme';
 import { closingRowOf } from '@/features/problems/closing';
-import { problemPlace, problemStatusText, urgencyChip } from '@/features/problems/format';
+import { dueChip, problemPlace, problemStatusText, urgencyChip } from '@/features/problems/format';
 import {
   SIGNAL_BADGE_TONE,
   shownTitle,
@@ -37,13 +37,19 @@ import { isLive, liveRepair, type BoardProblem, type BoardRepair } from './schem
  * How long a live task's repair has hung past its day, or null (owner,
  * 2026-11-05). The days are counted in the listing's own zone and the line is
  * OVERDUE_AFTER_DAYS — the panel's rule, from the same place (packages/shared,
- * schedule/job-tail.ts), so the board and «Задания» never disagree.
+ * schedule/job-tail.ts), so the board and «Задания» never disagree. Counted
+ * from the later of the repair's day and the task's planned day (`plannedTail`,
+ * owner 2026-11-26): a task planned ahead never hangs before its day.
  */
 function repairTail(problem: BoardProblem, repair: BoardRepair | null, now: Date): JobTail | null {
-  if (repair === null || repair.scheduled_date === null || !isLive(problem)) {
+  if (repair === null || !isLive(problem)) {
     return null;
   }
-  return jobTail(repair.scheduled_date, todayInZone(problem.property?.timezone, now));
+  return plannedTail(
+    repair.scheduled_date,
+    problem.due_on,
+    todayInZone(problem.property?.timezone, now),
+  );
 }
 
 interface BoardCardProps {
@@ -66,7 +72,9 @@ interface BoardCardProps {
  * or archived one. Before that a repair past its day says, neutral, how many
  * days it hangs («Висит N дней», owner 2026-11-05). A task a guest's review or
  * chat made leads its pills with the source chip (`SourceBadge`, owner
- * 2026-11-11). One card, one button, as her own list has it.
+ * 2026-11-11). A live task the office planned a day for says it — «Дата:
+ * Сегодня», «Завтра» or the date (`dueChip`, owner 2026-11-26). One card, one
+ * button, as her own list has it.
  */
 function BoardCardComponent({ problem, names, onPress, hasUnread = false }: BoardCardProps) {
   const { t, i18n } = useTranslation();
@@ -84,7 +92,10 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
   const when = repair === null ? null : repairWhen(repair);
   // «Срочно» or «Критическая» while the task is live: a closed one asks for nobody.
   const urgent = isLive(problem) ? urgencyChip(problemLevel(problem)) : null;
-  const tail = repairTail(problem, repair, new Date());
+  const now = new Date();
+  const tail = repairTail(problem, repair, now);
+  // The day the office planned it for, on a live task out of the archive only.
+  const due = isLive(problem) ? dueChip(problem, now) : null;
   const overdue = tail?.isOverdue === true ? t('problems.board.overdue') : null;
   const hanging = tail === null ? null : t('problems.board.hanging', { count: tail.days });
   const archived = problem.archived_at === null ? null : t('problems.board.archived');
@@ -97,6 +108,7 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
     status,
     overdue,
     hanging,
+    due?.label ?? null,
     person ?? (isWaiting ? nobody : null),
     when,
     urgent?.label ?? null,
@@ -126,6 +138,7 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
         {hanging === null ? null : (
           <Badge testID="board-hanging" label={hanging} tone={STATUS_TONE['tasks.hanging']} />
         )}
+        {due === null ? null : <Badge testID="board-due" label={due.label} tone={due.tone} />}
         {urgent === null ? null : (
           <Badge testID="board-urgent" label={urgent.label} tone={urgent.tone} />
         )}
