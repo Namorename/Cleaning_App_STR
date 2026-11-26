@@ -277,7 +277,7 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
             {isClosed ? null : (
               // A new planned day starts a new repair's form from it (assignDay).
               <AssignForm
-                key={`${fixTask?.id ?? 'new'}:${problem.due_on ?? ''}`}
+                key={fixTask === null ? `new:${problem.due_on ?? ''}` : fixTask.id}
                 problem={problem}
                 fixTask={fixTask}
               />

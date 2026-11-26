@@ -1254,7 +1254,7 @@ describe('«Дата выполнения» (owner, 2026-11-26)', () => {
     await userEvent.click(within(section()).getByRole('button', { name: 'Выбрать дату' }));
     const field = within(section()).getByLabelText('Дата выполнения');
     expect(field).toHaveAttribute('min', TODAY);
-    expect(field).toHaveAttribute('max', '2027-11-27');
+    expect(field).toHaveAttribute('max', '2027-11-26');
     // Nothing to clear yet.
     expect(within(section()).queryByRole('button', { name: 'Убрать дату' })).toBeNull();
 

@@ -26,7 +26,10 @@ export function plannedDayWords(
   }
 }
 
-/** The days a date field offers: today up to DUE_DAYS_AHEAD ahead, as the server allows. */
+/**
+ * The days a date field offers: today up to a day short of DUE_DAYS_AHEAD — the server counts from
+ * its UTC day, which in Prague is a day behind the browser's after midnight.
+ */
 export function dueDayRange(today: string = todayIso()): { min: string; max: string } {
-  return { min: today, max: addDays(today, DUE_DAYS_AHEAD) };
+  return { min: today, max: addDays(today, DUE_DAYS_AHEAD - 1) };
 }

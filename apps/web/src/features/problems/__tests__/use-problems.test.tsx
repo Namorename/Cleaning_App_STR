@@ -11,6 +11,7 @@ vi.mock('../api', async (importOriginal) => ({
   cancelProblem: vi.fn(async () => ({})),
   resolveProblem: vi.fn(async () => ({})),
   archiveProblem: vi.fn(async () => ({})),
+  setProblemDueDate: vi.fn(async () => ({})),
 }));
 
 import { taskKeys } from '@/features/tasks/keys';
@@ -21,6 +22,7 @@ import {
   useAssignProblem,
   useCancelProblem,
   useResolveProblem,
+  useSetProblemDueDate,
 } from '../use-problems';
 
 /**
@@ -80,5 +82,17 @@ describe('a write on a problem', () => {
       await archiving.result.current.mutateAsync(PROBLEM);
     });
     expect(archiving.invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.all });
+  });
+
+  // The planned day moves the repair's tail: the calendar badge and the dashboard's tiles read it.
+  test('planning its day wakes the problems and the tasks', async () => {
+    const { result, invalidate } = renderWithCache(() => useSetProblemDueDate());
+
+    await act(async () => {
+      await result.current.mutateAsync({ problemId: PROBLEM, dueOn: '2026-12-03' });
+    });
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: problemKeys.all });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.all });
   });
 });

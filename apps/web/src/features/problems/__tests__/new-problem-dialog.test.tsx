@@ -312,7 +312,7 @@ describe('the day the task is to be done (owner, 2026-11-26)', () => {
     expect(dueField(form)).toHaveValue('');
     expect(dueField(form)).not.toBeRequired();
     expect(dueField(form)).toHaveAttribute('min', today);
-    expect(dueField(form)).toHaveAttribute('max', addDays(today, DUE_DAYS_AHEAD));
+    expect(dueField(form)).toHaveAttribute('max', addDays(today, DUE_DAYS_AHEAD - 1));
     expect(dueField(form)).toHaveAccessibleDescription(/очередь техников/);
   });
 
