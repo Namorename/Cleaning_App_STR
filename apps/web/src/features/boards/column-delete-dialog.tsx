@@ -59,8 +59,10 @@ export function ColumnDeleteDialog({
   const remove = useDeleteColumn();
   const selectId = useId();
   const [targetId, setTargetId] = useState('');
+  // What the server said the column holds: kept, so a retry still asks where the cards go.
+  const [serverHeld, setServerHeld] = useState(0);
   const targets = moveTargets(live, column.id);
-  const held = Math.max(cardCount, remove.isError ? heldByServer(remove.error) : 0);
+  const held = Math.max(cardCount, serverHeld);
   const needsTarget = held > 0;
   const isTargetChosen = targets.some((target) => target.id === targetId);
   const failure = remove.isError ? serverErrorText(remove.error) : null;
@@ -77,7 +79,10 @@ export function ColumnDeleteDialog({
     }
     remove.mutate(
       { columnId: column.id, moveToId: needsTarget ? targetId : null },
-      { onSuccess: onDeleted },
+      {
+        onSuccess: onDeleted,
+        onError: (error: unknown) => setServerHeld((now) => Math.max(now, heldByServer(error))),
+      },
     );
   };
 

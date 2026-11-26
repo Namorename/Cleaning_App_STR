@@ -108,6 +108,18 @@ describe('«Настройки доски»', () => {
     });
   });
 
+  test('a rename alone says nothing of who sees the board', async () => {
+    const user = await pick(AS_OWNER, 'Настройки доски');
+    const dialog = screen.getByRole('dialog', { name: 'Настройки доски' });
+    const name = within(dialog).getByRole('textbox', { name: 'Название доски' });
+    await user.clear(name);
+    await user.type(name, 'Проекты 2027');
+    await user.click(within(dialog).getByRole('radio', { name: 'Видна только мне' }));
+    await user.click(within(dialog).getByRole('radio', { name: 'Видна другим менеджерам' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    expect(spies.saveBoard).toHaveBeenCalledWith({ boardId: BOARD, title: 'Проекты 2027' });
+  });
+
   test('an admin at another’s board reads «Видна только владельцу»', async () => {
     state.boards = [makeBoard({ shared: false })];
     await pick(AS_ADMIN, 'Настройки доски');
@@ -178,6 +190,11 @@ describe('«Передать доску»', () => {
     await user.click(within(dialogOf()).getByRole('button', { name: 'Передать' }));
     expect(spies.transfer).toHaveBeenCalledWith({ boardId: BOARD, toId: ADMIN });
     expect(router.push).toHaveBeenCalledWith('/problems');
+    // The board leaves the cache first: the screen it leaves never says «Доска не найдена».
+    expect(spies.forget).toHaveBeenCalledWith(BOARD);
+    expect(spies.forget.mock.invocationCallOrder[0]).toBeLessThan(
+      router.push.mock.invocationCallOrder[0],
+    );
   });
 
   test('an admin who hands a private board over keeps it on screen', async () => {
@@ -189,7 +206,18 @@ describe('«Передать доску»', () => {
     );
     await user.click(within(dialogOf()).getByRole('button', { name: 'Передать' }));
     expect(router.push).not.toHaveBeenCalled();
+    expect(spies.forget).not.toHaveBeenCalled();
     expect(screen.getByRole('status')).toHaveTextContent('Доска передана: Ира Читатель');
+  });
+
+  test('the people not read: it says so, and nobody can be chosen', async () => {
+    state.peopleError = true;
+    await pick(AS_OWNER, 'Передать доску');
+    const alert = within(dialogOf()).getByRole('alert');
+    expect(alert).toHaveTextContent('Не удалось загрузить команду.');
+    expect(alert).toHaveTextContent('people offline');
+    expect(within(dialogOf()).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(dialogOf()).getByRole('button', { name: 'Передать' })).toBeDisabled();
   });
 
   test('with nobody to hand it to, it says so', async () => {

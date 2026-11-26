@@ -108,7 +108,11 @@ export function CardTile({
         >
           {card.title}
         </Link>
-        {actions === undefined ? null : (
+        {/* No menu with nothing in it: a card of «Назначено мне» whose board has no other stage. */}
+        {actions === undefined ||
+        (moveTargets.length === 0 &&
+          actions.onDuplicate === undefined &&
+          actions.onShelve === undefined) ? null : (
           <CardMenu card={card} actions={actions} moveTargets={moveTargets} />
         )}
       </div>

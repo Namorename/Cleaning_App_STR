@@ -43,6 +43,9 @@ export function TransferDialog({ board, viewer, onClose, onTransferred }: Transf
   );
   const chosen = candidates.find((person) => person.id === toId);
   const isNobody = people.data !== undefined && candidates.length === 0;
+  // The people were never read: nobody to choose from, and it is said why.
+  const peopleFailure =
+    people.data === undefined && people.isError ? serverErrorText(people.error) : null;
   const failure = transfer.isError ? serverErrorText(transfer.error) : null;
   const note = viewer.isAdmin
     ? t('boards.transferNoteAdmin')
@@ -78,7 +81,14 @@ export function TransferDialog({ board, viewer, onClose, onTransferred }: Transf
           <DialogDescription>{note}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="flex flex-col gap-4">
-          {isNobody ? (
+          {peopleFailure !== null ? (
+            <p role="alert" className="text-sm text-destructive">
+              {t('panel.team.loadError')}
+              {peopleFailure.detail === null ? null : (
+                <span className="block text-xs text-muted-foreground">{peopleFailure.detail}</span>
+              )}
+            </p>
+          ) : isNobody ? (
             <p className="text-sm">{t('boards.transferNobody')}</p>
           ) : (
             <div className="flex flex-col gap-1">

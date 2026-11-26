@@ -50,6 +50,19 @@ export function laneOfCard(
   return (lanes.find((lane) => lane.stage === card.column_key) ?? lanes[0])?.key ?? card.column_id;
 }
 
+/**
+ * Where a card of «Назначено мне» moved to a stage lands: its board's first live column of that
+ * stage — the column the server picks for the stage too — or none when the board has no column of
+ * it (the move is not offered then).
+ */
+export function stageColumn<T extends ColumnRow>(
+  columns: readonly T[],
+  boardId: string,
+  stage: BoardColumn,
+): T | null {
+  return liveColumns(columns, boardId).find((column) => column.legacy_key === stage) ?? null;
+}
+
 /** A column's name by its id, a deleted one too (the journal names it); null for one not read. */
 export function columnNameById(
   columns: readonly ColumnRow[],

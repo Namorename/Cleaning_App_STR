@@ -31,7 +31,8 @@ import { ColumnDeleteDialog } from './column-delete-dialog';
 import { ColumnListItem } from './column-list-item';
 import type { PresetName } from './lanes';
 import type { Board, BoardCard, ColumnRow } from './schema';
-import { useOrderColumns, useSaveColumn, useSetColumnDone } from './use-boards';
+import { useSaveColumn, useSetColumnDone } from './use-boards';
+import { useColumnOrder, useRowFocus } from './use-column-order';
 
 interface ColumnsDialogProps {
   board: Pick<Board, 'id' | 'title'>;
@@ -46,14 +47,14 @@ interface ColumnsDialogProps {
  * «Колонки» (20261126120000): the board's live columns in their order, for its owner and an admin —
  * renamed in place, marked finishing, moved up and down by a button or dragged, deleted (never the
  * last; one holding cards with a column for them), and one more added at the end, up to twelve.
- * Every change goes to the server at once; a new order shows before it answers.
+ * Every change goes to the server at once; a new order shows before it answers. The keyboard stays
+ * on the button pressed, and the new place is said.
  */
 export function ColumnsDialog({ board, columns, cards, onClose }: ColumnsDialogProps) {
   const { t } = useTranslation();
   const presetName: PresetName = (key) => t(`problems.statuses.${key}`);
   const hintId = useId();
   const live = liveColumns(columns, board.id);
-  const order = useOrderColumns();
   const rename = useSaveColumn();
   const setDone = useSetColumnDone(board.id);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -70,18 +71,30 @@ export function ColumnsDialog({ board, columns, cards, onClose }: ColumnsDialogP
     onError: (error: unknown) => setFailure(serverErrorText(error)),
   });
   const mayDelete = canDeleteColumn(live);
+  const { reorder, announcement } = useColumnOrder({
+    boardId: board.id,
+    live,
+    nameOf: (column) => columnName(column, presetName),
+    ...outcome(),
+  });
+  const focus = useRowFocus(`${live.map((column) => column.id).join(' ')}|${editingId ?? ''}`);
 
-  // One order at a time: the next is counted from the order the last one made.
-  const reorder = (ids: readonly string[]) => {
-    const isSame = ids.every((id, index) => id === live[index]?.id);
-    if (isSame || order.isPending) {
-      return;
-    }
-    order.mutate({ boardId: board.id, columnIds: ids }, outcome());
+  const step = (column: ColumnRow, by: -1 | 1) => {
+    focus.request(column.id, by < 0 ? 'up' : 'down');
+    reorder({
+      columnId: column.id,
+      next: (order) => columnOrderAfterStep(order, column.id, by),
+    });
   };
-  const saveName = (column: ColumnRow, title: string) => {
-    const words = title.trim();
+  const endEdit = (column: ColumnRow, byKey: boolean) => {
+    if (byKey) {
+      focus.request(column.id, 'rename');
+    }
     setEditingId(null);
+  };
+  const saveName = (column: ColumnRow, title: string, byKey: boolean) => {
+    const words = title.trim();
+    endEdit(column, byKey);
     if (words === '' || words === columnName(column, presetName)) {
       return;
     }
@@ -104,10 +117,11 @@ export function ColumnsDialog({ board, columns, cards, onClose }: ColumnsDialogP
         <p id={hintId} className="text-xs text-muted-foreground">
           {t('boards.columnDoneHint')}
         </p>
-        <ol className="flex flex-col gap-1">
+        <ol className="flex flex-col gap-1" onFocus={focus.onFocus}>
           {live.map((column, index) => (
             <ColumnListItem
               key={column.id}
+              ref={focus.rowRef(column.id)}
               column={column}
               name={columnName(column, presetName)}
               doneHintId={hintId}
@@ -118,10 +132,10 @@ export function ColumnsDialog({ board, columns, cards, onClose }: ColumnsDialogP
               isDragging={dragging === column.id}
               isOver={dragging !== null && dragging !== column.id && overId === column.id}
               onEdit={() => setEditingId(column.id)}
-              onEditSave={(title) => saveName(column, title)}
-              onEditCancel={() => setEditingId(null)}
+              onEditSave={(title, byKey) => saveName(column, title, byKey)}
+              onEditCancel={() => endEdit(column, true)}
               onDone={(done) => setDone.mutate({ columnId: column.id, done }, outcome())}
-              onStep={(step) => reorder(columnOrderAfterStep(live, column.id, step))}
+              onStep={(by) => step(column, by)}
               onDelete={() => setDeleting(column)}
               drag={{
                 onDragStart: () => setDragging(column.id),
@@ -135,7 +149,11 @@ export function ColumnsDialog({ board, columns, cards, onClose }: ColumnsDialogP
                 onDragLeave: () => setOverId((now) => (now === column.id ? null : now)),
                 onDrop: () => {
                   if (dragging !== null) {
-                    reorder(columnOrderAfterDrop(live, dragging, column.id));
+                    const moving = dragging;
+                    reorder({
+                      columnId: moving,
+                      next: (order) => columnOrderAfterDrop(order, moving, column.id),
+                    });
                   }
                   endDrag();
                 },
@@ -144,6 +162,9 @@ export function ColumnsDialog({ board, columns, cards, onClose }: ColumnsDialogP
             />
           ))}
         </ol>
+        <p role="status" aria-live="polite" className="sr-only">
+          {announcement}
+        </p>
         {mayDelete ? null : (
           <p className="text-sm text-muted-foreground">{t('boards.columnLast')}</p>
         )}

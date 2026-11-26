@@ -36,7 +36,7 @@ import {
   type SaveColumnVariables,
 } from './api';
 import { boardKeys } from './keys';
-import type { BoardCard, CardDetail, CardShelf, ColumnRow } from './schema';
+import type { Board, BoardCard, CardDetail, CardShelf, ColumnRow } from './schema';
 
 export function useBoards() {
   const client = useSupabase();
@@ -63,6 +63,21 @@ export function useBoardColumns(boardId: string | null) {
     queryKey: boardKeys.columns(boardId ?? ''),
     queryFn: () => fetchBoardColumns(client, boardId === null ? [] : [boardId]),
     enabled: boardId !== null,
+  });
+}
+
+/**
+ * The columns of the boards named, the deleted ones too — «Назначено мне», whose cards come from
+ * many boards, some of them not the viewer's to see (their columns are read for a card given to
+ * him). Idle while none is named.
+ */
+export function useBoardColumnsOf(boardIds: readonly string[]) {
+  const client = useSupabase();
+  const key = boardKeys.columnsOf(boardIds);
+  return useQuery({
+    queryKey: key,
+    queryFn: () => fetchBoardColumns(client, key.slice(3)),
+    enabled: boardIds.length > 0,
   });
 }
 
@@ -155,6 +170,22 @@ export function useTransferBoard() {
   });
 }
 
+/**
+ * Forgets a board the viewer no longer sees — a private board he handed over: it leaves the cached
+ * list at once and its cards and columns are dropped, so the screen he goes to never shows it, nor
+ * «Доска не найдена» while the list is read again.
+ */
+export function useForgetBoard() {
+  const queryClient = useQueryClient();
+  return (boardId: string) => {
+    queryClient.setQueryData<Board[]>(boardKeys.list(), (boards) =>
+      boards?.filter((board) => board.id !== boardId),
+    );
+    queryClient.removeQueries({ queryKey: boardKeys.cards(boardId) });
+    queryClient.removeQueries({ queryKey: boardKeys.columns(boardId) });
+  };
+}
+
 /** Adds a column or renames one: a rename leaves the columns alone stale, an add the cards too. */
 export function useSaveColumn() {
   const client = useSupabase();
@@ -226,12 +257,27 @@ export function useDeleteColumn() {
   });
 }
 
+/**
+ * A refused card write may name a column deleted meanwhile (boardColumnNotFound): the columns are
+ * read again with the cards, so its lane leaves the board.
+ */
+function useInvalidateCardWrite() {
+  const invalidate = useInvalidate('cards', 'card');
+  const invalidateColumns = useInvalidate('columns');
+  return (_data: unknown, error: unknown) => {
+    invalidate();
+    if (error !== null && error !== undefined) {
+      invalidateColumns();
+    }
+  };
+}
+
 export function useSaveCard() {
   const client = useSupabase();
-  const invalidate = useInvalidate('cards', 'card');
+  const settle = useInvalidateCardWrite();
   return useMutation({
     mutationFn: (variables: SaveCardVariables) => saveCard(client, variables),
-    onSettled: invalidate,
+    onSettled: settle,
   });
 }
 
@@ -272,7 +318,7 @@ function movedTo<T extends Pick<BoardCard, 'column_id' | 'column_key'>>(
 export function useMoveCard(listKey: readonly unknown[]) {
   const client = useSupabase();
   const queryClient = useQueryClient();
-  const invalidate = useInvalidate('cards', 'card');
+  const settle = useInvalidateCardWrite();
   return useMutation({
     mutationFn: (variables: MoveCardVariables) => moveCard(client, variables),
     onMutate: async (variables) => {
@@ -290,7 +336,7 @@ export function useMoveCard(listKey: readonly unknown[]) {
       return kept;
     },
     onError: (_error, _variables, kept) => putBack(queryClient, kept),
-    onSettled: invalidate,
+    onSettled: settle,
   });
 }
 

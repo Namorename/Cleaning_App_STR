@@ -5,18 +5,24 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { ChatCardsSwitch } from '../chat-cards-switch';
 import { candidateKinds, kindsOf } from '../schema';
 
-const state = { chats: true as boolean | undefined };
+const state = { chats: true as boolean | undefined, isReadFailed: false };
 const setChats = vi.fn();
 const idle = { isPending: false, isError: false, error: null, reset: vi.fn() };
 
 vi.mock('../use-guest-signals', () => ({
-  useChatsOn: () => ({ data: state.chats, isPending: state.chats === undefined, isError: false }),
+  useChatsOn: () => ({
+    data: state.chats,
+    isPending: state.chats === undefined,
+    isError: state.isReadFailed,
+    error: state.isReadFailed ? { message: 'offline' } : null,
+  }),
   useSetGuestChats: () => ({ ...idle, mutate: setChats }),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
   state.chats = true;
+  state.isReadFailed = false;
   // jsdom has no PointerEvent; Base UI's switch builds one on a press (as in ui/primitives.test).
   if (typeof window.PointerEvent !== 'function') {
     Object.defineProperty(window, 'PointerEvent', {
@@ -62,6 +68,19 @@ describe('«Карточки из чатов» in the settings of «Гости»
     state.chats = undefined;
     render(<ChatCardsSwitch isAdmin />);
 
+    expect(screen.getByRole('switch', { name: 'Карточки из чатов' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  });
+
+  test('a switch that could not be read says so under it, and stays unpressable', () => {
+    state.chats = undefined;
+    state.isReadFailed = true;
+    render(<ChatCardsSwitch isAdmin />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Настройки компании не загрузились.');
+    expect(screen.getByRole('alert')).toHaveTextContent('offline');
     expect(screen.getByRole('switch', { name: 'Карточки из чатов' })).toHaveAttribute(
       'aria-disabled',
       'true',

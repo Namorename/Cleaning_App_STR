@@ -36,6 +36,9 @@ export function ChatCardsSwitch({ isAdmin }: ChatCardsSwitchProps) {
   const setChats = useSetGuestChats();
   const [isAskingOff, setAskingOff] = useState(false);
   const failure = setChats.isError ? serverErrorText(setChats.error) : null;
+  // The switch was never read: it stays unpressable, and the line under it says why.
+  const readFailure =
+    chats.data === undefined && chats.isError ? serverErrorText(chats.error) : null;
   const isOn = chats.data === true;
 
   return (
@@ -51,6 +54,14 @@ export function ChatCardsSwitch({ isAdmin }: ChatCardsSwitchProps) {
         />
       </label>
       <p className="text-muted-foreground">{t('panel.guests.settings.chatCardsHint')}</p>
+      {readFailure === null ? null : (
+        <p role="alert" className="text-destructive">
+          {t('panel.settings.loadError')}
+          {readFailure.detail === null ? null : (
+            <span className="block text-xs text-muted-foreground">{readFailure.detail}</span>
+          )}
+        </p>
+      )}
       {failure === null ? null : (
         <p role="alert" className="text-destructive">
           {failure.text}

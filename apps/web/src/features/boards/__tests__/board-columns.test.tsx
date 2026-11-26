@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { cardDetailSchema } from '../schema';
+import { cardDetailSchema, type ColumnRow } from '../schema';
 import {
   BOARD,
   DETAIL,
@@ -12,6 +13,7 @@ import {
   makeBoard,
   makeCard,
   makeColumn,
+  releaseHeld,
   resetBoards,
   spies,
   state,
@@ -44,6 +46,7 @@ vi.mock('next/navigation', async () => {
   };
 });
 
+import { ColumnsDialog } from '../columns-dialog';
 import { ManagerBoardView } from '../manager-board-view';
 
 const TODO = 'c0a2d300-0000-4000-8000-00000000000a';
@@ -320,17 +323,23 @@ describe('«Колонки»', () => {
   test('renames a column in place; Escape and the same name send nothing', async () => {
     const { user, row } = await openColumns();
     await user.click(
-      within(row('Ждём ответа')).getByRole('button', { name: 'Переименовать колонку' }),
+      within(row('Ждём ответа')).getByRole('button', {
+        name: 'Переименовать колонку: Ждём ответа',
+      }),
     );
     const field = within(row('Ждём ответа')).getByRole('textbox', { name: 'Название колонки' });
     expect(field).toHaveAttribute('maxLength', '40');
     await user.keyboard('{Escape}');
     expect(spies.saveColumn).not.toHaveBeenCalled();
-    await user.click(within(row('Открыто')).getByRole('button', { name: 'Переименовать колонку' }));
+    await user.click(
+      within(row('Открыто')).getByRole('button', { name: 'Переименовать колонку: Открыто' }),
+    );
     await user.keyboard('{Enter}');
     expect(spies.saveColumn).not.toHaveBeenCalled();
     await user.click(
-      within(row('Ждём ответа')).getByRole('button', { name: 'Переименовать колонку' }),
+      within(row('Ждём ответа')).getByRole('button', {
+        name: 'Переименовать колонку: Ждём ответа',
+      }),
     );
     const again = within(row('Ждём ответа')).getByRole('textbox', { name: 'Название колонки' });
     await user.clear(again);
@@ -346,14 +355,16 @@ describe('«Колонки»', () => {
     const { user, row } = await openColumns();
     const moves = (name: string) =>
       within(row(name)).getByRole('group', { name: `Переместить колонку «${name}»` });
-    expect(within(moves('Открыто')).getByRole('button', { name: 'Выше' })).toBeDisabled();
-    expect(within(moves('Идеи')).getByRole('button', { name: 'Ниже' })).toBeDisabled();
-    await user.click(within(moves('Ждём ответа')).getByRole('button', { name: 'Выше' }));
+    expect(within(moves('Открыто')).getByRole('button', { name: 'Выше: Открыто' })).toBeDisabled();
+    expect(within(moves('Идеи')).getByRole('button', { name: 'Ниже: Идеи' })).toBeDisabled();
+    await user.click(
+      within(moves('Ждём ответа')).getByRole('button', { name: 'Выше: Ждём ответа' }),
+    );
     expect(spies.orderColumns).toHaveBeenLastCalledWith({
       boardId: BOARD,
       columnIds: [WAITING, TODO, DONE, IDEAS],
     });
-    await user.click(within(moves('Сделано')).getByRole('button', { name: 'Ниже' }));
+    await user.click(within(moves('Сделано')).getByRole('button', { name: 'Ниже: Сделано' }));
     expect(spies.orderColumns).toHaveBeenLastCalledWith({
       boardId: BOARD,
       columnIds: [TODO, WAITING, IDEAS, DONE],
@@ -373,10 +384,10 @@ describe('«Колонки»', () => {
 
   test('«Завершающая» is marked and unmarked, with what it means', async () => {
     const { user, row } = await openColumns();
-    const done = within(row('Сделано')).getByRole('checkbox', { name: 'Завершающая' });
+    const done = within(row('Сделано')).getByRole('checkbox', { name: 'Завершающая: Сделано' });
     expect(done).toBeChecked();
     expect(done).toHaveAccessibleDescription(/Карточки в завершающей колонке выполнены/);
-    await user.click(within(row('Идеи')).getByRole('checkbox', { name: 'Завершающая' }));
+    await user.click(within(row('Идеи')).getByRole('checkbox', { name: 'Завершающая: Идеи' }));
     expect(spies.setColumnDone).toHaveBeenCalledWith({ columnId: IDEAS, done: true });
     await user.click(done);
     expect(spies.setColumnDone).toHaveBeenLastCalledWith({ columnId: DONE, done: false });
@@ -384,7 +395,7 @@ describe('«Колонки»', () => {
 
   test('an empty column is deleted after a question, naming no other', async () => {
     const { user, row } = await openColumns();
-    await user.click(within(row('Идеи')).getByRole('button', { name: 'Удалить колонку' }));
+    await user.click(within(row('Идеи')).getByRole('button', { name: 'Удалить колонку: Идеи' }));
     expect(spies.deleteColumn).not.toHaveBeenCalled();
     const question = screen.getByRole('dialog', { name: 'Удалить колонку «Идеи»?' });
     expect(question).toHaveTextContent('В колонке нет карточек.');
@@ -395,7 +406,9 @@ describe('«Колонки»', () => {
 
   test('a column holding cards — archived ones counted — asks where they go first', async () => {
     const { user, row } = await openColumns();
-    await user.click(within(row('Ждём ответа')).getByRole('button', { name: 'Удалить колонку' }));
+    await user.click(
+      within(row('Ждём ответа')).getByRole('button', { name: 'Удалить колонку: Ждём ответа' }),
+    );
     const question = screen.getByRole('dialog', { name: 'Удалить колонку «Ждём ответа»?' });
     expect(question).toHaveTextContent('Карточек в колонке (вместе с архивными и удалёнными): 2.');
     const confirm = within(question).getByRole('button', { name: 'Удалить колонку' });
@@ -418,12 +431,19 @@ describe('«Колонки»', () => {
       details: '{"count":3}',
     });
     const { user, row } = await openColumns();
-    await user.click(within(row('Идеи')).getByRole('button', { name: 'Удалить колонку' }));
+    await user.click(within(row('Идеи')).getByRole('button', { name: 'Удалить колонку: Идеи' }));
     const question = screen.getByRole('dialog', { name: 'Удалить колонку «Идеи»?' });
     await user.click(within(question).getByRole('button', { name: 'Удалить колонку' }));
     expect(within(question).getByRole('alert')).toHaveTextContent(
       'В колонке есть карточки (3): выберите, куда их перенести',
     );
+    const target = within(question).getByRole('combobox', { name: 'Куда перенести карточки' });
+    expect(question).toHaveTextContent('Карточек в колонке (вместе с архивными и удалёнными): 3.');
+    // A retry refused for another reason still asks where the cards go.
+    state.refusals.set(spies.deleteColumn, { message: 'no', hint: 'serverErrors.boardNotYours' });
+    await user.selectOptions(target, TODO);
+    await user.click(within(question).getByRole('button', { name: 'Удалить колонку' }));
+    expect(spies.deleteColumn).toHaveBeenLastCalledWith({ columnId: IDEAS, moveToId: TODO });
     expect(
       within(question).getByRole('combobox', { name: 'Куда перенести карточки' }),
     ).toBeInTheDocument();
@@ -433,7 +453,9 @@ describe('«Колонки»', () => {
     state.columns = [makeColumn({ id: TODO, preset: 'open', legacy_key: 'open' })];
     state.cards = [];
     const { dialog, row } = await openColumns();
-    expect(within(row('Открыто')).getByRole('button', { name: 'Удалить колонку' })).toBeDisabled();
+    expect(
+      within(row('Открыто')).getByRole('button', { name: 'Удалить колонку: Открыто' }),
+    ).toBeDisabled();
     expect(within(dialog).getByText('Последнюю колонку удалить нельзя.')).toBeInTheDocument();
   });
 
@@ -455,5 +477,119 @@ describe('«Колонки»', () => {
   test('another manager has no board menu, so no «Колонки»', () => {
     show({ id: READER, isAdmin: false });
     expect(screen.queryByRole('button', { name: 'Действия с доской' })).not.toBeInTheDocument();
+  });
+});
+
+describe('«Колонки» by the keyboard and a screen reader', () => {
+  /**
+   * The dialog over columns that take each order the moment it is asked, as the cache does before
+   * the server answers.
+   */
+  function Columns() {
+    const [columns, setColumns] = useState<ColumnRow[]>(ownColumns);
+    spies.orderColumns.mockImplementation(({ columnIds }: { columnIds: string[] }) =>
+      setColumns((now) =>
+        now.map((column) => {
+          const at = columnIds.indexOf(column.id);
+          return at < 0 ? column : { ...column, position: at + 1 };
+        }),
+      ),
+    );
+    return (
+      <ColumnsDialog
+        board={{ id: BOARD, title: 'Проекты' }}
+        columns={columns}
+        cards={[]}
+        onClose={() => undefined}
+      />
+    );
+  }
+
+  function showColumns() {
+    const user = userEvent.setup();
+    render(<Columns />);
+    const dialog = screen.getByRole('dialog', { name: 'Колонки доски «Проекты»' });
+    const button = (column: string, label: string) =>
+      within(within(dialog).getByRole('listitem', { name: column })).getByRole('button', {
+        name: `${label}: ${column}`,
+      });
+    const order = () =>
+      within(dialog)
+        .getAllByRole('listitem')
+        .map((item) => item.getAttribute('aria-label'));
+    return { user, dialog, button, order };
+  }
+
+  test('stays on the button pressed — the other one at an end — and says the new place', async () => {
+    const { user, dialog, button, order } = showColumns();
+    await user.click(button('Идеи', 'Выше'));
+    expect(order()).toEqual(['Открыто', 'Ждём ответа', 'Идеи', 'Сделано']);
+    expect(button('Идеи', 'Выше')).toHaveFocus();
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Идеи: 3 / 4');
+    await user.keyboard('{Enter}');
+    expect(order()).toEqual(['Открыто', 'Идеи', 'Ждём ответа', 'Сделано']);
+    expect(button('Идеи', 'Выше')).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(order()).toEqual(['Идеи', 'Открыто', 'Ждём ответа', 'Сделано']);
+    expect(button('Идеи', 'Выше')).toBeDisabled();
+    expect(button('Идеи', 'Ниже')).toHaveFocus();
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Идеи: 1 / 4');
+    // Moved down, the row itself is the one put elsewhere in the page: the keyboard follows it.
+    await user.keyboard('{Enter}');
+    expect(order()).toEqual(['Открыто', 'Идеи', 'Ждём ответа', 'Сделано']);
+    expect(button('Идеи', 'Ниже')).toHaveFocus();
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Идеи: 2 / 4');
+  });
+
+  test('a press while an order is on its way waits its turn, counted from the order before it', async () => {
+    state.held = new Set([spies.orderColumns]);
+    const { user, button, order } = showColumns();
+    await user.click(button('Ждём ответа', 'Выше'));
+    await user.click(button('Сделано', 'Выше'));
+    expect(spies.orderColumns).toHaveBeenCalledTimes(1);
+    act(() => releaseHeld());
+    expect(spies.orderColumns).toHaveBeenCalledTimes(2);
+    expect(spies.orderColumns).toHaveBeenLastCalledWith({
+      boardId: BOARD,
+      columnIds: [WAITING, DONE, TODO, IDEAS],
+    });
+    expect(order()).toEqual(['Ждём ответа', 'Сделано', 'Открыто', 'Идеи']);
+  });
+
+  test('a refused order drops the presses that counted on it, and says why', async () => {
+    state.held = new Set([spies.orderColumns]);
+    state.refusals.set(spies.orderColumns, { message: 'no', hint: 'serverErrors.boardNotYours' });
+    const { user, dialog, button } = showColumns();
+    await user.click(button('Ждём ответа', 'Выше'));
+    await user.click(button('Сделано', 'Выше'));
+    act(() => releaseHeld());
+    expect(spies.orderColumns).toHaveBeenCalledTimes(1);
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(
+      'Менять доску может только её владелец',
+    );
+  });
+
+  test('Enter and Escape in the name give the keyboard back to «Переименовать»', async () => {
+    const { user, button } = showColumns();
+    await user.click(button('Ждём ответа', 'Переименовать колонку'));
+    await user.keyboard(' звонка{Enter}');
+    expect(spies.saveColumn).toHaveBeenCalledWith({
+      columnId: WAITING,
+      boardId: null,
+      title: 'Ждём ответа звонка',
+    });
+    expect(button('Ждём ответа', 'Переименовать колонку')).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await user.keyboard('{Escape}');
+    expect(spies.saveColumn).toHaveBeenCalledTimes(1);
+    expect(button('Ждём ответа', 'Переименовать колонку')).toHaveFocus();
+  });
+
+  test('each control of a row names its column', () => {
+    const { dialog } = showColumns();
+    const row = within(within(dialog).getByRole('listitem', { name: 'Сделано' }));
+    expect(row.getByRole('checkbox', { name: 'Завершающая: Сделано' })).toBeChecked();
+    expect(row.getByRole('button', { name: 'Удалить колонку: Сделано' })).toBeEnabled();
+    expect(row.getByRole('group', { name: 'Переместить колонку «Сделано»' })).toBeInTheDocument();
   });
 });

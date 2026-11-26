@@ -25,6 +25,11 @@ interface ManagerBoardProps {
   isFiltered: boolean;
   /** What may be done to a card; none for a card the viewer only reads. */
   actionsFor: (card: BoardCard) => CardActions | undefined;
+  /**
+   * May the card go to that lane, besides its own? Every other lane by default; on «Назначено мне»,
+   * only the stages its board has a column of.
+   */
+  canMoveTo?: (card: BoardCard, lane: string) => boolean;
   /** What ends a lane: a quick add, for every manager and admin on a live board. */
   footerOf?: (lane: BoardLane) => ReactNode;
   cardHref: (cardId: string) => string;
@@ -41,9 +46,8 @@ const LANE_MIN_WIDTH = '16rem';
  * A manager board's lanes side by side — its own columns (20261126120000), or on «Назначено мне» the
  * four stages — scrolling sideways inside their frame on a narrow screen or a board of many
  * columns. Each lane is headed by its name in the tone of its stage; a long name ends in «…»
- * rather than widening the lane. A card goes to any other lane
- * by the mouse or by its menu; each lane may end in a quick add. An archived board is the same board
- * without either.
+ * rather than widening the lane. A card goes to any other lane it may go to by the mouse or by
+ * its menu; each lane may end in a quick add. An archived board is the same board without either.
  */
 export function ManagerBoard({
   lanes,
@@ -53,6 +57,7 @@ export function ManagerBoard({
   today,
   isFiltered,
   actionsFor,
+  canMoveTo = () => true,
   footerOf,
   cardHref,
   onOpen,
@@ -61,7 +66,8 @@ export function ManagerBoard({
   const { t } = useTranslation();
   const drag = useColumnDrag<BoardCard, string>({
     columnOf: laneOf,
-    canMove: (card, lane) => laneOf(card) !== lane && actionsFor(card) !== undefined,
+    canMove: (card, lane) =>
+      laneOf(card) !== lane && actionsFor(card) !== undefined && canMoveTo(card, lane),
     onMove: (card, lane) => actionsFor(card)?.onMove(card, lane),
   });
   // The count of lanes is the board's: the grid's template is written here, not in a class.
@@ -77,7 +83,6 @@ export function ManagerBoard({
             cards.filter((card) => laneOf(card) === lane.key),
             order,
           );
-          const others = lanes.filter((other) => other.key !== lane.key);
           return (
             <BoardColumnFrame
               key={lane.key}
@@ -107,7 +112,9 @@ export function ManagerBoard({
                     href={cardHref(card.id)}
                     onOpen={onOpen}
                     actions={actions}
-                    moveTargets={others}
+                    moveTargets={lanes.filter(
+                      (other) => other.key !== lane.key && canMoveTo(card, other.key),
+                    )}
                     drag={actions === undefined ? undefined : drag.item}
                     boardLabel={boardLabelOf?.(card)}
                   />

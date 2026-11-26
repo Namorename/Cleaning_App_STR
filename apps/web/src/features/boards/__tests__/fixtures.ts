@@ -194,8 +194,26 @@ export const state = {
   /** The writes the server refuses with an error of the test's own. */
   refusals: new Map<unknown, unknown>(),
   people: [] as OfficePerson[],
+  /** The company's people could not be read. */
+  peopleError: false,
   mine: [] as MyCard[],
+  /** The columns of «Назначено мне»'s boards are not read yet. */
+  columnsUnread: false,
+  /** The writes the server has not answered yet (by their spy), until `releaseHeld()`. */
+  held: new Set<unknown>(),
 };
+
+/** The answers of the held writes, in the order they were asked. */
+let heldAnswers: (() => void)[] = [];
+
+/** The server answers every held write now (call it inside `act`). */
+export function releaseHeld() {
+  const answers = heldAnswers;
+  heldAnswers = [];
+  for (const answer of answers) {
+    answer();
+  }
+}
 
 /** Every write the screens ask for. */
 export const spies = {
@@ -217,6 +235,8 @@ export const spies = {
   saveComment: vi.fn(),
   deleteComment: vi.fn(),
   assign: vi.fn(),
+  /** A board dropped from the cache (useForgetBoard). */
+  forget: vi.fn(),
 };
 
 /** The navigation the screens ask for. */
@@ -241,15 +261,22 @@ function useMutationOf(spy: (variables: unknown) => void) {
     reset: () => setError(null),
     mutate: (variables: unknown, options?: MutateOptions) => {
       spy(variables);
-      const refusal = state.refusals.get(spy) ?? (state.failing.has(spy) ? REFUSAL : undefined);
-      if (refusal === undefined) {
-        setError(null);
-        options?.onSuccess?.();
-      } else {
-        setError(refusal);
-        options?.onError?.(refusal);
+      const answer = () => {
+        const refusal = state.refusals.get(spy) ?? (state.failing.has(spy) ? REFUSAL : undefined);
+        if (refusal === undefined) {
+          setError(null);
+          options?.onSuccess?.();
+        } else {
+          setError(refusal);
+          options?.onError?.(refusal);
+        }
+        options?.onSettled?.();
+      };
+      if (state.held.has(spy)) {
+        heldAnswers = [...heldAnswers, answer];
+        return;
       }
-      options?.onSettled?.();
+      answer();
     },
   };
 }
@@ -275,8 +302,18 @@ export const useBoardsModule = {
     isError: state.isStale,
     error: state.isStale ? new Error('offline') : null,
   }),
+  useBoardColumnsOf: (boardIds: readonly string[]) =>
+    read(
+      state.columnsUnread
+        ? undefined
+        : state.columns.filter((column) => boardIds.includes(column.board_id)),
+    ),
   useMyCards: () => read(state.mine),
-  useOfficePeople: () => read(state.people),
+  useOfficePeople: () =>
+    state.peopleError
+      ? { ...read(undefined), isError: true, error: { message: 'people offline' } }
+      : read(state.people),
+  useForgetBoard: () => spies.forget,
   useSaveCard: () => useMutationOf(spies.saveCard),
   useMoveCard: () => useMutationOf(spies.move),
   useSetCardShelf: () => useMutationOf(spies.shelve),
@@ -307,6 +344,10 @@ export function resetBoards() {
   state.failing = new Set();
   state.refusals = new Map();
   state.people = PEOPLE;
+  state.peopleError = false;
   state.mine = [];
+  state.columnsUnread = false;
+  state.held = new Set();
+  heldAnswers = [];
   vi.clearAllMocks();
 }

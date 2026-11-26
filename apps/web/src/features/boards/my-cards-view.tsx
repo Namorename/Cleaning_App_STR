@@ -5,6 +5,7 @@ import {
   hasCardFilters,
   isBoardColumn,
   matchesCardFilters,
+  type BoardColumn,
   type CardFilters,
   type CardOrder,
 } from '@str-ops/shared';
@@ -23,10 +24,17 @@ import { MY_CARDS, readBoardAddress, writeBoardAddress } from './address';
 import { BoardFilters } from './board-filters';
 import { CardDialog } from './card-dialog';
 import { boardKeys } from './keys';
-import { stageLanes, type PresetName } from './lanes';
+import { stageColumn, stageLanes, type PresetName } from './lanes';
 import { ManagerBoard } from './manager-board';
-import type { Board, BoardCard, BoardViewer, CardShelf, MyCard } from './schema';
-import { useBoards, useCard, useMoveCard, useMyCards, useSetCardShelf } from './use-boards';
+import type { Board, BoardCard, BoardViewer, CardShelf, ColumnRow, MyCard } from './schema';
+import {
+  useBoardColumnsOf,
+  useBoards,
+  useCard,
+  useMoveCard,
+  useMyCards,
+  useSetCardShelf,
+} from './use-boards';
 
 interface MyCardsViewProps {
   viewer: BoardViewer;
@@ -36,8 +44,8 @@ interface MyCardsViewProps {
  * «Назначено мне» (owner, 2026-11-18): the cards the viewer is the assignee of, from every board
  * that is not archived, in the four stages every board's columns stand for (20261126120000) — each
  * tile names its board, or says it is a private board the viewer does not see. They are worked on
- * here as on their boards: moved by stage (the server puts the card in its board's first column of
- * that stage), opened, copied and shelved (a copy opens; a shelved card leaves a line with
+ * here as on their boards: moved to a stage their board has a column of (into the first such
+ * column), opened, copied and shelved (a copy opens; a shelved card leaves a line with
  * «Отменить»); a new card is made on a board.
  */
 export function MyCardsView({ viewer }: MyCardsViewProps) {
@@ -60,6 +68,19 @@ export function MyCardsView({ viewer }: MyCardsViewProps) {
       isStale={cards.isError || boards.isError}
     />
   );
+}
+
+/**
+ * Where a card goes when moved to a stage: its board's first live column of that stage, by id — the
+ * card shows at once where it lands; null when its board has none (the move is not offered);
+ * undefined while the columns are not read, when the stage alone is sent and the server finds it.
+ */
+function stageTarget(
+  columns: readonly ColumnRow[] | undefined,
+  card: BoardCard,
+  stage: BoardColumn,
+): ColumnRow | null | undefined {
+  return columns === undefined ? undefined : stageColumn(columns, card.board_id, stage);
 }
 
 /**
@@ -109,6 +130,8 @@ function MyCardsPage({
   }, [address.cardId]);
   const move = useMoveCard(boardKeys.mine(viewer.id));
   const shelve = useSetCardShelf();
+  // The columns of the listed cards' boards: which stages each card may go to, and the column.
+  const columns = useBoardColumnsOf(cards.map((card) => card.board_id)).data;
   // A card that left the list from its dialog: the line says so, with «Отменить».
   const [shelved, setShelved] = useState<{
     card: Pick<BoardCard, 'id' | 'title'>;
@@ -133,13 +156,18 @@ function MyCardsPage({
     }
     setAddress({ ...here, cardId: null });
   };
-  // A move here names a stage: the server lands the card in its board's first column of it.
+  const canMoveTo = (card: BoardCard, lane: string) =>
+    isBoardColumn(lane) && stageTarget(columns, card, lane) !== null;
+  // A move here is to a stage: into the board's first column of it.
   const moveIt = (card: BoardCard, lane: string) => {
-    if (!isBoardColumn(lane)) {
+    const target = isBoardColumn(lane) ? stageTarget(columns, card, lane) : null;
+    if (!isBoardColumn(lane) || target === null) {
       return;
     }
     move.mutate(
-      { cardId: card.id, stage: lane },
+      target === undefined
+        ? { cardId: card.id, stage: lane }
+        : { cardId: card.id, columnId: target.id, stage: target.legacy_key },
       {
         onSuccess: () => setFailure(null),
         onError: (error: unknown) => setFailure(serverErrorText(error)),
@@ -185,6 +213,7 @@ function MyCardsPage({
           today={today}
           isFiltered={hasCardFilters(filters)}
           actionsFor={() => ({ onMove: moveIt })}
+          canMoveTo={canMoveTo}
           cardHref={cardHref}
           onOpen={openCard}
           boardLabelOf={boardLabelOf}

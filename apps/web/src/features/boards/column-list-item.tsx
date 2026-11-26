@@ -2,7 +2,14 @@
 
 import { BOARD_COLUMN_LIMITS } from '@str-ops/shared';
 import { ArrowDown, ArrowUp, GripVertical, Pencil, Trash2 } from 'lucide-react';
-import { useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -10,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 import type { ColumnRow } from './schema';
+import type { RowControl } from './use-column-order';
 
 /** What the list does while a column is dragged over its rows. */
 export interface ColumnDragHandlers {
@@ -36,18 +44,20 @@ interface ColumnListItemProps {
   /** The column dragged is over this row and lands in its place when let go. */
   isOver: boolean;
   onEdit: () => void;
-  onEditSave: (title: string) => void;
+  /** The new name; `byKey` when Enter saved it (the focus goes back to «Переименовать»). */
+  onEditSave: (title: string, byKey: boolean) => void;
   onEditCancel: () => void;
   onDone: (done: boolean) => void;
   onStep: (step: -1 | 1) => void;
   onDelete: () => void;
   drag: ColumnDragHandlers;
+  ref?: Ref<HTMLLIElement>;
 }
 
 /**
  * One column in «Колонки»: dragged by the row, renamed in place, finishing or not, moved up and
- * down by buttons — the keyboard's way to order — and deleted. The row is named by the column, so
- * its controls are told apart by a screen reader.
+ * down by buttons — the keyboard's way to order — and deleted. The row and each of its controls
+ * name the column, so a screen reader tells them apart from the other rows'.
  */
 export function ColumnListItem({
   column,
@@ -66,8 +76,11 @@ export function ColumnListItem({
   onStep,
   onDelete,
   drag,
+  ref,
 }: ColumnListItemProps) {
   const { t } = useTranslation();
+  // Every control names the column it acts on: «Выше: Ждём ответа».
+  const named = (label: string) => `${label}: ${name}`;
 
   const handleDragStart = (event: DragEvent<HTMLLIElement>) => {
     // Firefox starts a drag only when something is set.
@@ -93,6 +106,7 @@ export function ColumnListItem({
 
   return (
     <li
+      ref={ref}
       aria-label={name}
       draggable={!isEditing}
       onDragStart={handleDragStart}
@@ -115,7 +129,7 @@ export function ColumnListItem({
           <span className="min-w-0 flex-1 truncate text-sm font-medium" title={name}>
             {name}
           </span>
-          <IconButton label={t('boards.columnRename')} onClick={onEdit}>
+          <IconButton control="rename" label={named(t('boards.columnRename'))} onClick={onEdit}>
             <Pencil aria-hidden="true" />
           </IconButton>
         </>
@@ -125,20 +139,31 @@ export function ColumnListItem({
           type="checkbox"
           className="size-4"
           checked={column.is_done}
+          aria-label={named(t('boards.columnDone'))}
           aria-describedby={doneHintId}
           onChange={(event) => onDone(event.target.checked)}
         />
         {t('boards.columnDone')}
       </label>
       <div role="group" aria-label={t('boards.columnMove', { name })} className="flex">
-        <IconButton label={t('boards.columnUp')} disabled={isFirst} onClick={() => onStep(-1)}>
+        <IconButton
+          control="up"
+          label={named(t('boards.columnUp'))}
+          disabled={isFirst}
+          onClick={() => onStep(-1)}
+        >
           <ArrowUp aria-hidden="true" />
         </IconButton>
-        <IconButton label={t('boards.columnDown')} disabled={isLast} onClick={() => onStep(1)}>
+        <IconButton
+          control="down"
+          label={named(t('boards.columnDown'))}
+          disabled={isLast}
+          onClick={() => onStep(1)}
+        >
           <ArrowDown aria-hidden="true" />
         </IconButton>
       </div>
-      <IconButton label={t('boards.columnDelete')} disabled={!mayDelete} onClick={onDelete}>
+      <IconButton label={named(t('boards.columnDelete'))} disabled={!mayDelete} onClick={onDelete}>
         <Trash2 aria-hidden="true" />
       </IconButton>
     </li>
@@ -155,7 +180,7 @@ function NameField({
   onCancel,
 }: {
   name: string;
-  onSave: (title: string) => void;
+  onSave: (title: string, byKey: boolean) => void;
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
@@ -167,7 +192,7 @@ function NameField({
     if (event.key === 'Enter') {
       event.preventDefault();
       isSettled.current = true;
-      onSave(value);
+      onSave(value, true);
     } else if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
@@ -177,7 +202,7 @@ function NameField({
   };
   const blur = () => {
     if (!isSettled.current) {
-      onSave(value);
+      onSave(value, false);
     }
   };
 
@@ -196,11 +221,14 @@ function NameField({
 }
 
 function IconButton({
+  control,
   label,
   disabled = false,
   onClick,
   children,
 }: {
+  /** The control the focus is kept on through a change of the list. */
+  control?: RowControl;
   label: string;
   disabled?: boolean;
   onClick: () => void;
@@ -211,6 +239,7 @@ function IconButton({
       type="button"
       variant="ghost"
       className="size-11"
+      data-control={control}
       aria-label={label}
       title={label}
       disabled={disabled}

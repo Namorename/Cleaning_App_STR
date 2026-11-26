@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -13,6 +13,7 @@ import {
   makeBoard,
   makeCard,
   makeColumn,
+  presetColumns,
   resetBoards,
   spies,
   state,
@@ -20,8 +21,9 @@ import {
 
 /**
  * «Назначено мне» with boards of their own columns and private boards (20261126120000): the lanes
- * are the four stages, a move names a stage, and a card given on a board the viewer does not see is
- * his to work on, not to shelve, copy or give away.
+ * are the four stages, a card goes only to a stage its board has a column of — into the first such
+ * column, by id — and a card given on a board the viewer does not see is his to work on, not to
+ * shelve, copy or give away.
  */
 
 vi.mock('../use-boards', async () => (await import('./fixtures')).useBoardsModule);
@@ -51,7 +53,7 @@ const WAITING = 'c0a2d300-0000-4000-8000-00000000000b';
 const DONE = 'c0a2d300-0000-4000-8000-00000000000c';
 const TODO = 'c0a2d300-0000-4000-8000-00000000000a';
 
-/** The private board's columns: the viewer reads them through the card given to him. */
+/** The private board's columns, none of the stage «Назначено»: read through the card given to him. */
 function privateColumns() {
   return [
     makeColumn({ id: TODO, preset: 'open', position: 1, legacy_key: 'open' }),
@@ -95,7 +97,7 @@ const lane = (name: string) => screen.getByRole('region', { name });
 beforeEach(() => {
   resetBoards();
   state.boards = [makeBoard({ id: OTHER_BOARD, title: 'Закупки' })];
-  state.columns = privateColumns();
+  state.columns = [...privateColumns(), ...presetColumns(OTHER_BOARD)];
   state.mine = [privateCard(), sharedCard()];
   state.detail = cardDetailSchema.parse({
     ...DETAIL,
@@ -124,8 +126,49 @@ describe('«Назначено мне»', () => {
     expect(within(shared).getByText('Доска «Закупки»')).toBeInTheDocument();
   });
 
-  test('moves a card by a stage: the server finds the column', async () => {
+  test('offers only the stages the card’s board has, and moves into its first column of one', async () => {
     const user = userEvent.setup();
+    show();
+    await user.click(screen.getByRole('button', { name: 'Действия с карточкой «Ремонт ванной»' }));
+    const items = await screen.findAllByRole('menuitem');
+    expect(items.map((item) => item.textContent)).toEqual(['В «Открыто»', 'В «Выполнено»']);
+    await user.click(screen.getByRole('menuitem', { name: 'В «Выполнено»' }));
+    expect(spies.move).toHaveBeenCalledWith({
+      cardId: cardId(1),
+      columnId: DONE,
+      stage: 'resolved',
+    });
+  });
+
+  test('a card of a board of the four stages is offered the other three', async () => {
+    const user = userEvent.setup();
+    show();
+    await user.click(screen.getByRole('button', { name: 'Действия с карточкой «Купить лампы»' }));
+    const items = await screen.findAllByRole('menuitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      'В «Открыто»',
+      'В «Назначено»',
+      'В «В работе»',
+    ]);
+  });
+
+  test('a stage the board lacks takes no card dragged onto it; one it has takes it, by id', () => {
+    show();
+    const tile = screen.getByRole('article', { name: 'Ремонт ванной' });
+    fireEvent.dragStart(tile);
+    expect(lane('Назначено')).not.toHaveAttribute('data-droppable');
+    fireEvent.dragOver(lane('Назначено'));
+    fireEvent.drop(lane('Назначено'));
+    expect(spies.move).not.toHaveBeenCalled();
+    fireEvent.dragStart(tile);
+    fireEvent.dragOver(lane('Открыто'));
+    fireEvent.drop(lane('Открыто'));
+    expect(spies.move).toHaveBeenCalledWith({ cardId: cardId(1), columnId: TODO, stage: 'open' });
+  });
+
+  test('before the columns are read, every stage is offered and the stage alone is sent', async () => {
+    const user = userEvent.setup();
+    state.columnsUnread = true;
     show();
     await user.click(screen.getByRole('button', { name: 'Действия с карточкой «Ремонт ванной»' }));
     const items = await screen.findAllByRole('menuitem');
@@ -134,8 +177,8 @@ describe('«Назначено мне»', () => {
       'В «Назначено»',
       'В «Выполнено»',
     ]);
-    await user.click(screen.getByRole('menuitem', { name: 'В «Выполнено»' }));
-    expect(spies.move).toHaveBeenCalledWith({ cardId: cardId(1), stage: 'resolved' });
+    await user.click(screen.getByRole('menuitem', { name: 'В «Назначено»' }));
+    expect(spies.move).toHaveBeenCalledWith({ cardId: cardId(1), stage: 'assigned' });
   });
 });
 

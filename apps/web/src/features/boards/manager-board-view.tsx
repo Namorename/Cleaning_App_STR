@@ -62,6 +62,7 @@ import {
   useBoardColumns,
   useBoards,
   useDuplicateCard,
+  useForgetBoard,
   useMoveCard,
   useOfficePeople,
   useSetBoardArchived,
@@ -167,6 +168,7 @@ function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
   const duplicate = useDuplicateCard();
   const archiveBoard = useSetBoardArchived();
   const people = useOfficePeople();
+  const forgetBoard = useForgetBoard();
 
   const today = todayIso();
   const presetName: PresetName = (key) => t(`problems.statuses.${key}`);
@@ -251,6 +253,7 @@ function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
   const transferred = (name: string) => {
     setDialog(null);
     if (!viewer.isAdmin && !board.shared) {
+      forgetBoard(board.id);
       router.push(boardHref(null));
       return;
     }

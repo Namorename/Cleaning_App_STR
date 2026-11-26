@@ -45,7 +45,9 @@ export function BoardNameDialog({
   const radioName = useId();
   const [boardId] = useState(() => board?.id ?? crypto.randomUUID());
   const [title, setTitle] = useState(board?.title ?? '');
-  const [visibility, setVisibility] = useState<Visibility>(board?.shared ? 'shared' : 'private');
+  // Null until a choice is made: the board's visibility as it is now (a new board: its maker's).
+  const [picked, setVisibility] = useState<Visibility | null>(null);
+  const visibility: Visibility = picked ?? (board?.shared ? 'shared' : 'private');
   const failure = save.isError ? serverErrorText(save.error) : null;
   const isReady = title.trim() !== '';
   const choices: readonly { value: Visibility; label: string }[] = [
@@ -67,8 +69,12 @@ export function BoardNameDialog({
     if (!isReady || save.isPending) {
       return;
     }
+    const shared = visibility === 'shared';
+    // A new board says who sees it. A saved one says so only when the choice differs from what the
+    // board is now: a rename alone never overwrites a visibility someone changed meanwhile.
+    const isChange = board === undefined || (picked !== null && shared !== board.shared);
     save.mutate(
-      { boardId, title, shared: visibility === 'shared' },
+      { boardId, title, ...(isChange ? { shared } : {}) },
       { onSuccess: () => onSaved(boardId) },
     );
   };
