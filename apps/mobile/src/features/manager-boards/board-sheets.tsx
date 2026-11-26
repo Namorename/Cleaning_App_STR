@@ -25,7 +25,7 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
 import { useCardColor } from './format';
-import type { Board, OfficePerson } from './schema';
+import type { Board, BoardViewer, OfficePerson } from './schema';
 import { useSaveBoard } from './use-boards';
 
 const DUE_LABEL: Record<DueFilter, string> = {
@@ -186,29 +186,49 @@ function ColorToggle({
 
 interface BoardNameSheetProps {
   isVisible: boolean;
-  /** The board to rename; absent, a new board. */
-  board?: Pick<Board, 'id' | 'title'>;
+  /** The board to change; absent, a new board. */
+  board?: Pick<Board, 'id' | 'title' | 'shared' | 'owner_id'>;
+  /** Who changes it: an admin changing another's board reads «Видна только владельцу». */
+  viewer?: BoardViewer;
   onClose: () => void;
   onSaved: (boardId: string) => void;
 }
 
+type Visibility = 'private' | 'shared';
+
 /**
- * «Новая доска» and «Переименовать»: the name, and the button. A new board's
- * id is minted once per opening: a repeat after a lost answer is the same board.
+ * «Новая доска» and «Настройки доски»: the name, who sees the board (20261126120000) — a new one its
+ * maker alone unless she says otherwise — and the button. A new board's id is minted once per
+ * opening: a repeat after a lost answer is the same board.
  */
-export function BoardNameSheet({ isVisible, board, onClose, onSaved }: BoardNameSheetProps) {
+export function BoardNameSheet({
+  isVisible,
+  board,
+  viewer,
+  onClose,
+  onSaved,
+}: BoardNameSheetProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const save = useSaveBoard();
   const [boardId, setBoardId] = useState(() => board?.id ?? newId());
   const [title, setTitle] = useState(board?.title ?? '');
+  const [visibility, setVisibility] = useState<Visibility>(
+    board?.shared === true ? 'shared' : 'private',
+  );
   const failure = save.isError ? serverErrorText(save.error) : null;
+  const isOthers = board !== undefined && viewer !== undefined && board.owner_id !== viewer.id;
 
   const close = () => {
     if (save.isPending) {
       return;
     }
     save.reset();
+    if (board !== undefined) {
+      // Closed unsaved: the next opening shows the board as it is, not the words left here.
+      setTitle(board.title);
+      setVisibility(board.shared ? 'shared' : 'private');
+    }
     onClose();
   };
 
@@ -217,13 +237,14 @@ export function BoardNameSheet({ isVisible, board, onClose, onSaved }: BoardName
       return;
     }
     save.mutate(
-      { boardId, title },
+      { boardId, title, shared: visibility === 'shared' },
       {
         onSuccess: () => {
           onSaved(boardId);
           if (board === undefined) {
             setBoardId(newId());
             setTitle('');
+            setVisibility('private');
           }
         },
       },
@@ -233,7 +254,7 @@ export function BoardNameSheet({ isVisible, board, onClose, onSaved }: BoardName
   return (
     <BottomSheet
       isVisible={isVisible}
-      title={board === undefined ? t('boards.newBoard') : t('boards.renameTitle')}
+      title={board === undefined ? t('boards.newBoard') : t('boards.settingsTitle')}
       onClose={close}
     >
       <View style={styles.sheet}>
@@ -246,6 +267,25 @@ export function BoardNameSheet({ isVisible, board, onClose, onSaved }: BoardName
           onSubmitEditing={submit}
           error={failure?.text ?? null}
         />
+        <Text variant="chip" tone="secondary">
+          {t('boards.visibility')}
+        </Text>
+        <ChoiceChips
+          options={[
+            {
+              value: 'private' as const,
+              label: isOthers ? t('boards.visibilityPrivateOwner') : t('boards.visibilityPrivate'),
+            },
+            { value: 'shared' as const, label: t('boards.visibilityShared') },
+          ]}
+          value={visibility}
+          onChange={setVisibility}
+          accessibilityLabel={t('boards.visibility')}
+          semantics="radio"
+        />
+        <Text variant="caption" tone="secondary">
+          {t('boards.visibilityNote')}
+        </Text>
         <Text variant="caption" tone="secondary">
           {t('boards.boardRightsNote')}
         </Text>

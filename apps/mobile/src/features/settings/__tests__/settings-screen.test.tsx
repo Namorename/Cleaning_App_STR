@@ -227,12 +227,12 @@ test('a cleaner has no new-task switch at all, and every other one in its place'
 /** A cleaning handed back (20261118120000): told to the office alone. */
 const HANDED_BACK = ['Отказ от уборки', 'Уборка прервана'];
 
-test('a cleaner is shown no switch of a cleaning handed back, nor of a board card', async () => {
+test('a cleaner is shown no switch of a cleaning handed back, nor of the boards', async () => {
   mockRole = 'cleaner';
 
   await renderScreen();
 
-  for (const label of [...HANDED_BACK, 'Вам назначена карточка доски']) {
+  for (const label of [...HANDED_BACK, 'Вам назначена карточка доски', 'Вам передана доска']) {
     expect(screen.queryByText(label, { includeHiddenElements: true })).toBeNull();
   }
 });
@@ -246,7 +246,8 @@ test.each(['manager', 'admin'])(
     // Act
     await renderScreen();
 
-    // Assert: and the board card given to them (20261118230000), before the chat.
+    // Assert: and the board card given to them (20261118230000) and the board handed to them
+    // (20261126120000), before the chat.
     const office = KIND_LABELS.filter((label) => label !== NEW_TASK);
     const afterFree = office.indexOf('Свободная уборка') + 1;
     const withHandedBack = [
@@ -258,6 +259,7 @@ test.each(['manager', 'admin'])(
     const expected = [
       ...withHandedBack.slice(0, beforeChat),
       'Вам назначена карточка доски',
+      'Вам передана доска',
       ...withHandedBack.slice(beforeChat),
     ];
     await waitFor(() => expect(screen.getAllByRole('switch')).toHaveLength(expected.length));

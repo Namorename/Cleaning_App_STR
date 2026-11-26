@@ -17,7 +17,10 @@ export const PUSH_KINDS: readonly PushKind[] = Constants.public.Enums.push_kind;
 /** Who hears that a cleaner handed her cleaning back: the office (20261118120000, 20261119143000). */
 const OFFICE_ROLES: readonly AppRole[] = ['manager', 'admin', 'reception'];
 
-/** Who has manager boards, and so hears a card given to her: not the reception (20261119143000). */
+/**
+ * Who has manager boards, and so hears a card given to her or a board handed to her: not the
+ * reception (20261119143000).
+ */
 const BOARD_ROLES: readonly AppRole[] = ['manager', 'admin'];
 
 /**
@@ -28,13 +31,15 @@ const BOARD_ROLES: readonly AppRole[] = ['manager', 'admin'];
  * 2026-10-03, docs/tech-plan.md, decision 19). A cleaning declined or
  * interrupted goes to every manager and admin of the company and to nobody
  * else, so only they are shown those two; so is a manager board's card given
- * to somebody (board_card_assigned, 20261118230000) — only the office has boards.
+ * to somebody (board_card_assigned, 20261118230000) and a board handed to a
+ * new owner (board_transferred, 20261126120000) — only the office has boards.
  */
 const KIND_ROLES: Partial<Record<PushKind, readonly AppRole[]>> = {
   problem_new: ['head_tech'],
   cleaning_declined: OFFICE_ROLES,
   cleaning_interrupted: OFFICE_ROLES,
   board_card_assigned: BOARD_ROLES,
+  board_transferred: BOARD_ROLES,
 };
 
 /**

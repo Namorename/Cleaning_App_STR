@@ -5,14 +5,17 @@ import { fetchAllPages } from '@/lib/fetch-all-pages';
 
 import {
   boardCardListSchema,
+  boardColumnRowListSchema,
   boardListSchema,
   cardDetailSchema,
   myCardListSchema,
   officePeopleSchema,
+  onLiveBoards,
   type Board,
   type BoardCard,
   type CardDetail,
   type CardShelf,
+  type ColumnRow,
   type MyCard,
   type OfficePerson,
 } from './schema';
@@ -27,7 +30,12 @@ export type Client = SupabaseClient<Database>;
  */
 type BoardFunction =
   | 'save_manager_board'
+  | 'transfer_manager_board'
   | 'set_manager_board_archived'
+  | 'save_manager_board_column'
+  | 'order_manager_board_columns'
+  | 'set_manager_board_column_done'
+  | 'delete_manager_board_column'
   | 'save_manager_card'
   | 'move_manager_card'
   | 'set_manager_card_state'
@@ -62,10 +70,14 @@ async function call(
 }
 
 const BOARD_SELECT =
-  'id, title, owner_id, archived_at, created_at, owner:profiles!manager_boards_owner_id_fkey(full_name)';
+  'id, title, owner_id, archived_at, created_at, shared, ' +
+  'owner:profiles!manager_boards_owner_id_fkey(full_name)';
+
+const COLUMN_SELECT = 'id, board_id, title, preset, position, is_done, legacy_key, deleted_at';
 
 const CARD_FIELDS =
-  'id, board_id, title, description, column_key, color, due_on, property_id, created_at, moved_at, ' +
+  'id, board_id, title, description, column_id, column_key, color, due_on, property_id, ' +
+  'created_at, moved_at, ' +
   'archived_at, deleted_at, property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
   'assignee_id, assignee:profiles!manager_board_cards_assignee_id_fkey(full_name)';
 
@@ -77,7 +89,10 @@ const CARD_DETAIL_SELECT =
   'entries:manager_board_entries(id, kind, body, facts, author_id, created_at, edited_at, ' +
   'author:profiles!manager_board_entries_author_id_fkey(full_name))';
 
-/** Every board of the company, the archived ones too, oldest first. Row level security draws the line. */
+/**
+ * Every board of the company the viewer sees — shared ones, his own, all of them for an admin
+ * (20261126120000) — the archived ones too, oldest first. Row level security draws the line.
+ */
 export async function fetchBoards(client: Client): Promise<Board[]> {
   const { data, error } = await client
     .from('manager_boards')
@@ -104,11 +119,39 @@ export async function fetchBoardCards(client: Client, boardId: string): Promise<
   return boardCardListSchema.parse(rows);
 }
 
-const MY_CARD_SELECT = `${CARD_SELECT}, board:manager_boards!inner(id, title, owner_id, archived_at)`;
+/**
+ * Every column of these boards (20261126120000) — the deleted ones too, which the journal still
+ * names — in their order. Read for a board the viewer sees, and for the board of a card given to
+ * him on one he does not.
+ */
+export async function fetchBoardColumns(
+  client: Client,
+  boardIds: readonly string[],
+): Promise<ColumnRow[]> {
+  if (boardIds.length === 0) {
+    return [];
+  }
+  const rows = await fetchAllPages((from, to, withCount) =>
+    client
+      .from('manager_board_columns')
+      .select(COLUMN_SELECT, withCount ? { count: 'exact' } : undefined)
+      .in('board_id', [...boardIds])
+      .order('position', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to),
+  );
+  return boardColumnRowListSchema.parse(rows);
+}
+
+// No `!inner`: a card given to the viewer on a board he does not see comes with `board: null`
+// (20261126120000), where an inner embed would drop it. Whether a board he sees is archived is
+// therefore read here, not filtered on the server (a filter on the embed would null it alike).
+const MY_CARD_SELECT = `${CARD_SELECT}, board:manager_boards(id, title, owner_id, archived_at)`;
 
 /**
  * «Назначено мне»: the cards the viewer is the assignee of, on every board of the company that is
- * not archived, and neither archived nor deleted themselves.
+ * not archived — the boards he sees, and the private boards of others where a card is his — and
+ * neither archived nor deleted themselves.
  */
 export async function fetchMyCards(client: Client, viewerId: string): Promise<MyCard[]> {
   const rows = await fetchAllPages((from, to, withCount) =>
@@ -118,12 +161,11 @@ export async function fetchMyCards(client: Client, viewerId: string): Promise<My
       .eq('assignee_id', viewerId)
       .is('archived_at', null)
       .is('deleted_at', null)
-      .is('board.archived_at', null)
       .order('created_at', { ascending: false })
       .order('id', { ascending: true })
       .range(from, to),
   );
-  return myCardListSchema.parse(rows);
+  return onLiveBoards(myCardListSchema.parse(rows));
 }
 
 /**
@@ -158,13 +200,83 @@ export async function fetchCard(client: Client, cardId: string): Promise<CardDet
 export interface SaveBoardVariables {
   boardId: string;
   title: string;
+  /**
+   * Whether the other managers see it (20261126120000). Absent says nothing: a new board is then
+   * its owner's alone, a saved one keeps what it was.
+   */
+  shared?: boolean;
 }
 
-/** Creates a board (the caller owns it) or renames it. */
+/** Creates a board (the caller owns it), or renames it and changes who sees it. */
 export async function saveBoard(client: Client, variables: SaveBoardVariables): Promise<void> {
   await call(client, 'save_manager_board', {
     p_id: variables.boardId,
     p_title: variables.title.trim(),
+    ...(variables.shared === undefined ? {} : { p_shared: variables.shared }),
+  });
+}
+
+/** Hands the board to another active manager or admin of the company: its owner or an admin. */
+export async function transferBoard(
+  client: Client,
+  variables: { boardId: string; toId: string },
+): Promise<void> {
+  await call(client, 'transfer_manager_board', { p_id: variables.boardId, p_to: variables.toId });
+}
+
+export interface SaveColumnVariables {
+  /** Minted by the panel for a new column: a repeat after a lost answer is the same column. */
+  columnId: string;
+  /** The board a new column is added to, at its end; null renames the column. */
+  boardId: string | null;
+  title: string;
+}
+
+/** Adds a column at the end of a board, or renames one. */
+export async function saveColumn(client: Client, variables: SaveColumnVariables): Promise<void> {
+  await call(client, 'save_manager_board_column', {
+    p_id: variables.columnId,
+    p_board_id: variables.boardId,
+    p_title: variables.title.trim(),
+  });
+}
+
+/** Puts a board's live columns in this order: every one of them, once. */
+export async function orderColumns(
+  client: Client,
+  variables: { boardId: string; columnIds: readonly string[] },
+): Promise<void> {
+  await call(client, 'order_manager_board_columns', {
+    p_board_id: variables.boardId,
+    p_ids: variables.columnIds,
+  });
+}
+
+/** Marks a column finishing — its cards are done — or not. */
+export async function setColumnDone(
+  client: Client,
+  variables: { columnId: string; done: boolean },
+): Promise<void> {
+  await call(client, 'set_manager_board_column_done', {
+    p_id: variables.columnId,
+    p_done: variables.done,
+  });
+}
+
+export interface DeleteColumnVariables {
+  columnId: string;
+  /** Where its cards go — another live column of the board; none for a column without cards. */
+  moveToId: string | null;
+}
+
+/** Deletes a column, its cards moved to another first. */
+export async function deleteColumn(
+  client: Client,
+  variables: DeleteColumnVariables,
+): Promise<void> {
+  await call(client, 'delete_manager_board_column', {
+    p_id: variables.columnId,
+    ...(variables.moveToId === null ? {} : { p_move_to: variables.moveToId }),
   });
 }
 
@@ -191,8 +303,11 @@ export interface SaveCardVariables {
   cardId: string;
   boardId: string;
   fields: CardFields;
-  /** Read on the create only: the column it is added in. */
-  column?: BoardColumn;
+  /**
+   * Read on the create only: the board's column it is added in, by id (20261126120000). A save of
+   * the fields names none — a card named with a column is a repeat of its create.
+   */
+  columnId?: string;
   /** Read on the create only: the steps it starts with, in order. */
   steps?: readonly string[];
 }
@@ -208,7 +323,7 @@ export async function saveCard(client: Client, variables: SaveCardVariables): Pr
     p_due_on: fields.dueOn,
     p_property_id: fields.propertyId,
     p_color: fields.color,
-    ...(variables.column === undefined ? {} : { p_column: variables.column }),
+    ...(variables.columnId === undefined ? {} : { p_column_id: variables.columnId }),
     ...(variables.steps === undefined ? {} : { p_steps: variables.steps }),
   });
 }
@@ -224,11 +339,23 @@ export async function setCardAssignee(
   });
 }
 
-export async function moveCard(
-  client: Client,
-  variables: { cardId: string; column: BoardColumn },
-): Promise<void> {
-  await call(client, 'move_manager_card', { p_id: variables.cardId, p_column: variables.column });
+/**
+ * Where a card goes (20261126120000): a column of its board by id — with that column's stage, which
+ * the card reads as at once — or, from «Назначено мне», a stage alone: the server lands it in the
+ * board's first column of that stage.
+ */
+export type MoveCardVariables =
+  | { cardId: string; columnId: string; stage: BoardColumn }
+  | { cardId: string; columnId?: undefined; stage: BoardColumn };
+
+export async function moveCard(client: Client, variables: MoveCardVariables): Promise<void> {
+  await call(
+    client,
+    'move_manager_card',
+    variables.columnId === undefined
+      ? { p_id: variables.cardId, p_column: variables.stage }
+      : { p_id: variables.cardId, p_column_id: variables.columnId },
+  );
 }
 
 export async function setCardShelf(

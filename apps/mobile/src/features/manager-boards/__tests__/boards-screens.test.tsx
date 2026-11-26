@@ -1,4 +1,4 @@
-import { localDay } from '@str-ops/shared';
+import { BOARD_COLUMNS, localDay, type BoardColumn } from '@str-ops/shared';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
@@ -6,6 +6,7 @@ import { BoardBody, BoardsTab } from '../boards-tab';
 import { CardScreen } from '../card-screen';
 import {
   boardCardSchema,
+  boardColumnSchema,
   boardSchema,
   cardDetailSchema,
   myCardSchema,
@@ -13,6 +14,7 @@ import {
   type BoardCard,
   type BoardViewer,
   type CardDetail,
+  type ColumnRow,
   type MyCard,
   type OfficePerson,
 } from '../schema';
@@ -56,6 +58,7 @@ function addDays(days: number): string {
   return new Date(Date.UTC(year, month - 1, date + days)).toISOString().slice(0, 10);
 }
 
+// No `shared`: as a board cached by the build before visibility, which reads as shared.
 const board = (
   id: string,
   title: string,
@@ -71,6 +74,39 @@ const board = (
     owner: { full_name: 'Ольга' },
   });
 
+/** The four columns a board is made with (20261126120000), each named by its preset's word. */
+const COLUMN_IDS: Readonly<Record<BoardColumn, string>> = {
+  open: 'c01a2b3c-0000-4000-8000-000000000001',
+  assigned: 'c01a2b3c-0000-4000-8000-000000000002',
+  in_progress: 'c01a2b3c-0000-4000-8000-000000000003',
+  resolved: 'c01a2b3c-0000-4000-8000-000000000004',
+};
+
+const column = (overrides: Partial<ColumnRow> & Pick<ColumnRow, 'id'>): ColumnRow =>
+  boardColumnSchema.parse({
+    board_id: BOARD,
+    title: null,
+    preset: null,
+    position: 1,
+    is_done: false,
+    legacy_key: 'open',
+    deleted_at: null,
+    ...overrides,
+  });
+
+const PRESETS: ColumnRow[] = BOARD_COLUMNS.map((key, index) =>
+  column({
+    id: COLUMN_IDS[key],
+    preset: key,
+    position: index + 1,
+    is_done: key === 'resolved',
+    legacy_key: key,
+  }),
+);
+
+const columnOfKey = (key: string): string | null =>
+  (COLUMN_IDS as Readonly<Record<string, string>>)[key] ?? null;
+
 const card = (n: number, overrides: Partial<BoardCard> = {}): BoardCard =>
   boardCardSchema.parse({
     id: `b0a2d200-0000-4000-8000-00000000000${n}`,
@@ -78,6 +114,7 @@ const card = (n: number, overrides: Partial<BoardCard> = {}): BoardCard =>
     title: `Карточка ${n}`,
     description: '',
     column_key: 'open',
+    column_id: columnOfKey(overrides.column_key ?? 'open'),
     color: null,
     due_on: null,
     property_id: null,
@@ -142,6 +179,8 @@ const mockState: {
   viewer: BoardViewer;
   boards: Board[];
   cards: BoardCard[];
+  /** The board's columns, the deleted ones too. */
+  columns: ColumnRow[];
   detail: CardDetail | null;
   /** The last read failed, what was read before it still in hand. */
   isStale: boolean;
@@ -155,6 +194,7 @@ const mockState: {
   viewer: { id: OWNER, isAdmin: false },
   boards: [board(BOARD, 'Проекты'), board(SECOND, 'Закупки', READER)],
   cards: CARDS,
+  columns: PRESETS,
   detail: DETAIL,
   isStale: false,
   failing: new Set(),
@@ -188,6 +228,8 @@ const mockSpies = {
   saveComment: jest.fn(),
   archiveBoard: jest.fn(),
   assign: jest.fn(),
+  saveBoard: jest.fn(),
+  transfer: jest.fn(),
 };
 
 function mockMutation(spy: jest.Mock) {
@@ -225,6 +267,12 @@ jest.mock('../use-boards', () => ({
     data: mockState.cards,
     refetch: jest.fn(),
   }),
+  useBoardColumns: () => ({
+    isPending: false,
+    isError: false,
+    data: mockState.columns,
+    refetch: jest.fn(),
+  }),
   useCard: () => ({
     isPending: false,
     isError: mockState.isStale,
@@ -236,7 +284,12 @@ jest.mock('../use-boards', () => ({
   useMoveCard: () => mockMutation(mockSpies.move),
   useSetCardShelf: () => mockMutation(mockSpies.shelve),
   useSetBoardArchived: () => mockMutation(mockSpies.archiveBoard),
-  useSaveBoard: () => mockMutation(jest.fn()),
+  useSaveBoard: () => mockMutation(mockSpies.saveBoard),
+  useTransferBoard: () => mockMutation(mockSpies.transfer),
+  useSaveColumn: () => mockMutation(jest.fn()),
+  useOrderColumns: () => mockMutation(jest.fn()),
+  useSetColumnDone: () => mockMutation(jest.fn()),
+  useDeleteColumn: () => mockMutation(jest.fn()),
   useDuplicateCard: () => mockMutation(jest.fn()),
   useSaveStep: () => mockMutation(jest.fn()),
   useSetStepDone: () => mockMutation(mockSpies.tick),
@@ -258,6 +311,7 @@ beforeEach(() => {
   mockState.viewer = { id: OWNER, isAdmin: false };
   mockState.boards = [board(BOARD, 'Проекты'), board(SECOND, 'Закупки', READER)];
   mockState.cards = CARDS;
+  mockState.columns = PRESETS;
   mockState.detail = DETAIL;
   mockState.isStale = false;
   mockState.failing = new Set();
@@ -340,7 +394,7 @@ describe('the boards tab', () => {
     expect(mockSpies.saveCard).toHaveBeenCalledWith(
       expect.objectContaining({
         boardId: BOARD,
-        column: 'open',
+        columnId: COLUMN_IDS.open,
         fields: {
           title: 'Позвонить электрику',
           description: '',
@@ -382,7 +436,7 @@ describe('the card screen', () => {
   test('the column as buttons, moved by a tap', async () => {
     await render(<CardScreen cardId={DETAIL.id} />);
     await fireEvent.press(screen.getByRole('radio', { name: 'В работе' }));
-    expect(mockSpies.move).toHaveBeenCalledWith({ cardId: DETAIL.id, column: 'in_progress' });
+    expect(mockSpies.move).toHaveBeenCalledWith({ cardId: DETAIL.id, column: PRESETS[2] });
   });
 
   test('with every step ticked it offers «Выполнено», and moves only when asked', async () => {
@@ -392,7 +446,7 @@ describe('the card screen', () => {
     ).toBeOnTheScreen();
     expect(mockSpies.move).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByRole('button', { name: 'Перенести' }));
-    expect(mockSpies.move).toHaveBeenCalledWith({ cardId: DETAIL.id, column: 'resolved' });
+    expect(mockSpies.move).toHaveBeenCalledWith({ cardId: DETAIL.id, column: PRESETS[3] });
   });
 
   test('the due date is picked on the month grid and saved with the fields', async () => {
@@ -447,7 +501,7 @@ describe('the card screen', () => {
     mockState.viewer = { id: READER, isAdmin: false };
     await render(<CardScreen cardId={DETAIL.id} />);
     await fireEvent.press(screen.getByRole('radio', { name: 'В работе' }));
-    expect(mockSpies.move).toHaveBeenCalledWith({ cardId: DETAIL.id, column: 'in_progress' });
+    expect(mockSpies.move).toHaveBeenCalledWith({ cardId: DETAIL.id, column: PRESETS[2] });
     expect(screen.getByLabelText('Комментарий')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Дублировать' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'В архив' })).toBeOnTheScreen();
@@ -635,7 +689,7 @@ describe('the board itself (20261119090000)', () => {
   test('its own form says who renames and archives it', async () => {
     await render(<BoardsTab />);
     await fireEvent.press(screen.getByRole('button', { name: 'Действия с доской' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Переименовать' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Настройки доски' }));
     expect(
       screen.getByText(
         'Переименовать доску и убрать её в архив может только её владелец или админ.',

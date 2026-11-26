@@ -1,7 +1,7 @@
 'use client';
 
 import { BOARD_LIMITS } from '@str-ops/shared';
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -10,28 +10,51 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { serverErrorText } from '@/lib/server-error';
 
+import type { Board } from './schema';
 import { useSaveBoard } from './use-boards';
 
 interface BoardNameDialogProps {
-  /** The board to rename; absent, a new board is made under an id of its own. */
-  board?: { id: string; title: string };
+  /** The board whose settings these are; absent, a new board is made under an id of its own. */
+  board?: Pick<Board, 'id' | 'title' | 'shared'>;
+  /**
+   * The viewer is not the board's owner (an admin at another's board): «Видна только владельцу»
+   * says who sees a private board, not «Видна только мне».
+   */
+  isOthersBoard?: boolean;
   onClose: () => void;
   /** The board is saved: the switcher opens a new one. */
   onSaved: (boardId: string) => void;
 }
 
+/** Who sees a board: its owner and the admins alone, or the other managers too. */
+type Visibility = 'private' | 'shared';
+
 /**
- * «Новая доска» and «Переименовать»: one field, the board's name. Mounted only
- * while open, so a new board's id is minted once per opening and a repeat is
- * the same board.
+ * «Новая доска» and «Настройки доски» (20261126120000): the board's name, and who sees it — its
+ * owner alone by default, or the other managers too; an admin sees every board. Mounted only while
+ * open, so a new board's id is minted once per opening and a repeat is the same board.
  */
-export function BoardNameDialog({ board, onClose, onSaved }: BoardNameDialogProps) {
+export function BoardNameDialog({
+  board,
+  isOthersBoard = false,
+  onClose,
+  onSaved,
+}: BoardNameDialogProps) {
   const { t } = useTranslation();
   const save = useSaveBoard();
+  const radioName = useId();
   const [boardId] = useState(() => board?.id ?? crypto.randomUUID());
   const [title, setTitle] = useState(board?.title ?? '');
+  const [visibility, setVisibility] = useState<Visibility>(board?.shared ? 'shared' : 'private');
   const failure = save.isError ? serverErrorText(save.error) : null;
   const isReady = title.trim() !== '';
+  const choices: readonly { value: Visibility; label: string }[] = [
+    {
+      value: 'private',
+      label: isOthersBoard ? t('boards.visibilityPrivateOwner') : t('boards.visibilityPrivate'),
+    },
+    { value: 'shared', label: t('boards.visibilityShared') },
+  ];
 
   const close = () => {
     if (!save.isPending) {
@@ -44,7 +67,10 @@ export function BoardNameDialog({ board, onClose, onSaved }: BoardNameDialogProp
     if (!isReady || save.isPending) {
       return;
     }
-    save.mutate({ boardId, title }, { onSuccess: () => onSaved(boardId) });
+    save.mutate(
+      { boardId, title, shared: visibility === 'shared' },
+      { onSuccess: () => onSaved(boardId) },
+    );
   };
 
   return (
@@ -52,7 +78,7 @@ export function BoardNameDialog({ board, onClose, onSaved }: BoardNameDialogProp
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {board === undefined ? t('boards.newBoard') : t('boards.renameTitle')}
+            {board === undefined ? t('boards.newBoard') : t('boards.settingsTitle')}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={submit} className="flex flex-col gap-4">
@@ -67,6 +93,23 @@ export function BoardNameDialog({ board, onClose, onSaved }: BoardNameDialogProp
               onChange={(event) => setTitle(event.target.value)}
             />
           </div>
+          <fieldset className="flex flex-col gap-1">
+            <legend className="mb-1 text-sm font-medium">{t('boards.visibility')}</legend>
+            {choices.map((choice) => (
+              <label key={choice.value} className="flex min-h-11 items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name={radioName}
+                  value={choice.value}
+                  className="size-4"
+                  checked={visibility === choice.value}
+                  onChange={() => setVisibility(choice.value)}
+                />
+                {choice.label}
+              </label>
+            ))}
+            <p className="text-xs text-muted-foreground">{t('boards.visibilityNote')}</p>
+          </fieldset>
           <p className="text-xs text-muted-foreground">{t('boards.boardRightsNote')}</p>
           {failure === null ? null : (
             <p role="alert" className="text-sm text-destructive">

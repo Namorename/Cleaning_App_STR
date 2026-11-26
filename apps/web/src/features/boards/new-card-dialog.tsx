@@ -1,6 +1,6 @@
 'use client';
 
-import { BOARD_COLUMNS, BOARD_LIMITS, type BoardColumn } from '@str-ops/shared';
+import { BOARD_LIMITS } from '@str-ops/shared';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { serverErrorText } from '@/lib/server-error';
 
 import { CardFieldsForm, EMPTY_FIELDS, fieldsOf, type FieldsDraft } from './card-fields';
+import type { BoardLane } from './lanes';
 import { assignablePeople } from './schema';
 import { useOfficePeople, useSaveCard, useSetCardAssignee } from './use-boards';
 
@@ -31,6 +32,11 @@ interface NewCardDialogProps {
   boardId: string;
   /** The board's owner: the new card's assignee unless another is picked (or nobody). */
   ownerId: string;
+  /**
+   * The board's live columns in order (20261126120000): the card goes to one, the first unless
+   * another is picked.
+   */
+  columns: readonly BoardLane[];
   onClose: () => void;
   /** The card is on the board: it opens. */
   onCreated: (cardId: string) => void;
@@ -44,7 +50,13 @@ interface NewCardDialogProps {
  * board's owner unless another person — or nobody — is picked: the server makes
  * the card its owner's, and a different pick is a second write.
  */
-export function NewCardDialog({ boardId, ownerId, onClose, onCreated }: NewCardDialogProps) {
+export function NewCardDialog({
+  boardId,
+  ownerId,
+  columns,
+  onClose,
+  onCreated,
+}: NewCardDialogProps) {
   const { t } = useTranslation();
   const save = useSaveCard();
   const assign = useSetCardAssignee();
@@ -58,10 +70,13 @@ export function NewCardDialog({ boardId, ownerId, onClose, onCreated }: NewCardD
   const assignFailure = assign.isError ? serverErrorText(assign.error) : null;
   const [cardId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState<FieldsDraft>(EMPTY_FIELDS);
-  const [column, setColumn] = useState<BoardColumn>('open');
+  // Null until picked: the board's first column. A picked column deleted meanwhile is the first too.
+  const [pickedColumnId, setPickedColumnId] = useState<string | null>(null);
+  const columnId =
+    columns.find((column) => column.key === pickedColumnId)?.key ?? columns[0]?.key ?? null;
   const [stepsText, setStepsText] = useState('');
   const failure = save.isError ? serverErrorText(save.error) : null;
-  const isReady = draft.title.trim() !== '';
+  const isReady = draft.title.trim() !== '' && columnId !== null;
 
   const isBusy = save.isPending || assign.isPending;
   const close = () => {
@@ -72,14 +87,14 @@ export function NewCardDialog({ boardId, ownerId, onClose, onCreated }: NewCardD
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!isReady || isBusy) {
+    if (!isReady || isBusy || columnId === null) {
       return;
     }
     const picked = assigneeId === NOBODY ? null : assigneeId;
     // A repeat after a refusal is safe: the same id makes no second card, and the same assignee
     // again changes nothing.
     save.mutate(
-      { cardId, boardId, column, fields: fieldsOf(draft), steps: stepsFromLines(stepsText) },
+      { cardId, boardId, columnId, fields: fieldsOf(draft), steps: stepsFromLines(stepsText) },
       {
         onSuccess: () => {
           if (assigneeId === serverDefault) {
@@ -105,13 +120,13 @@ export function NewCardDialog({ boardId, ownerId, onClose, onCreated }: NewCardD
             <Label htmlFor="new-card-column">{t('boards.column')}</Label>
             <NativeSelect
               id="new-card-column"
-              value={column}
+              value={columnId ?? ''}
               className="h-11 sm:max-w-xs"
-              onChange={(event) => setColumn(event.target.value as BoardColumn)}
+              onChange={(event) => setPickedColumnId(event.target.value)}
             >
-              {BOARD_COLUMNS.map((option) => (
-                <option key={option} value={option}>
-                  {t(`problems.statuses.${option}`)}
+              {columns.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.name}
                 </option>
               ))}
             </NativeSelect>

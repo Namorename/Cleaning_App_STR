@@ -39,27 +39,46 @@ function countFact(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-function personFact(value: unknown): string | null {
+/** An id the server kept — a person's, a column's — or null. */
+function idFact(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
+}
+
+/** The column a «moved» line names: by its id (20261126120000), else by the stage's word. */
+function movedTo(
+  facts: CardEntry['facts'],
+  t: TFunction,
+  columnNameOf: (id: string) => string | null,
+): string {
+  const columnId = idFact(facts.to_column);
+  const byId = columnId === null ? null : columnNameOf(columnId);
+  if (byId !== null) {
+    return byId;
+  }
+  return typeof facts.to === 'string' && isBoardColumn(facts.to)
+    ? t(`problems.statuses.${facts.to}`)
+    : '—';
 }
 
 /**
  * A system line of the journal in words: the server keeps codes, dates, counts
  * and people's ids, never a person's words or name (the panel says them the same
- * way); `nameOf` names the people from the company's directory.
+ * way); `nameOf` names the people from the company's directory, `columnNameOf`
+ * the board's columns — renamed and deleted ones too — by their id.
  */
 export function entrySentence(
   entry: CardEntry,
   t: TFunction,
   nameOf: (id: string) => string | null = () => null,
+  columnNameOf: (id: string) => string | null = () => null,
 ): string {
   const { facts } = entry;
   const person = (id: string | null) =>
     id === null ? '—' : (nameOf(id) ?? t('boards.unknownPerson'));
   switch (entry.kind) {
     case 'assignee_changed': {
-      const from = personFact(facts.from);
-      const to = personFact(facts.to);
+      const from = idFact(facts.from);
+      const to = idFact(facts.to);
       if (from === null && to !== null) {
         return t('boards.entries.assigneeSet', { to: person(to) });
       }
@@ -68,12 +87,8 @@ export function entrySentence(
       }
       return t('boards.entries.assigneeChanged', { from: person(from), to: person(to) });
     }
-    case 'moved': {
-      const to = typeof facts.to === 'string' && isBoardColumn(facts.to) ? facts.to : null;
-      return t('boards.entries.moved', {
-        column: to === null ? '—' : t(`problems.statuses.${to}`),
-      });
-    }
+    case 'moved':
+      return t('boards.entries.moved', { column: movedTo(facts, t, columnNameOf) });
     case 'due_changed': {
       const from = dayFact(facts.from);
       const to = dayFact(facts.to);

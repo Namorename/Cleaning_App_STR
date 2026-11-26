@@ -12,13 +12,14 @@ const TASK_ID = '0b3f5c1e-8d2a-4f6b-9c7d-1e2f3a4b5c6d';
 const PROBLEM_ID = '5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d';
 const THREAD_ID = '9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a';
 
-test('the cleaning kinds are every push kind but the chat message, the digest, a new task and a board card', () => {
+test('the cleaning kinds are every push kind but the chat message, the digest, a new task and the boards’ two', () => {
   const expected = Constants.public.Enums.push_kind.filter(
     (kind) =>
       kind !== 'chat_message' &&
       kind !== 'daily_digest' &&
       kind !== 'problem_new' &&
-      kind !== 'board_card_assigned',
+      kind !== 'board_card_assigned' &&
+      kind !== 'board_transferred',
   );
 
   expect([...TASK_PUSH_KINDS].sort()).toEqual([...expected].sort());
@@ -92,4 +93,16 @@ test('a board card given to her names the card, and nothing else is read from it
   });
   expect(readPushData({ kind: 'board_card_assigned', cardId: 'not-an-id' })).toBeNull();
   expect(readPushData({ kind: 'board_card_assigned' })).toBeNull();
+});
+
+// A board handed to her (20261126120000): send-push names the board, run.ts pushData.
+test('a board handed to her names the board, and nothing else is read from it', () => {
+  const boardId = '2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a';
+  expect(readPushData({ kind: 'board_transferred', boardId })).toEqual({
+    kind: 'board_transferred',
+    boardId,
+  });
+  expect(readPushData({ kind: 'board_transferred', boardId: 'board-1' })).toBeNull();
+  expect(readPushData({ kind: 'board_transferred' })).toBeNull();
+  expect(readPushData({ kind: 'board_transferred', cardId: boardId })).toBeNull();
 });

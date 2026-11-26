@@ -1,12 +1,13 @@
 'use client';
 
 import {
-  BOARD_COLUMNS,
   BOARD_LIMITS,
+  columnName,
+  firstDoneColumn,
   isCardColor,
   isEveryStepDone,
-  LAST_BOARD_COLUMN,
-  type BoardColumn,
+  isInDoneColumn,
+  liveColumns,
 } from '@str-ops/shared';
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -37,6 +38,7 @@ import { CardJournal } from './card-journal';
 import { CardSteps } from './card-steps';
 import { DueChip } from './due-chip';
 import { boardKeys } from './keys';
+import { columnNameById, type PresetName } from './lanes';
 import { LinkedText } from './linked-text';
 import {
   assignablePeople,
@@ -47,8 +49,10 @@ import {
   type BoardViewer,
   type CardDetail,
   type CardShelf,
+  type ColumnRow,
 } from './schema';
 import {
+  useBoardColumns,
   useCard,
   useDuplicateCard,
   useMoveCard,
@@ -60,7 +64,11 @@ import {
 
 interface CardDialogProps {
   cardId: string;
-  board: Board;
+  /**
+   * The board the card is opened on, or — on «Назначено мне» — the card's board as the viewer reads
+   * it: null when it is not his to see, a card given to him on a private board (20261126120000).
+   */
+  board: Board | null;
   viewer: BoardViewer;
   today: string;
   onClose: () => void;
@@ -76,7 +84,9 @@ interface CardDialogProps {
  * A card over its board: the fields (its links open), the assignee, the steps, the column, and
  * the journal beside them. Every manager and admin changes all of it on a live board
  * (20261119090000); a comment is changed by its author. A card in the archive or among the
- * deleted is read until «Вернуть».
+ * deleted is read until «Вернуть». A card given to the viewer on a board he does not see
+ * (20261126120000) is his to work on — its fields, column, steps and comments — while its shelf,
+ * its copy and its assignee stay with those who see the board.
  */
 export function CardDialog(props: CardDialogProps) {
   const { t } = useTranslation();
@@ -119,7 +129,11 @@ function CardBody({
 }: CardDialogProps & { card: CardDetail }) {
   const { t } = useTranslation();
   const language = useLanguage();
-  const move = useMoveCard(listKey ?? boardKeys.cards(board.id));
+  const presetName: PresetName = (key) => t(`problems.statuses.${key}`);
+  // The board's columns, the deleted ones too: the journal names them.
+  const columns = useBoardColumns(card.board_id).data ?? [];
+  const live = liveColumns(columns, card.board_id);
+  const move = useMoveCard(listKey ?? boardKeys.cards(card.board_id));
   const shelve = useSetCardShelf();
   const duplicate = useDuplicateCard();
   const [dismissedDone, setDismissedDone] = useState(false);
@@ -128,18 +142,24 @@ function CardBody({
   // The copy «Дублировать» is making: a repeat after a lost answer is the same copy.
   const copyId = useRef<string | null>(null);
   // A card of another board in the address is read, never changed from this one's rights.
-  const isOwnBoard = card.board_id === board.id;
-  // Every manager and admin on a live board (20261119090000): the shelf, the copy, the assignee too.
-  const canWork = canWorkOn(board) && isOwnBoard;
+  const isOtherBoard = board !== null && card.board_id !== board.id;
+  // Every manager and admin on a live board (20261119090000); the card given to the viewer on a
+  // board he does not see, too — the server reads such a card on a live board only.
+  const canWork = !isOtherBoard && (board === null || canWorkOn(board));
   const shelf = shelfOf(card);
   const canEdit = canWork && shelf === 'active';
+  // The shelf, the copy and the assignee: for those who see the board.
+  const seesBoard = board !== null;
+  const canManage = canEdit && seesBoard;
+  // «Все шаги отмечены» offers the board's first finishing column; a board without one offers none.
+  const doneColumn = firstDoneColumn(live);
   const offersDone =
     canEdit &&
     !dismissedDone &&
-    card.column_key !== LAST_BOARD_COLUMN &&
+    doneColumn !== null &&
+    !isInDoneColumn(card) &&
     isEveryStepDone(card.steps);
 
-  const lastColumn = t(`problems.statuses.${LAST_BOARD_COLUMN}`);
   const outcome = (onSuccess?: () => void) => ({
     onSuccess: () => {
       setFailure(null);
@@ -148,9 +168,9 @@ function CardBody({
     onError: (error: unknown) => setFailure(serverErrorText(error)),
   });
 
-  const moveTo = (column: BoardColumn) => {
-    if (column !== card.column_key) {
-      move.mutate({ cardId: card.id, column }, outcome());
+  const moveTo = (column: ColumnRow) => {
+    if (column.id !== card.column_id) {
+      move.mutate({ cardId: card.id, columnId: column.id, stage: column.legacy_key }, outcome());
     }
   };
   const putOn = (next: CardShelf) =>
@@ -188,8 +208,10 @@ function CardBody({
 
       {shelf === 'active' ? null : (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted p-3 text-sm">
-          <span>{t('boards.shelvedNote')}</span>
-          {canWork ? (
+          <span>
+            {canWork && seesBoard ? t('boards.shelvedNote') : t('boards.shelvedNoteReadOnly')}
+          </span>
+          {canWork && seesBoard ? (
             <Button
               type="button"
               className="h-11"
@@ -202,18 +224,18 @@ function CardBody({
         </div>
       )}
 
-      {offersDone ? (
+      {offersDone && doneColumn !== null ? (
         <div
           role="status"
           className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-highlight p-3 text-sm text-highlight-foreground"
         >
-          <span>{t('boards.allStepsDone', { column: lastColumn })}</span>
+          <span>{t('boards.allStepsDone', { column: columnName(doneColumn, presetName) })}</span>
           <div className="flex gap-2">
             <Button
               type="button"
               className="h-11"
               disabled={move.isPending}
-              onClick={() => moveTo(LAST_BOARD_COLUMN)}
+              onClick={() => moveTo(doneColumn)}
             >
               {t('boards.moveIt')}
             </Button>
@@ -231,11 +253,18 @@ function CardBody({
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <div className="flex min-w-0 flex-col gap-6">
-          <ColumnLine card={card} canEdit={canEdit} onMove={moveTo} />
-          <AssigneeLine card={card} canAssign={canEdit} />
+          <ColumnLine
+            card={card}
+            columns={columns}
+            live={live}
+            presetName={presetName}
+            canEdit={canEdit}
+            onMove={moveTo}
+          />
+          <AssigneeLine card={card} canAssign={canManage} />
           <CardFields card={card} today={today} canEdit={canEdit} />
           <CardSteps card={card} canEdit={canEdit} />
-          {canEdit ? (
+          {canManage ? (
             <div className="flex flex-wrap gap-2 border-t pt-4">
               <Button
                 type="button"
@@ -275,32 +304,40 @@ function CardBody({
             </p>
           )}
         </div>
-        <CardJournal card={card} viewer={viewer} canEdit={canEdit} />
+        <CardJournal
+          card={card}
+          viewer={viewer}
+          canEdit={canEdit}
+          columnNameOf={(id) => columnNameById(columns, id, presetName)}
+        />
       </div>
     </>
   );
 }
 
+interface ColumnLineProps {
+  card: CardDetail;
+  /** The board's columns, the deleted ones too: the card's own is named even after a deletion. */
+  columns: readonly ColumnRow[];
+  /** Its live columns in their order: the buttons. */
+  live: readonly ColumnRow[];
+  presetName: PresetName;
+  canEdit: boolean;
+  onMove: (column: ColumnRow) => void;
+}
+
 /**
- * The card's column as four buttons, the current one pressed: a move is a
- * press, never the side effect of arrowing through a list (WCAG 3.2.2). The
+ * The card's column as a button for each of the board's columns (20261126120000), the current one
+ * pressed: a move is a press, never the side effect of arrowing through a list (WCAG 3.2.2). The
  * move shows at once (useMoveCard) and goes back if the server refuses.
  */
-function ColumnLine({
-  card,
-  canEdit,
-  onMove,
-}: {
-  card: CardDetail;
-  canEdit: boolean;
-  onMove: (column: BoardColumn) => void;
-}) {
+function ColumnLine({ card, columns, live, presetName, canEdit, onMove }: ColumnLineProps) {
   const { t } = useTranslation();
-  if (!canEdit) {
+  if (!canEdit || live.length === 0) {
     return (
       <p className="text-sm">
         <span className="text-muted-foreground">{t('boards.column')}: </span>
-        {t(`problems.statuses.${card.column_key}`)}
+        {columnNameById(columns, card.column_id, presetName) ?? presetName(card.column_key)}
       </p>
     );
   }
@@ -308,16 +345,16 @@ function ColumnLine({
     <div role="group" aria-label={t('boards.moveTo')} className="flex flex-col gap-1">
       <span className="text-sm font-medium">{t('boards.column')}</span>
       <div className="flex flex-wrap gap-2">
-        {BOARD_COLUMNS.map((column) => (
+        {live.map((column) => (
           <Button
-            key={column}
+            key={column.id}
             type="button"
-            variant={column === card.column_key ? 'default' : 'outline'}
-            aria-pressed={column === card.column_key}
-            className="h-11"
+            variant={column.id === card.column_id ? 'default' : 'outline'}
+            aria-pressed={column.id === card.column_id}
+            className="h-11 max-w-full"
             onClick={() => onMove(column)}
           >
-            {t(`problems.statuses.${column}`)}
+            <span className="truncate">{columnName(column, presetName)}</span>
           </Button>
         ))}
       </div>

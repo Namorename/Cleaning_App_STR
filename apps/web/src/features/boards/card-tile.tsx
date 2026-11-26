@@ -1,6 +1,6 @@
 'use client';
 
-import { BOARD_COLUMNS, isCardColor, type BoardColumn } from '@str-ops/shared';
+import { isCardColor } from '@str-ops/shared';
 import { Ellipsis } from 'lucide-react';
 import Link from 'next/link';
 import { useId, type DragEvent } from 'react';
@@ -19,15 +19,17 @@ import {
 import { cn } from '@/lib/utils';
 
 import { DueChip, StepProgress } from './due-chip';
+import type { BoardLane } from './lanes';
 import { openPlainly } from './open-plainly';
 import { cardPlace, initialsOf, type BoardCard, type CardShelf } from './schema';
 
 /**
- * What can be done to one card from the board — by every manager and admin on a live board: a move,
- * and where the view offers them, a copy and the shelves.
+ * What can be done to one card from the board — by every manager and admin on a live board: a move
+ * to another lane (by its key: a column's id, or a stage on «Назначено мне»), and where the view
+ * offers them, a copy and the shelves.
  */
 export interface CardActions {
-  onMove: (card: BoardCard, column: BoardColumn) => void;
+  onMove: (card: BoardCard, lane: string) => void;
   onDuplicate?: (card: BoardCard) => void;
   onShelve?: (card: BoardCard, shelf: CardShelf) => void;
 }
@@ -42,9 +44,11 @@ interface CardTileProps {
   onOpen?: (cardId: string) => void;
   /** The menu and the drag; absent on an archived board, where the cards are read. */
   actions?: CardActions;
+  /** The lanes the menu moves the card to: every lane but its own. */
+  moveTargets?: readonly Pick<BoardLane, 'key' | 'name'>[];
   drag?: ItemDrag<BoardCard>;
-  /** The card's board, named on a card shown away from it («Назначено мне»). */
-  boardTitle?: string;
+  /** The line that names the card's board on a card shown away from it («Назначено мне»). */
+  boardLabel?: string;
 }
 
 /**
@@ -54,7 +58,16 @@ interface CardTileProps {
  * it — so nothing is left to the mouse alone. The title's link covers the
  * card; the menu sits above it.
  */
-export function CardTile({ card, today, href, onOpen, actions, drag, boardTitle }: CardTileProps) {
+export function CardTile({
+  card,
+  today,
+  href,
+  onOpen,
+  actions,
+  moveTargets = [],
+  drag,
+  boardLabel,
+}: CardTileProps) {
   const { t } = useTranslation();
   const titleId = useId();
   const place = cardPlace(card);
@@ -95,12 +108,12 @@ export function CardTile({ card, today, href, onOpen, actions, drag, boardTitle 
         >
           {card.title}
         </Link>
-        {actions === undefined ? null : <CardMenu card={card} actions={actions} />}
+        {actions === undefined ? null : (
+          <CardMenu card={card} actions={actions} moveTargets={moveTargets} />
+        )}
       </div>
-      {boardTitle === undefined ? null : (
-        <span className="text-xs text-muted-foreground">
-          {t('boards.onBoard', { title: boardTitle })}
-        </span>
+      {boardLabel === undefined ? null : (
+        <span className="text-xs text-muted-foreground">{boardLabel}</span>
       )}
       {place === null ? null : <span className="text-xs text-muted-foreground">{place}</span>}
       <DueChip dueOn={card.due_on} column={card.column_key} today={today} />
@@ -134,9 +147,16 @@ function AssigneeMark({ card }: { card: BoardCard }) {
   );
 }
 
-function CardMenu({ card, actions }: { card: BoardCard; actions: CardActions }) {
+function CardMenu({
+  card,
+  actions,
+  moveTargets,
+}: {
+  card: BoardCard;
+  actions: CardActions;
+  moveTargets: readonly Pick<BoardLane, 'key' | 'name'>[];
+}) {
   const { t } = useTranslation();
-  const columns = BOARD_COLUMNS.filter((column) => column !== card.column_key);
   return (
     <div className="relative z-10 -mt-2.5 -mr-2.5 shrink-0">
       <DropdownMenu>
@@ -147,12 +167,13 @@ function CardMenu({ card, actions }: { card: BoardCard; actions: CardActions }) 
           <Ellipsis aria-hidden="true" />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          {columns.map((column) => (
-            <DropdownMenuItem key={column} onClick={() => actions.onMove(card, column)}>
-              {t('boards.moveToColumn', { column: t(`problems.statuses.${column}`) })}
+          {moveTargets.map((lane) => (
+            <DropdownMenuItem key={lane.key} onClick={() => actions.onMove(card, lane.key)}>
+              {t('boards.moveToColumn', { column: lane.name })}
             </DropdownMenuItem>
           ))}
-          {actions.onDuplicate === undefined && actions.onShelve === undefined ? null : (
+          {(actions.onDuplicate === undefined && actions.onShelve === undefined) ||
+          moveTargets.length === 0 ? null : (
             <DropdownMenuSeparator />
           )}
           {actions.onDuplicate === undefined ? null : (

@@ -23,12 +23,31 @@ export const boardSchema = z.object({
   owner_id: z.string(),
   archived_at: z.string().nullable(),
   created_at: z.string(),
+  // Read by the other managers too (true), or by its owner and the admins alone (20261126120000).
+  shared: z.boolean(),
   owner: personSchema,
 });
 export type Board = z.infer<typeof boardSchema>;
 export const boardListSchema = z.array(boardSchema);
 
 export const columnSchema = z.enum(BOARD_COLUMNS);
+
+/**
+ * A board's own column (20261126120000): its name — null for a preset nobody renamed, read in the
+ * reader's language — its place, whether it is finishing, and the stage its cards read as.
+ */
+export const boardColumnRowSchema = z.object({
+  id: z.string(),
+  board_id: z.string(),
+  title: z.string().nullable(),
+  preset: columnSchema.nullable(),
+  position: z.number(),
+  is_done: z.boolean(),
+  legacy_key: columnSchema,
+  deleted_at: z.string().nullable(),
+});
+export type ColumnRow = z.infer<typeof boardColumnRowSchema>;
+export const boardColumnRowListSchema = z.array(boardColumnRowSchema);
 
 /** A step as the board reads it: enough for the progress and the search. */
 const stepMarkSchema = z.object({
@@ -42,6 +61,8 @@ export const boardCardSchema = z.object({
   board_id: z.string(),
   title: z.string(),
   description: z.string(),
+  // The card's column (20261126120000); `column_key` is that column's stage, kept by the server.
+  column_id: z.string(),
   column_key: columnSchema,
   color: z.string().nullable(),
   due_on: z.string().nullable(),
@@ -59,17 +80,33 @@ export const boardCardSchema = z.object({
 export type BoardCard = z.infer<typeof boardCardSchema>;
 export const boardCardListSchema = z.array(boardCardSchema);
 
-/** A card of «Назначено мне», from any board that is not archived: with its board's name and rights. */
+/**
+ * A card of «Назначено мне», from any board that is not archived: with its board's name and rights,
+ * or with none — a card given to the viewer on a board that is not his to see (20261126120000).
+ */
 export const myCardSchema = boardCardSchema.extend({
-  board: z.object({
-    id: z.string(),
-    title: z.string(),
-    owner_id: z.string(),
-    archived_at: z.string().nullable(),
-  }),
+  board: z
+    .object({
+      id: z.string(),
+      title: z.string(),
+      owner_id: z.string(),
+      archived_at: z.string().nullable(),
+    })
+    .nullable(),
 });
 export type MyCard = z.infer<typeof myCardSchema>;
 export const myCardListSchema = z.array(myCardSchema);
+
+/**
+ * «Назначено мне» keeps the cards of live boards: a board the viewer sees and that is archived drops
+ * its cards; a board he does not see comes as null, and its card is live (the server reads such a
+ * card only on a live board).
+ */
+export function onLiveBoards<T extends { board: { archived_at: string | null } | null }>(
+  cards: readonly T[],
+): T[] {
+  return cards.filter((card) => card.board === null || card.board.archived_at === null);
+}
 
 /** A person of the company: the journal names anybody; a card goes to `assignablePeople` only. */
 export const officePersonSchema = z.object({
@@ -144,9 +181,9 @@ export function orderedEntries(entries: readonly CardEntry[]): CardEntry[] {
 }
 
 /**
- * Who looks at a board. Its cards are worked on by every manager and admin on a live board; the
- * board itself (name, archive) by its owner and an admin — the server says the same
- * (manager_board_for_cards, manager_board_for_edit).
+ * Who looks at a board. Its cards are worked on by every manager and admin who sees it, on a live
+ * board; the board itself (name, who sees it, columns, owner, archive) by its owner and an admin —
+ * the server says the same (manager_board_for_cards, manager_board_for_edit; 20261126120000).
  */
 export interface BoardViewer {
   id: string;

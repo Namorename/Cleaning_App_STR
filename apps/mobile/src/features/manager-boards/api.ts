@@ -1,12 +1,12 @@
 import type { PostgrestError } from '@supabase/supabase-js';
-import type { BoardColumn, CardColor } from '@str-ops/shared';
+import type { CardColor } from '@str-ops/shared';
 
 import { supabase } from '@/lib/supabase';
 
 import type { CardShelf } from './schema';
 
 /**
- * The board functions (20261118200000). The generated types call every
+ * The board functions (20261118200000, 20261126120000). The generated types call every
  * argument without a default non-null, and a card's due date, place and
  * colour are null when it has none — so the calls go through one door with
  * their own types, as the panel's do.
@@ -14,6 +14,11 @@ import type { CardShelf } from './schema';
 type BoardFunction =
   | 'save_manager_board'
   | 'set_manager_board_archived'
+  | 'transfer_manager_board'
+  | 'save_manager_board_column'
+  | 'order_manager_board_columns'
+  | 'set_manager_board_column_done'
+  | 'delete_manager_board_column'
   | 'save_manager_card'
   | 'move_manager_card'
   | 'set_manager_card_state'
@@ -40,10 +45,14 @@ async function call(fn: BoardFunction, args: Record<string, unknown>): Promise<v
 }
 
 const BOARD_SELECT =
-  'id, title, owner_id, archived_at, created_at, owner:profiles!manager_boards_owner_id_fkey(full_name)';
+  'id, title, owner_id, archived_at, created_at, shared, ' +
+  'owner:profiles!manager_boards_owner_id_fkey(full_name)';
+
+const COLUMN_SELECT = 'id, board_id, title, preset, position, is_done, legacy_key, deleted_at';
 
 const CARD_FIELDS =
-  'id, board_id, title, description, column_key, color, due_on, property_id, created_at, moved_at, ' +
+  'id, board_id, title, description, column_id, column_key, color, due_on, property_id, ' +
+  'created_at, moved_at, ' +
   'archived_at, deleted_at, property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
   'assignee_id, assignee:profiles!manager_board_cards_assignee_id_fkey(full_name)';
 
@@ -58,7 +67,13 @@ const CARD_DETAIL_SELECT =
 /** The most cards one board's read brings: far above any board a person keeps. */
 export const BOARD_CARDS_LIMIT = 1000;
 
-/** Every board of the company, oldest first. Row level security draws the line: the office's. */
+/** The most columns one board's read brings, the deleted ones among them: twelve live at most. */
+export const BOARD_COLUMNS_READ_LIMIT = 500;
+
+/**
+ * Every board the person sees, oldest first: shared with the office, her own, or every one for an
+ * admin (20261126120000). Row level security draws the line.
+ */
 export async function fetchBoards(): Promise<unknown> {
   const { data, error } = await supabase
     .from('manager_boards')
@@ -86,11 +101,34 @@ export async function fetchBoardCards(boardId: string): Promise<unknown> {
   return data ?? [];
 }
 
-const MY_CARD_SELECT = `${CARD_SELECT}, board:manager_boards!inner(id, title, owner_id, archived_at)`;
+/**
+ * One board's columns, the live ones first in their order, then the deleted ones: a card stands in
+ * a live one, the journal names any (20261126120000). Read by whoever sees the board, or holds a
+ * card on it.
+ */
+export async function fetchBoardColumns(boardId: string): Promise<unknown> {
+  const { data, error } = await supabase
+    .from('manager_board_columns')
+    .select(COLUMN_SELECT)
+    .eq('board_id', boardId)
+    .order('deleted_at', { ascending: true, nullsFirst: true })
+    .order('position', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(BOARD_COLUMNS_READ_LIMIT);
+  if (error) {
+    throw error;
+  }
+  return data ?? [];
+}
+
+// Not `!inner`: a card given to her on a board she does not see comes with its board null
+// (20261126120000), and an inner embed would drop it. Archived boards are dropped on the phone
+// (`onLiveBoards`): a filter on the embed would only blank their board, as a hidden one.
+const MY_CARD_SELECT = `${CARD_SELECT}, board:manager_boards(id, title, owner_id, archived_at)`;
 
 /**
- * «Назначено мне»: the cards the person is the assignee of, on every board of the company that is
- * not archived, neither archived nor deleted themselves.
+ * «Назначено мне»: the cards the person is the assignee of, neither archived nor deleted
+ * themselves — of every board, the archived ones too (the phone drops those, `onLiveBoards`).
  */
 export async function fetchMyCards(personId: string): Promise<unknown> {
   const { data, error } = await supabase
@@ -99,7 +137,6 @@ export async function fetchMyCards(personId: string): Promise<unknown> {
     .eq('assignee_id', personId)
     .is('archived_at', null)
     .is('deleted_at', null)
-    .is('board.archived_at', null)
     .order('created_at', { ascending: false })
     .order('id', { ascending: true })
     .limit(BOARD_CARDS_LIMIT);
@@ -122,14 +159,74 @@ export async function fetchCard(cardId: string): Promise<unknown> {
   return data;
 }
 
-export function saveBoard(variables: { boardId: string; title: string }): Promise<void> {
-  return call('save_manager_board', { p_id: variables.boardId, p_title: variables.title.trim() });
+/**
+ * Creates the board with its four columns, or renames it. `shared` says who sees it: absent, a new
+ * board is its owner's alone and a rename leaves it as it is (20261126120000).
+ */
+export function saveBoard(variables: {
+  boardId: string;
+  title: string;
+  shared?: boolean;
+}): Promise<void> {
+  return call('save_manager_board', {
+    p_id: variables.boardId,
+    p_title: variables.title.trim(),
+    ...(variables.shared === undefined ? {} : { p_shared: variables.shared }),
+  });
 }
 
 export function setBoardArchived(variables: { boardId: string; archived: boolean }): Promise<void> {
   return call('set_manager_board_archived', {
     p_id: variables.boardId,
     p_archived: variables.archived,
+  });
+}
+
+/** Hands the board to another active manager or admin of the company: its new owner. */
+export function transferBoard(variables: { boardId: string; ownerId: string }): Promise<void> {
+  return call('transfer_manager_board', { p_id: variables.boardId, p_to: variables.ownerId });
+}
+
+/** Adds a column at the end of the board `boardId` names; with `boardId` null, renames it. */
+export function saveColumn(variables: {
+  columnId: string;
+  boardId: string | null;
+  title: string;
+}): Promise<void> {
+  return call('save_manager_board_column', {
+    p_id: variables.columnId,
+    p_board_id: variables.boardId,
+    p_title: variables.title.trim(),
+  });
+}
+
+/** Puts the board's live columns in this order: every one of them, once. */
+export function orderColumns(variables: {
+  boardId: string;
+  columnIds: readonly string[];
+}): Promise<void> {
+  return call('order_manager_board_columns', {
+    p_board_id: variables.boardId,
+    p_ids: variables.columnIds,
+  });
+}
+
+/** Marks a column finishing (its cards are done) or not. */
+export function setColumnDone(variables: { columnId: string; done: boolean }): Promise<void> {
+  return call('set_manager_board_column_done', {
+    p_id: variables.columnId,
+    p_done: variables.done,
+  });
+}
+
+/** Deletes a column; the cards it holds move to `moveTo` first, which a column with cards needs. */
+export function deleteColumn(variables: {
+  columnId: string;
+  moveTo: string | null;
+}): Promise<void> {
+  return call('delete_manager_board_column', {
+    p_id: variables.columnId,
+    ...(variables.moveTo === null ? {} : { p_move_to: variables.moveTo }),
   });
 }
 
@@ -145,12 +242,13 @@ export interface SaveCardVariables {
   cardId: string;
   boardId: string;
   fields: CardFields;
-  /** Read on the create only. */
-  column?: BoardColumn;
+  /** The column a new card goes to, by its id (20261126120000). Read on the create only. */
+  columnId?: string;
   /** Read on the create only. */
   steps?: readonly string[];
 }
 
+/** Creates a card (a column named) or changes its fields (none named). */
 export function saveCard(variables: SaveCardVariables): Promise<void> {
   const { fields } = variables;
   return call('save_manager_card', {
@@ -161,7 +259,7 @@ export function saveCard(variables: SaveCardVariables): Promise<void> {
     p_due_on: fields.dueOn,
     p_property_id: fields.propertyId,
     p_color: fields.color,
-    ...(variables.column === undefined ? {} : { p_column: variables.column }),
+    ...(variables.columnId === undefined ? {} : { p_column_id: variables.columnId }),
     ...(variables.steps === undefined ? {} : { p_steps: variables.steps }),
   });
 }
@@ -177,8 +275,9 @@ export function setCardAssignee(variables: {
   });
 }
 
-export function moveCard(variables: { cardId: string; column: BoardColumn }): Promise<void> {
-  return call('move_manager_card', { p_id: variables.cardId, p_column: variables.column });
+/** Moves a card to a live column of its board, by the column's id (20261126120000). */
+export function moveCard(variables: { cardId: string; columnId: string }): Promise<void> {
+  return call('move_manager_card', { p_id: variables.cardId, p_column_id: variables.columnId });
 }
 
 export function setCardShelf(variables: { cardId: string; shelf: CardShelf }): Promise<void> {

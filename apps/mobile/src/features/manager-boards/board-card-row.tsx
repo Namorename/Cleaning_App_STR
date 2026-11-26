@@ -17,8 +17,11 @@ interface BoardCardRowProps {
   /** The phone's day, `YYYY-MM-DD`. */
   today: string;
   onPress: (cardId: string) => void;
-  /** The card's board, named on a card shown away from it («Назначено мне»). */
-  boardTitle?: string;
+  /**
+   * The line naming the card's board on a card shown away from it («Назначено мне»): «Доска «…»»,
+   * or «Закрытая доска» for a board the viewer does not see (20261126120000).
+   */
+  boardLabel?: string;
 }
 
 /**
@@ -26,7 +29,7 @@ interface BoardCardRowProps {
  * fill, the title, the place, the due date — red past it, honey on it — and
  * «3/7» with a thin bar, and who works on it. The whole card opens it.
  */
-function BoardCardRowComponent({ card, today, onPress, boardTitle }: BoardCardRowProps) {
+function BoardCardRowComponent({ card, today, onPress, boardLabel }: BoardCardRowProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const color = useCardColor(card.color);
@@ -48,7 +51,7 @@ function BoardCardRowComponent({ card, today, onPress, boardTitle }: BoardCardRo
   // The colour is the stripe alone: never named, on screen or to a reader (owner, 2026-11-18).
   const label = [
     card.title,
-    boardTitle === undefined ? null : t('boards.onBoard', { title: boardTitle }),
+    boardLabel ?? null,
     place,
     dueText,
     total === 0 ? null : t('boards.progress', { done, total }),
@@ -70,9 +73,9 @@ function BoardCardRowComponent({ card, today, onPress, boardTitle }: BoardCardRo
       <Text variant="title" numberOfLines={3}>
         {card.title}
       </Text>
-      {boardTitle === undefined ? null : (
+      {boardLabel === undefined ? null : (
         <Text variant="caption" tone="secondary">
-          {t('boards.onBoard', { title: boardTitle })}
+          {boardLabel}
         </Text>
       )}
       {place === null ? null : <Text tone="secondary">{place}</Text>}

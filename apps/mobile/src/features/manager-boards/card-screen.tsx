@@ -1,12 +1,12 @@
 import {
-  BOARD_COLUMNS,
   BOARD_LIMITS,
   dueState,
+  firstDoneColumn,
   isCardColor,
   isEveryStepDone,
-  LAST_BOARD_COLUMN,
+  isInDoneColumn,
+  liveColumns,
   localDay,
-  type BoardColumn,
   type CardColor,
 } from '@str-ops/shared';
 import { randomUUID } from 'expo-crypto';
@@ -37,16 +37,20 @@ import { serverErrorText } from '@/lib/server-error';
 import type { CardFields } from './api';
 import { ActionsSheet } from './board-sheets';
 import { CardJournalList, CardStepsList, ColorChoice, LinkedText } from './card-parts';
+import { columnIdOf, columnLabel } from './columns';
 import { formatDue, formatStamp, useCardColor } from './format';
 import {
   assignablePeople,
-  canWorkOn,
+  cardAccess,
   cardPlace,
   shelfOf,
+  type CardAccess,
   type CardDetail,
   type CardShelf,
+  type ColumnRow,
 } from './schema';
 import {
+  useBoardColumns,
   useBoards,
   useCard,
   useDuplicateCard,
@@ -58,15 +62,17 @@ import {
 } from './use-boards';
 
 /**
- * A manager board's card on the phone: the column as buttons, the assignee, the fields (links
- * open), the steps, the actions and the journal. Every manager and admin changes all of it on a
- * live board (20261119090000); a comment is changed by its author. Nothing on screen explains who
- * may do what. A shelved card is read until «Вернуть».
+ * A manager board's card on the phone: its board's columns as buttons, the assignee, the fields
+ * (links open), the steps, the actions and the journal. Every manager and admin changes all of it
+ * on a live board (20261119090000); a comment is changed by its author. A card given to her on a
+ * board she does not see (20261126120000) she works on — fields, column, steps, comments — and no
+ * more. Nothing on screen explains who may do what. A shelved card is read until «Вернуть».
  */
 export function CardScreen({ cardId }: { cardId: string }) {
   const { t } = useTranslation();
   const card = useCard(cardId);
   const boards = useBoards();
+  const viewer = useViewer();
 
   const retry = () => {
     void card.refetch();
@@ -87,21 +93,23 @@ export function CardScreen({ cardId }: { cardId: string }) {
   if (card.data === null) {
     return <ErrorState error={null} title={t('boards.cardGone')} />;
   }
+  // A board missing from her list is one she does not see: the card is given to her on it.
   const board = boards.data.find((one) => one.id === card.data?.board_id) ?? null;
   return (
     <>
       {card.isError || boards.isError ? (
         <ErrorBanner title={t('boards.staleNote')} error={card.error ?? boards.error} />
       ) : null}
-      <CardBody card={card.data} canWork={board !== null && canWorkOn(board)} />
+      <CardBody card={card.data} access={cardAccess(card.data, board, viewer)} />
     </>
   );
 }
 
-function CardBody({ card, canWork }: { card: CardDetail; canWork: boolean }) {
+function CardBody({ card, access }: { card: CardDetail; access: CardAccess }) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const viewer = useViewer();
+  const columns = useBoardColumns(card.board_id);
   const move = useMoveCard(card.board_id);
   const shelve = useSetCardShelf();
   const duplicate = useDuplicateCard();
@@ -110,13 +118,19 @@ function CardBody({ card, canWork }: { card: CardDetail; canWork: boolean }) {
   const [dismissedDone, setDismissedDone] = useState(false);
   const color = useCardColor(card.color);
   const shelf = shelfOf(card);
-  const canEdit = canWork && shelf === 'active';
-  const lastColumn = t(`problems.statuses.${LAST_BOARD_COLUMN}`);
-  const offersDone =
-    canEdit &&
-    !dismissedDone &&
-    card.column_key !== LAST_BOARD_COLUMN &&
-    isEveryStepDone(card.steps);
+  const canEdit = access.canWork && shelf === 'active';
+  const canManage = access.canManage && shelf === 'active';
+  const everyColumn = columns.data ?? [];
+  const live = liveColumns(everyColumn);
+  const currentId = columnIdOf(card, live);
+  const current = live.find((column) => column.id === currentId) ?? null;
+  const isDone = current?.is_done ?? isInDoneColumn(card);
+  // Where a card with every step ticked is offered to go: the board's first finishing column —
+  // none on a board without one, nor for a card already done.
+  const offered =
+    canEdit && !dismissedDone && !isDone && isEveryStepDone(card.steps)
+      ? firstDoneColumn(live)
+      : null;
   const failed = [move, shelve, duplicate].find((mutation) => mutation.isError);
   const pendingCopy = useRef<string | null>(null);
 
@@ -169,7 +183,7 @@ function CardBody({ card, canWork }: { card: CardDetail; canWork: boolean }) {
       {shelf === 'active' ? null : (
         <View style={styles.note}>
           <Text>{shelf === 'deleted' ? t('boards.cardDeleted') : t('boards.cardArchived')}</Text>
-          {canWork ? (
+          {access.canManage ? (
             <Button
               label={t('boards.restoreCard')}
               isBusy={shelve.isPending}
@@ -179,13 +193,13 @@ function CardBody({ card, canWork }: { card: CardDetail; canWork: boolean }) {
         </View>
       )}
 
-      {offersDone ? (
+      {offered !== null ? (
         <View style={styles.offer} accessibilityLiveRegion="polite">
-          <Text>{t('boards.allStepsDone', { column: lastColumn })}</Text>
+          <Text>{t('boards.allStepsDone', { column: columnLabel(offered, t) })}</Text>
           <Button
             label={t('boards.moveIt')}
             isBusy={move.isPending}
-            onPress={() => move.mutate({ cardId: card.id, column: LAST_BOARD_COLUMN })}
+            onPress={() => move.mutate({ cardId: card.id, column: offered })}
           />
           <Button
             label={t('boards.notNow')}
@@ -195,27 +209,14 @@ function CardBody({ card, canWork }: { card: CardDetail; canWork: boolean }) {
         </View>
       ) : null}
 
-      <View style={styles.section}>
-        <Text variant="chip" tone="secondary">
-          {t('boards.column')}
-        </Text>
-        {canEdit ? (
-          <ChoiceChips
-            options={BOARD_COLUMNS.map((column) => ({
-              value: column,
-              label: t(`problems.statuses.${column}`),
-            }))}
-            value={card.column_key as BoardColumn}
-            onChange={(column: BoardColumn) => move.mutate({ cardId: card.id, column })}
-            accessibilityLabel={t('boards.moveTo')}
-            semantics="radio"
-          />
-        ) : (
-          <Text>{t(`problems.statuses.${card.column_key}`)}</Text>
-        )}
-      </View>
+      <ColumnSection
+        current={current}
+        columns={canEdit ? live : []}
+        fallbackKey={card.column_key}
+        onMove={(column) => move.mutate({ cardId: card.id, column })}
+      />
 
-      <AssigneeSection card={card} canAssign={canEdit} />
+      <AssigneeSection card={card} canAssign={canManage} />
 
       {isEditing && canEdit ? (
         <EditFields card={card} onDone={() => setIsEditing(false)} />
@@ -225,7 +226,7 @@ function CardBody({ card, canWork }: { card: CardDetail; canWork: boolean }) {
 
       <CardStepsList card={card} canEdit={canEdit} />
 
-      {canEdit ? (
+      {canManage ? (
         <View style={styles.section}>
           <Button
             label={t('boards.duplicate')}
@@ -248,7 +249,7 @@ function CardBody({ card, canWork }: { card: CardDetail; canWork: boolean }) {
       ) : null}
       {failed === undefined ? null : <FailureText error={failed.error} />}
 
-      <CardJournalList card={card} viewer={viewer} canEdit={canEdit} />
+      <CardJournalList card={card} viewer={viewer} canEdit={canEdit} columns={everyColumn} />
 
       <ConfirmDialog
         isVisible={isDeleting}
@@ -267,9 +268,50 @@ function CardBody({ card, canWork }: { card: CardDetail; canWork: boolean }) {
   );
 }
 
+interface ColumnSectionProps {
+  /** The live column the card stands in; null while its board's columns are not read. */
+  current: ColumnRow | null;
+  /** The columns it may move to — the board's live ones; none where it is read only. */
+  columns: readonly ColumnRow[];
+  /** The card's stage: its column's word until the columns are read. */
+  fallbackKey: string;
+  onMove: (column: ColumnRow) => void;
+}
+
+/** «Колонка»: the board's live columns as buttons, the card's own chosen; else its column's name. */
+function ColumnSection({ current, columns, fallbackKey, onMove }: ColumnSectionProps) {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+  const name = current === null ? t(`problems.statuses.${fallbackKey}`) : columnLabel(current, t);
+  return (
+    <View style={styles.section}>
+      <Text variant="chip" tone="secondary">
+        {t('boards.column')}
+      </Text>
+      {columns.length === 0 ? (
+        <Text>{name}</Text>
+      ) : (
+        <ChoiceChips
+          options={columns.map((column) => ({ value: column.id, label: columnLabel(column, t) }))}
+          value={current?.id ?? ''}
+          onChange={(columnId: string) => {
+            const column = columns.find((one) => one.id === columnId);
+            if (column !== undefined) {
+              onMove(column);
+            }
+          }}
+          accessibilityLabel={t('boards.moveTo')}
+          semantics="radio"
+        />
+      )}
+    </View>
+  );
+}
+
 /**
  * Who works on the card. Every manager and admin picks from the company's active managers and
- * admins, or «Без исполнителя» (one push goes to the new assignee); on an archived board it is read.
+ * admins, or «Без исполнителя» (one push goes to the new assignee); on an archived board — and on
+ * a board the viewer does not see — it is read.
  */
 function AssigneeSection({ card, canAssign }: { card: CardDetail; canAssign: boolean }) {
   const { t } = useTranslation();

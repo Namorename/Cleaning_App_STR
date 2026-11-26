@@ -31,6 +31,7 @@ test('lists the push kinds in the order the owner approved them', () => {
     'cleaning_interrupted',
     'booking_cancelled_live',
     'board_card_assigned',
+    'board_transferred',
     'problem_new',
     'chat_message',
     'daily_digest',
@@ -73,13 +74,15 @@ test('the head technician is offered the same, and a new task — eight kinds', 
 /**
  * A cleaning declined or interrupted (20261118120000) is told to every
  * manager and admin of the company and to nobody else, and a manager board's
- * card given to somebody (20261118230000) only to the office, which has the
- * boards: only the office is shown those three switches.
+ * card given to somebody (20261118230000) or a board handed to a new owner
+ * (20261126120000) only to the office, which has the boards: only the office
+ * is shown those four switches.
  */
 const OFFICE_KINDS: readonly string[] = [
   'cleaning_declined',
   'cleaning_interrupted',
   'board_card_assigned',
+  'board_transferred',
 ];
 
 /** Every kind but a new task and the office's two: the cleaner's list. */
@@ -181,9 +184,21 @@ test('a cached row no build can read is a start from everything on', () => {
 });
 
 // The reception is the office without boards (20261119143000): she hears a cleaning handed back
-// or interrupted, never a board's card, and no new task.
-test('the reception is offered the office kinds but a board card and a new task', () => {
+// or interrupted, never a board's card nor a board handed over, and no new task.
+test('the reception is offered the office kinds but the boards’ two and a new task', () => {
   expect(kindsFor('reception')).toEqual(
-    PUSH_KINDS.filter((kind) => kind !== 'problem_new' && kind !== 'board_card_assigned'),
+    PUSH_KINDS.filter(
+      (kind) =>
+        kind !== 'problem_new' && kind !== 'board_card_assigned' && kind !== 'board_transferred',
+    ),
   );
+});
+
+test('a board handed over is the boards’ roles’ alone, as a card given', () => {
+  for (const role of ['manager', 'admin']) {
+    expect(kindsFor(role)).toContain('board_transferred');
+  }
+  for (const role of ['reception', 'cleaner', 'tech', 'head_tech', null]) {
+    expect(kindsFor(role)).not.toContain('board_transferred');
+  }
 });

@@ -3,8 +3,8 @@
 import {
   EMPTY_CARD_FILTERS,
   hasCardFilters,
+  isBoardColumn,
   matchesCardFilters,
-  type BoardColumn,
   type CardFilters,
   type CardOrder,
 } from '@str-ops/shared';
@@ -23,8 +23,9 @@ import { MY_CARDS, readBoardAddress, writeBoardAddress } from './address';
 import { BoardFilters } from './board-filters';
 import { CardDialog } from './card-dialog';
 import { boardKeys } from './keys';
+import { stageLanes, type PresetName } from './lanes';
 import { ManagerBoard } from './manager-board';
-import type { BoardCard, BoardViewer, CardShelf, MyCard } from './schema';
+import type { Board, BoardCard, BoardViewer, CardShelf, MyCard } from './schema';
 import { useBoards, useCard, useMoveCard, useMyCards, useSetCardShelf } from './use-boards';
 
 interface MyCardsViewProps {
@@ -33,9 +34,11 @@ interface MyCardsViewProps {
 
 /**
  * «Назначено мне» (owner, 2026-11-18): the cards the viewer is the assignee of, from every board
- * that is not archived, in the same four columns — each tile names its board. They are worked on
- * here as on their boards: moved, opened, copied and shelved (a copy opens; a shelved card leaves a
- * line with «Отменить»); a new card is made on a board.
+ * that is not archived, in the four stages every board's columns stand for (20261126120000) — each
+ * tile names its board, or says it is a private board the viewer does not see. They are worked on
+ * here as on their boards: moved by stage (the server puts the card in its board's first column of
+ * that stage), opened, copied and shelved (a copy opens; a shelved card leaves a line with
+ * «Отменить»); a new card is made on a board.
  */
 export function MyCardsView({ viewer }: MyCardsViewProps) {
   const { t } = useTranslation();
@@ -59,6 +62,26 @@ export function MyCardsView({ viewer }: MyCardsViewProps) {
   );
 }
 
+/**
+ * The board of the card open, as the viewer reads it: undefined while the card's board is not known
+ * yet; null for a board he does not see (a card given to him on a private board) — or a card gone.
+ */
+function boardOfOpenCard(
+  cardId: string | null,
+  cards: readonly MyCard[],
+  boards: readonly Board[],
+  opened: ReturnType<typeof useCard>,
+): Board | null | undefined {
+  if (cardId === null) {
+    return undefined;
+  }
+  const boardId = cards.find((card) => card.id === cardId)?.board_id ?? opened.data?.board_id;
+  if (boardId === undefined) {
+    return opened.data === null || opened.isError ? null : undefined;
+  }
+  return boards.find((board) => board.id === boardId) ?? null;
+}
+
 function MyCardsPage({
   cards,
   boards,
@@ -66,7 +89,7 @@ function MyCardsPage({
   isStale,
 }: {
   cards: readonly MyCard[];
-  boards: NonNullable<ReturnType<typeof useBoards>['data']>;
+  boards: readonly Board[];
   viewer: BoardViewer;
   isStale: boolean;
 }) {
@@ -93,6 +116,8 @@ function MyCardsPage({
   } | null>(null);
 
   const today = todayIso();
+  const presetName: PresetName = (key) => t(`problems.statuses.${key}`);
+  const lanes = stageLanes(presetName);
   const matching = cards.filter((card) => matchesCardFilters(card, filters, today));
   const here = { boardId: MY_CARDS, view: 'board' as const, cardId: null };
   const cardHref = (cardId: string) => `/problems?${writeBoardAddress({ ...here, cardId })}`;
@@ -108,23 +133,25 @@ function MyCardsPage({
     }
     setAddress({ ...here, cardId: null });
   };
-  const moveIt = (card: BoardCard, column: BoardColumn) =>
+  // A move here names a stage: the server lands the card in its board's first column of it.
+  const moveIt = (card: BoardCard, lane: string) => {
+    if (!isBoardColumn(lane)) {
+      return;
+    }
     move.mutate(
-      { cardId: card.id, column },
+      { cardId: card.id, stage: lane },
       {
         onSuccess: () => setFailure(null),
         onError: (error: unknown) => setFailure(serverErrorText(error)),
       },
     );
+  };
+  const boardLabelOf = (card: BoardCard) => {
+    const board = cards.find((mine) => mine.id === card.id)?.board ?? null;
+    return board === null ? t('boards.privateBoard') : t('boards.onBoard', { title: board.title });
+  };
 
-  const openBoard =
-    address.cardId === null
-      ? undefined
-      : boards.find(
-          (board) =>
-            board.id ===
-            (cards.find((card) => card.id === address.cardId)?.board_id ?? opened.data?.board_id),
-        );
+  const openBoard = boardOfOpenCard(address.cardId, cards, boards, opened);
 
   return (
     <div className="flex flex-col gap-4">
@@ -151,16 +178,16 @@ function MyCardsPage({
         <EmptyState>{t('boards.assignedToMeEmpty')}</EmptyState>
       ) : (
         <ManagerBoard
-          boardId=""
+          lanes={lanes}
+          laneOf={(card) => card.column_key}
           cards={matching}
           order={order}
           today={today}
           isFiltered={hasCardFilters(filters)}
           actionsFor={() => ({ onMove: moveIt })}
-          canAdd={false}
           cardHref={cardHref}
           onOpen={openCard}
-          boardTitleOf={(card) => cards.find((mine) => mine.id === card.id)?.board.title ?? '—'}
+          boardLabelOf={boardLabelOf}
         />
       )}
       <p role="status" aria-live="polite" className="min-h-11 text-sm text-muted-foreground">

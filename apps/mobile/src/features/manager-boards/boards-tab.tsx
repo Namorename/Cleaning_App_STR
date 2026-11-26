@@ -1,19 +1,18 @@
 import {
-  BOARD_COLUMNS,
   BOARD_LIMITS,
   boardSummary,
   EMPTY_CARD_FILTERS,
   hasCardFilters,
+  liveColumns,
   localDay,
   matchesCardFilters,
   orderCards,
-  type BoardColumn,
   type CardFilters,
   type CardOrder,
 } from '@str-ops/shared';
 import { randomUUID } from 'expo-crypto';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
@@ -27,6 +26,7 @@ import { ListRow } from '@/components/list-row';
 import { LoadingState } from '@/components/loading-state';
 import { Text } from '@/components/text';
 import { TextField } from '@/components/text-field';
+import { Toast } from '@/components/toast';
 import { Radius, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { useStaffDirectory } from '@/features/board/use-board';
@@ -34,6 +34,9 @@ import { serverErrorText } from '@/lib/server-error';
 
 import { BoardCardRow } from './board-card-row';
 import { ActionsSheet, ArchivedBoardsSheet, BoardNameSheet, FiltersSheet } from './board-sheets';
+import { columnIdOf, columnLabel } from './columns';
+import { ColumnsSheet } from './columns-sheet';
+import { MyCardsBody } from './my-cards-body';
 import {
   assignablePeople,
   canEditBoard,
@@ -42,9 +45,12 @@ import {
   type Board,
   type BoardCard,
   type BoardViewer,
+  type ColumnRow,
 } from './schema';
+import { TransferSheet } from './transfer-sheet';
 import {
   useBoardCards,
+  useBoardColumns,
   useBoards,
   useMyCards,
   useSaveCard,
@@ -53,24 +59,47 @@ import {
   useViewer,
 } from './use-boards';
 
-type Pane = BoardColumn | 'archive';
+/** The pane of the archived and deleted cards, beside the board's columns (their ids). */
+const ARCHIVE = 'archive';
 
 /** The switcher's value of «Назначено мне», in place of a board's id. */
 const MY_CARDS = 'mine';
 
+interface BoardsTabProps {
+  /** A board asked for from outside — a tap on «Вам передана доска» (push/destination.ts). */
+  requestedBoardId?: string;
+  /** The ask is taken: the route forgets it, so the same ask can come again later. */
+  onRequestSeen?: () => void;
+}
+
 /**
  * The office's «Доски» on the phone (docs/manager-boards.md): «Назначено мне»
  * and the boards one tap each, then the chosen board — what is late, the
- * search, a column at a time (four on a phone's width would be unreadable), a
- * quick add on top of it, and the archive. A card opens on its own screen.
+ * search, a column at a time (several on a phone's width would be unreadable),
+ * a quick add on top of it, and the archive. A card opens on its own screen.
  */
-export function BoardsTab() {
+export function BoardsTab({ requestedBoardId, onRequestSeen }: BoardsTabProps = {}) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const viewer = useViewer();
   const boards = useBoards();
-  const [chosenId, setChosenId] = useState<string | null>(null);
+  const mine = useMyCards();
+  const [chosenId, setChosenId] = useState<string | null>(requestedBoardId ?? null);
   const [sheet, setSheet] = useState<'create' | 'archived' | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [seenRequest, setSeenRequest] = useState(requestedBoardId);
+  if (requestedBoardId !== seenRequest) {
+    // A new ask from outside, the tab already open: its board is shown, once per ask.
+    setSeenRequest(requestedBoardId);
+    if (requestedBoardId !== undefined) {
+      setChosenId(requestedBoardId);
+    }
+  }
+  useEffect(() => {
+    if (requestedBoardId !== undefined) {
+      onRequestSeen?.();
+    }
+  }, [requestedBoardId, onRequestSeen]);
 
   // Only boards never read show the failure: a refresh that fails keeps the ones read before.
   if (boards.data === undefined) {
@@ -87,7 +116,18 @@ export function BoardsTab() {
   const all = boards.data;
   const live = all.filter((board) => board.archived_at === null);
   const archived = all.filter((board) => board.archived_at !== null);
-  const board = all.find((one) => one.id === chosenId) ?? live[0] ?? null;
+  const board =
+    chosenId === MY_CARDS ? null : (all.find((one) => one.id === chosenId) ?? live[0] ?? null);
+  const toast = <Toast message={notice} onHide={() => setNotice(null)} />;
+
+  const onTransferred = (handed: Board, ownerName: string) => {
+    setNotice(t('boards.transferDone', { name: ownerName }));
+    // A board she alone saw leaves her list with it (an admin sees every board): the next one is
+    // shown — or «Назначено мне» — rather than one she can no longer open.
+    if (!handed.shared && !viewer.isAdmin) {
+      setChosenId(live.find((one) => one.id !== handed.id)?.id ?? MY_CARDS);
+    }
+  };
 
   const sheets = (
     <>
@@ -111,7 +151,9 @@ export function BoardsTab() {
     </>
   );
 
-  if (board === null) {
+  // No board to show and nothing given to her: the way to a first board. Cards given to her on
+  // boards she does not see still show under «Назначено мне».
+  if (board === null && live.length === 0 && (mine.data ?? []).length === 0) {
     return (
       <View style={styles.screen}>
         <EmptyState
@@ -127,15 +169,17 @@ export function BoardsTab() {
           />
         )}
         {sheets}
+        {toast}
       </View>
     );
   }
 
-  const isMine = chosenId === MY_CARDS;
   const switcher = [
     { value: MY_CARDS, label: t('boards.assignedToMe') },
     ...live.map((one) => ({ value: one.id, label: one.title })),
-    ...(board.archived_at === null ? [] : [{ value: board.id, label: board.title }]),
+    ...(board === null || board.archived_at === null
+      ? []
+      : [{ value: board.id, label: board.title }]),
   ];
 
   return (
@@ -144,7 +188,7 @@ export function BoardsTab() {
         <View style={styles.chips}>
           <ChoiceChips
             options={switcher}
-            value={isMine ? MY_CARDS : board.id}
+            value={board === null ? MY_CARDS : board.id}
             onChange={setChosenId}
             accessibilityLabel={t('boards.switcherLabel')}
             semantics="tabs"
@@ -163,8 +207,13 @@ export function BoardsTab() {
           />
         )}
       </View>
-      {isMine ? <MyCardsBody /> : <BoardBody key={board.id} board={board} viewer={viewer} />}
+      {board === null ? (
+        <MyCardsBody />
+      ) : (
+        <BoardBody key={board.id} board={board} viewer={viewer} onTransferred={onTransferred} />
+      )}
       {sheets}
+      {toast}
     </View>
   );
 }
@@ -172,20 +221,36 @@ export function BoardsTab() {
 interface BoardBodyProps {
   board: Board;
   viewer: BoardViewer;
+  /** Handed to another owner: the board, and the new owner's name. */
+  onTransferred?: (board: Board, ownerName: string) => void;
+}
+
+type BoardSheet = 'filters' | 'menu' | 'settings' | 'columns' | 'transfer';
+
+/**
+ * The pane shown: the column chosen while it is live, else the board's first live column; the
+ * archive when chosen; none while no column is read yet.
+ */
+function paneOf(chosen: string | null, live: readonly ColumnRow[]): string | null {
+  if (chosen === ARCHIVE) {
+    return ARCHIVE;
+  }
+  return (live.find((column) => column.id === chosen) ?? live[0])?.id ?? null;
 }
 
 /** One board under the switcher; exported for its tests (an archived board, read by everybody). */
-export function BoardBody({ board, viewer }: BoardBodyProps) {
+export function BoardBody({ board, viewer, onTransferred }: BoardBodyProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const cards = useBoardCards(board.id);
+  const columns = useBoardColumns(board.id);
   const staff = useStaffDirectory();
   const shelve = useSetCardShelf();
   const archiveBoard = useSetBoardArchived();
-  const [pane, setPane] = useState<Pane>('open');
+  const [chosenPane, setPane] = useState<string | null>(null);
   const [filters, setFilters] = useState<CardFilters>(EMPTY_CARD_FILTERS);
   const [order, setOrder] = useState<CardOrder>('due');
-  const [sheet, setSheet] = useState<'filters' | 'menu' | 'rename' | null>(null);
+  const [sheet, setSheet] = useState<BoardSheet | null>(null);
   const today = localDay();
   // The board itself: its owner and an admin. Its cards: everybody in the office, on a live board.
   const canEdit = canEditBoard(board, viewer);
@@ -193,6 +258,10 @@ export function BoardBody({ board, viewer }: BoardBodyProps) {
   const mayRestore = board.archived_at !== null && (viewer.isAdmin || board.owner_id === viewer.id);
 
   const all = cards.data ?? [];
+  const live = liveColumns(columns.data ?? []);
+  const pane = paneOf(chosenPane, live);
+  const paneColumn = live.find((column) => column.id === pane) ?? null;
+  const inColumn = (card: BoardCard, columnId: string) => columnIdOf(card, live) === columnId;
   const matching = all.filter((card) => matchesCardFilters(card, filters, today));
   const onBoard = matching.filter((card) => shelfOf(card) === 'active');
   const offBoard = matching.filter((card) => shelfOf(card) !== 'active');
@@ -201,20 +270,27 @@ export function BoardBody({ board, viewer }: BoardBodyProps) {
     today,
   );
   const panes = [
-    ...BOARD_COLUMNS.map((column) => ({
-      value: column as Pane,
-      label: `${t(`problems.statuses.${column}`)} ${onBoard.filter((card) => card.column_key === column).length}`,
+    ...live.map((column) => ({
+      value: column.id,
+      label: `${columnLabel(column, t)} ${onBoard.filter((card) => inColumn(card, column.id)).length}`,
     })),
-    { value: 'archive' as Pane, label: `${t('boards.viewArchive')} ${offBoard.length}` },
+    { value: ARCHIVE, label: `${t('boards.viewArchive')} ${offBoard.length}` },
   ];
   const shown =
-    pane === 'archive'
+    pane === ARCHIVE
       ? offBoard
-      : orderCards(
-          onBoard.filter((card) => card.column_key === pane),
-          order,
-        );
+      : paneColumn === null
+        ? []
+        : orderCards(
+            onBoard.filter((card) => inColumn(card, paneColumn.id)),
+            order,
+          );
   const failure = [shelve, archiveBoard].find((mutation) => mutation.isError);
+  const readFailure = cards.isError
+    ? cards.error
+    : columns.data === undefined && columns.isError
+      ? columns.error
+      : null;
   const open = (cardId: string) =>
     router.push({ pathname: '/board-card/[id]', params: { id: cardId } });
 
@@ -278,12 +354,12 @@ export function BoardBody({ board, viewer }: BoardBodyProps) {
       </View>
       <ChoiceChips
         options={panes}
-        value={pane}
+        value={pane ?? ''}
         onChange={setPane}
         accessibilityLabel={t('boards.column')}
         semantics="tabs"
       />
-      {canWork && pane !== 'archive' ? <QuickAdd boardId={board.id} column={pane} /> : null}
+      {canWork && paneColumn !== null ? <QuickAdd boardId={board.id} column={paneColumn} /> : null}
       {failure === undefined ? null : <FailureText error={failure.error} />}
     </View>
   );
@@ -297,10 +373,16 @@ export function BoardBody({ board, viewer }: BoardBodyProps) {
         ListHeaderComponent={header}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={cards.isRefetching} onRefresh={() => void cards.refetch()} />
+          <RefreshControl
+            refreshing={cards.isRefetching}
+            onRefresh={() => {
+              void cards.refetch();
+              void columns.refetch();
+            }}
+          />
         }
         renderItem={({ item }) =>
-          pane === 'archive' ? (
+          pane === ARCHIVE ? (
             <ShelvedRow
               card={item}
               canRestore={canWork}
@@ -313,13 +395,13 @@ export function BoardBody({ board, viewer }: BoardBodyProps) {
           )
         }
         ListEmptyComponent={
-          cards.isPending ? (
+          cards.isPending || columns.isPending ? (
             <LoadingState label={t('boards.loading')} />
-          ) : cards.isError ? (
-            <ErrorState error={cards.error} title={t('boards.loadError')} />
+          ) : readFailure !== null ? (
+            <ErrorState error={readFailure} title={t('boards.loadError')} />
           ) : (
             <Text tone="secondary" align="center">
-              {pane === 'archive'
+              {pane === ARCHIVE
                 ? t('boards.archiveEmpty')
                 : hasCardFilters(filters)
                   ? t('boards.columnEmptyFiltered')
@@ -343,7 +425,9 @@ export function BoardBody({ board, viewer }: BoardBodyProps) {
         title={t('boards.boardMenu')}
         onClose={() => setSheet(null)}
         actions={[
-          { label: t('boards.rename'), onPress: () => setSheet('rename') },
+          { label: t('boards.settingsTitle'), onPress: () => setSheet('settings') },
+          { label: t('boards.columns'), onPress: () => setSheet('columns') },
+          { label: t('boards.transfer'), onPress: () => setSheet('transfer') },
           {
             label: t('boards.archiveBoard'),
             isDestructive: true,
@@ -352,113 +436,35 @@ export function BoardBody({ board, viewer }: BoardBodyProps) {
         ]}
       />
       <BoardNameSheet
-        isVisible={sheet === 'rename'}
+        isVisible={sheet === 'settings'}
         board={board}
+        viewer={viewer}
         onClose={() => setSheet(null)}
         onSaved={() => setSheet(null)}
       />
-    </>
-  );
-}
-
-/**
- * «Назначено мне»: the person's cards from every board that is not archived, a column at a time,
- * each naming its board. A new card is made on a board.
- */
-function MyCardsBody() {
-  const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
-  const cards = useMyCards();
-  const [pane, setPane] = useState<BoardColumn>('open');
-  const [filters, setFilters] = useState<CardFilters>(EMPTY_CARD_FILTERS);
-  const [order, setOrder] = useState<CardOrder>('due');
-  const [isFiltering, setIsFiltering] = useState(false);
-  const today = localDay();
-  const all = cards.data ?? [];
-  const matching = all.filter((card) => matchesCardFilters(card, filters, today));
-  const panes = BOARD_COLUMNS.map((column) => ({
-    value: column,
-    label: `${t(`problems.statuses.${column}`)} ${matching.filter((card) => card.column_key === column).length}`,
-  }));
-  const shown = orderCards(
-    matching.filter((card) => card.column_key === pane),
-    order,
-  );
-  const open = (cardId: string) =>
-    router.push({ pathname: '/board-card/[id]', params: { id: cardId } });
-
-  const header = (
-    <View style={styles.header}>
-      <Text variant="heading">{t('boards.assignedToMe')}</Text>
-      <View style={styles.searchRow}>
-        <View style={styles.search}>
-          <TextField
-            label={t('boards.search')}
-            value={filters.query}
-            onChangeText={(query) => setFilters({ ...filters, query })}
-          />
-        </View>
-        <IconButton
-          icon="action.search"
-          accessibilityLabel={t('boards.filters.label')}
-          onPress={() => setIsFiltering(true)}
-        />
-      </View>
-      <ChoiceChips
-        options={panes}
-        value={pane}
-        onChange={setPane}
-        accessibilityLabel={t('boards.column')}
-        semantics="tabs"
+      <ColumnsSheet
+        isVisible={sheet === 'columns'}
+        board={board}
+        columns={columns.data ?? []}
+        cards={all}
+        onClose={() => setSheet(null)}
       />
-    </View>
-  );
-
-  return (
-    <>
-      <FlatList
-        // The search sits in the header: a tap with the keyboard up acts, not only hides it.
-        keyboardShouldPersistTaps="handled"
-        data={shown}
-        keyExtractor={(card) => card.id}
-        ListHeaderComponent={header}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={cards.isRefetching} onRefresh={() => void cards.refetch()} />
-        }
-        renderItem={({ item }) => (
-          <BoardCardRow card={item} today={today} onPress={open} boardTitle={item.board.title} />
-        )}
-        ListEmptyComponent={
-          cards.isPending ? (
-            <LoadingState label={t('boards.loading')} />
-          ) : cards.isError && cards.data === undefined ? (
-            <ErrorState error={cards.error} title={t('boards.loadError')} />
-          ) : (
-            <Text tone="secondary" align="center">
-              {all.length === 0
-                ? t('boards.assignedToMeEmpty')
-                : hasCardFilters(filters)
-                  ? t('boards.columnEmptyFiltered')
-                  : t('boards.columnEmpty')}
-            </Text>
-          )
-        }
-      />
-      <FiltersSheet
-        isVisible={isFiltering}
-        onClose={() => setIsFiltering(false)}
-        filters={filters}
-        onChange={setFilters}
-        order={order}
-        onOrderChange={setOrder}
+      <TransferSheet
+        isVisible={sheet === 'transfer'}
+        board={board}
+        viewer={viewer}
+        onClose={() => setSheet(null)}
+        onTransferred={(ownerName) => {
+          setSheet(null);
+          onTransferred?.(board, ownerName);
+        }}
       />
     </>
   );
 }
 
 /** The quickest way onto a column: the title, then «Готово» on the keyboard. */
-function QuickAdd({ boardId, column }: { boardId: string; column: BoardColumn }) {
+function QuickAdd({ boardId, column }: { boardId: string; column: ColumnRow }) {
   const { t } = useTranslation();
   const save = useSaveCard();
   const [title, setTitle] = useState('');
@@ -472,14 +478,14 @@ function QuickAdd({ boardId, column }: { boardId: string; column: BoardColumn })
     if (words === '' || save.isPending) {
       return;
     }
-    const key = `${column}\n${words}`;
+    const key = `${column.id}\n${words}`;
     const cardId = attempt.current?.key === key ? attempt.current.cardId : randomUUID();
     attempt.current = { key, cardId };
     save.mutate(
       {
         cardId,
         boardId,
-        column,
+        columnId: column.id,
         fields: { title: words, description: '', dueOn: null, propertyId: null, color: null },
       },
       {
@@ -493,7 +499,7 @@ function QuickAdd({ boardId, column }: { boardId: string; column: BoardColumn })
 
   return (
     <TextField
-      label={t('boards.quickAddLabel', { column: t(`problems.statuses.${column}`) })}
+      label={t('boards.quickAddLabel', { column: columnLabel(column, t) })}
       value={title}
       onChangeText={setTitle}
       maxLength={BOARD_LIMITS.cardTitle}

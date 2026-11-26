@@ -1,6 +1,6 @@
 'use client';
 
-import { BOARD_LIMITS, type BoardColumn } from '@str-ops/shared';
+import { BOARD_LIMITS } from '@str-ops/shared';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,7 +11,10 @@ import { useSaveCard } from './use-boards';
 
 interface QuickAddProps {
   boardId: string;
-  column: BoardColumn;
+  /** The board's column the card stands in (20261126120000). */
+  columnId: string;
+  /** Its name, for the field's label. */
+  columnName: string;
 }
 
 /**
@@ -19,13 +22,12 @@ interface QuickAddProps {
  * this column. The field keeps its place for the next one. A card's id is
  * minted per title: a repeat after a lost answer is the same card.
  */
-export function QuickAdd({ boardId, column }: QuickAddProps) {
+export function QuickAdd({ boardId, columnId, columnName }: QuickAddProps) {
   const { t } = useTranslation();
   const save = useSaveCard();
   const [title, setTitle] = useState('');
   const [cardId, setCardId] = useState(() => crypto.randomUUID());
   const failure = save.isError ? serverErrorText(save.error) : null;
-  const columnName = t(`problems.statuses.${column}`);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -37,7 +39,7 @@ export function QuickAdd({ boardId, column }: QuickAddProps) {
       {
         cardId,
         boardId,
-        column,
+        columnId,
         fields: { title: words, description: '', dueOn: null, propertyId: null, color: null },
       },
       {

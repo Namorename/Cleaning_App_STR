@@ -255,6 +255,24 @@ describe('usePushTaps', () => {
     );
   });
 
+  // 20261126120000: the tab itself, the board handed over chosen — not over the screen she was on.
+  test('a tap on a board handed to her opens «Доски» with it, closing what is over the tabs', async () => {
+    canDismiss.mockReturnValue(true);
+    const client = new QueryClient();
+    const boardId = '2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a';
+    lastResponse.mockReturnValue(tap('n-20', { kind: 'board_transferred', boardId }));
+
+    await renderHook(() => usePushTaps(ME), { wrapper: withClient(client) });
+
+    await waitFor(() =>
+      expect(router.navigate).toHaveBeenCalledWith({
+        pathname: '/(tabs)/boards',
+        params: { board: boardId },
+      }),
+    );
+    expect(router.dismissAll).toHaveBeenCalledTimes(1);
+  });
+
   test('a tap opens its screen without waiting for the lists to refresh', async () => {
     // An active list whose refetch never answers: a stalled connection.
     const client = new QueryClient();

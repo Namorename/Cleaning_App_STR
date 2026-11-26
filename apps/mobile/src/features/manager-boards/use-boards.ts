@@ -1,4 +1,3 @@
-import type { BoardColumn } from '@str-ops/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useSession } from '@/features/auth/session';
@@ -6,33 +5,42 @@ import { useRole } from '@/features/auth/use-role';
 import { readCached } from '@/lib/read-cached';
 
 import {
+  deleteColumn,
   deleteComment,
   deleteStep,
   duplicateCard,
   fetchBoardCards,
+  fetchBoardColumns,
   fetchBoards,
   fetchCard,
   fetchMyCards,
   moveCard,
+  orderColumns,
   orderSteps,
   saveBoard,
   saveCard,
+  saveColumn,
   saveComment,
   saveStep,
   setBoardArchived,
   setCardAssignee,
   setCardShelf,
+  setColumnDone,
   setStepDone,
+  transferBoard,
 } from './api';
 import {
   boardCardListSchema,
+  boardColumnListSchema,
   boardListSchema,
   myCardListSchema,
   oneCardSchema,
+  onLiveBoards,
   type Board,
   type BoardCard,
   type BoardViewer,
   type CardDetail,
+  type ColumnRow,
   type MyCard,
 } from './schema';
 
@@ -47,6 +55,8 @@ export const boardKeys = {
   card: (person: string, cardId: string) => ['boards', person, 'card', cardId] as const,
   /** «Назначено мне» (20261118230000). */
   mine: (person: string) => ['boards', person, 'mine'] as const,
+  /** A board's columns, the deleted ones too (20261126120000). */
+  columns: (person: string, boardId: string) => ['boards', person, 'columns', boardId] as const,
 };
 
 /** Restored from disk in whatever shape the build that saved it read (`readCached`). */
@@ -59,7 +69,11 @@ function readCards(data: unknown): BoardCard[] {
 }
 
 function readMine(data: unknown): MyCard[] {
-  return readCached(myCardListSchema, data, 'my board cards');
+  return onLiveBoards(readCached(myCardListSchema, data, 'my board cards'));
+}
+
+function readColumns(data: unknown): ColumnRow[] {
+  return readCached(boardColumnListSchema, data, 'board columns');
 }
 
 function readCard(data: unknown): CardDetail | null {
@@ -89,6 +103,17 @@ export function useBoardCards(boardId: string | null) {
     queryKey: boardKeys.cards(userId ?? '', boardId ?? ''),
     queryFn: () => fetchBoardCards(boardId ?? ''),
     select: readCards,
+    enabled: userId !== null && boardId !== null,
+  });
+}
+
+/** A board's columns — the live ones its cards stand in, the deleted ones its journal names. */
+export function useBoardColumns(boardId: string | null) {
+  const { userId } = useSession();
+  return useQuery({
+    queryKey: boardKeys.columns(userId ?? '', boardId ?? ''),
+    queryFn: () => fetchBoardColumns(boardId ?? ''),
+    select: readColumns,
     enabled: userId !== null && boardId !== null,
   });
 }
@@ -141,6 +166,17 @@ export const useOrderSteps = () => useWrite(orderSteps);
 export const useSaveComment = () => useWrite(saveComment);
 export const useDeleteComment = () => useWrite(deleteComment);
 export const useSetCardAssignee = () => useWrite(setCardAssignee);
+export const useTransferBoard = () => useWrite(transferBoard);
+export const useSaveColumn = () => useWrite(saveColumn);
+export const useOrderColumns = () => useWrite(orderColumns);
+export const useSetColumnDone = () => useWrite(setColumnDone);
+export const useDeleteColumn = () => useWrite(deleteColumn);
+
+/** Where a card moves: the column, by id, and the stage the server keeps its cards' key as. */
+export interface MoveCardVariables {
+  cardId: string;
+  column: Pick<ColumnRow, 'id' | 'legacy_key'>;
+}
 
 /** A move shows at once on the board's list, and goes back if the server refuses. */
 export function useMoveCard(boardId: string) {
@@ -149,7 +185,8 @@ export function useMoveCard(boardId: string) {
   const key = boardKeys.cards(userId ?? '', boardId);
   return useMutation({
     ...WRITE,
-    mutationFn: (variables: { cardId: string; column: BoardColumn }) => moveCard(variables),
+    mutationFn: ({ cardId, column }: MoveCardVariables) =>
+      moveCard({ cardId, columnId: column.id }),
     onMutate: async ({ cardId, column }) => {
       await queryClient.cancelQueries({ queryKey: key });
       const before = queryClient.getQueryData<unknown>(key);
@@ -157,7 +194,9 @@ export function useMoveCard(boardId: string) {
         queryClient.setQueryData<unknown>(
           key,
           before.map((card: { id?: unknown }) =>
-            card.id === cardId ? { ...card, column_key: column } : card,
+            card.id === cardId
+              ? { ...card, column_id: column.id, column_key: column.legacy_key }
+              : card,
           ),
         );
       }

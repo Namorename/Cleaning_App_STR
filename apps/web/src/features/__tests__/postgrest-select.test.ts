@@ -104,6 +104,8 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => boards.fetchCard(client, ANY_ID),
   (client) => boards.fetchMyCards(client, ANY_ID),
   (client) => boards.fetchOfficePeople(client),
+  // A board's own columns (20261126120000), the deleted ones too.
+  (client) => boards.fetchBoardColumns(client, [ANY_ID]),
   (client) => apartments.fetchRegistry(client),
   (client) => apartments.fetchProperty(client, ANY_PROPERTY),
   (client) => apartments.fetchOpenCleanings(client),

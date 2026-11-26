@@ -38,20 +38,41 @@ function personFact(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
 }
 
+/** What names the ids a journal holds: the company's people, the board's columns. */
+export interface EntryNames {
+  /** A person by id, from the company's people; null for one not known. */
+  person?: (id: string) => string | null;
+  /** A column of the card's board by id, a deleted one too; null for one not read. */
+  column?: (id: string) => string | null;
+}
+
+/**
+ * Where a «moved» line says the card went: the column it names (20261126120000) by its name now —
+ * renamed or deleted since, too — else the stage the line keeps, by the technicians' board's word.
+ */
+function movedTo(facts: CardEntry['facts'], t: TFunction, names: EntryNames): string {
+  const { to, to_column: toColumn } = facts;
+  const column = typeof toColumn === 'string' ? (names.column?.(toColumn) ?? null) : null;
+  if (column !== null) {
+    return column;
+  }
+  return typeof to === 'string' && isBoardColumn(to) ? t(`problems.statuses.${to}`) : '—';
+}
+
 /**
  * The sentence of a system line: the server keeps codes, dates, counts and
- * people's ids (never a person's words or name); the reader's language makes
- * them a sentence, and `nameOf` names the people.
+ * people's and columns' ids (never a person's words or name); the reader's
+ * language makes them a sentence, and `names` names the people and columns.
  */
 export function entrySentence(
   entry: CardEntry,
   t: TFunction,
   language: Language,
-  nameOf: (id: string) => string | null = () => null,
+  names: EntryNames = {},
 ): string {
   const { facts } = entry;
   const person = (id: string | null) =>
-    id === null ? '—' : (nameOf(id) ?? t('boards.unknownPerson'));
+    id === null ? '—' : (names.person?.(id) ?? t('boards.unknownPerson'));
   switch (entry.kind) {
     case 'assignee_changed': {
       const from = personFact(facts.from);
@@ -64,12 +85,8 @@ export function entrySentence(
       }
       return t('boards.entries.assigneeChanged', { from: person(from), to: person(to) });
     }
-    case 'moved': {
-      const to = typeof facts.to === 'string' && isBoardColumn(facts.to) ? facts.to : null;
-      return t('boards.entries.moved', {
-        column: to === null ? '—' : t(`problems.statuses.${to}`),
-      });
-    }
+    case 'moved':
+      return t('boards.entries.moved', { column: movedTo(facts, t, names) });
     case 'due_changed': {
       const from = dayFact(facts.from);
       const to = dayFact(facts.to);
@@ -101,6 +118,8 @@ interface CardJournalProps {
   viewer: BoardViewer;
   /** Every manager and admin, on a live board and a card that is not shelved: may write. */
   canEdit: boolean;
+  /** Names a column of the card's board by id, a deleted one too: a «moved» line's column. */
+  columnNameOf?: (id: string) => string | null;
 }
 
 /**
@@ -110,9 +129,12 @@ interface CardJournalProps {
  * due date changed, step ticked. Its author changes and deletes a comment; an
  * admin deletes any. Ctrl+Enter sends.
  */
-export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
+export function CardJournal({ card, viewer, canEdit, columnNameOf }: CardJournalProps) {
   const people = useOfficePeople();
-  const nameOf = (id: string) => people.data?.find((person) => person.id === id)?.full_name ?? null;
+  const names: EntryNames = {
+    person: (id) => people.data?.find((person) => person.id === id)?.full_name ?? null,
+    column: columnNameOf,
+  };
   const { t } = useTranslation();
   const headingId = useId();
   const save = useSaveComment();
@@ -180,7 +202,7 @@ export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
         <ol className="flex flex-col gap-3">
           {entries.map((entry) => (
             <JournalLine
-              nameOf={nameOf}
+              names={names}
               key={entry.id}
               entry={entry}
               canEdit={canEdit && canEditComment(entry, viewer)}
@@ -244,8 +266,8 @@ export function CardJournal({ card, viewer, canEdit }: CardJournalProps) {
 }
 
 interface JournalLineProps {
-  /** Names a person by id, from the company's people. */
-  nameOf: (id: string) => string | null;
+  /** Names the people and the columns the line holds the ids of. */
+  names: EntryNames;
   entry: CardEntry;
   canEdit: boolean;
   canDelete: boolean;
@@ -260,7 +282,7 @@ interface JournalLineProps {
 
 function JournalLine({
   entry,
-  nameOf,
+  names,
   canEdit,
   canDelete,
   editing,
@@ -286,7 +308,7 @@ function JournalLine({
       </p>
       {!isComment ? (
         <p className="text-sm text-muted-foreground italic">
-          {entrySentence(entry, t, language, nameOf)}
+          {entrySentence(entry, t, language, names)}
         </p>
       ) : editing !== null ? (
         <div className="flex flex-col gap-2">

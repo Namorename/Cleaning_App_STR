@@ -24,10 +24,32 @@ export const boardSchema = z.object({
   owner_id: z.string(),
   archived_at: z.string().nullable(),
   created_at: z.string(),
+  // Read by the other managers too (true), or by its owner and the admins alone (20261126120000).
+  // Default: a board saved to disk by the build before it — every board was the office's then.
+  shared: z.boolean().default(true),
   owner: personSchema,
 });
 export type Board = z.infer<typeof boardSchema>;
 export const boardListSchema = z.array(boardSchema);
+
+/**
+ * A board's own column (20261126120000): its name — null for a preset nobody renamed, read in the
+ * reader's language — its place, whether it is finishing, and the stage its cards read as. Strings,
+ * not the four keys, for the same reason as a card's key: a key a later server adds leaves the
+ * board readable. The deleted ones are read too: the journal names them.
+ */
+export const boardColumnSchema = z.object({
+  id: z.string(),
+  board_id: z.string(),
+  title: z.string().nullable(),
+  preset: z.string().nullable(),
+  position: z.number(),
+  is_done: z.boolean(),
+  legacy_key: z.string(),
+  deleted_at: z.string().nullable(),
+});
+export type ColumnRow = z.infer<typeof boardColumnSchema>;
+export const boardColumnListSchema = z.array(boardColumnSchema);
 
 const stepMarkSchema = z.object({
   id: z.string(),
@@ -40,8 +62,12 @@ export const boardCardSchema = z.object({
   board_id: z.string(),
   title: z.string(),
   description: z.string(),
+  // The card's column on its board (20261126120000). Default: a card saved to disk by the build
+  // before it stands in its board's first column of its stage (`columnIdOf`) until the next read.
+  column_id: z.string().nullable().default(null),
   // A string, not the four: a column a later server adds leaves this phone's lists readable
-  // (the card simply stands in no column it shows) instead of failing the whole read.
+  // (the card simply stands in no column it shows) instead of failing the whole read. The server
+  // keeps it as the stage of the card's column: `resolved` exactly in a finishing one.
   column_key: z.string(),
   color: z.string().nullable(),
   due_on: z.string().nullable(),
@@ -59,17 +85,31 @@ export const boardCardSchema = z.object({
 export type BoardCard = z.infer<typeof boardCardSchema>;
 export const boardCardListSchema = z.array(boardCardSchema);
 
-/** A card of «Назначено мне», from any board that is not archived, with its board's name. */
+/**
+ * A card of «Назначено мне», from any board that is not archived, with its board's name — or with
+ * none: a card given to the viewer on a board that is not his to see (20261126120000).
+ */
 export const myCardSchema = boardCardSchema.extend({
-  board: z.object({
-    id: z.string(),
-    title: z.string(),
-    owner_id: z.string(),
-    archived_at: z.string().nullable(),
-  }),
+  board: z
+    .object({
+      id: z.string(),
+      title: z.string(),
+      owner_id: z.string(),
+      archived_at: z.string().nullable(),
+    })
+    .nullable(),
 });
 export type MyCard = z.infer<typeof myCardSchema>;
 export const myCardListSchema = z.array(myCardSchema);
+
+/**
+ * «Назначено мне» keeps the cards of live boards: a board the viewer sees and that is archived drops
+ * its cards; a board he does not see comes as null, and its card is live (the server reads such a
+ * card to him only on a live board).
+ */
+export function onLiveBoards<T extends Pick<MyCard, 'board'>>(cards: readonly T[]): T[] {
+  return cards.filter((card) => card.board === null || card.board.archived_at === null);
+}
 
 export const cardStepSchema = stepMarkSchema.extend({ sort_order: z.number() });
 export type CardStep = z.infer<typeof cardStepSchema>;
@@ -144,6 +184,32 @@ export function canEditBoard(
  */
 export function canWorkOn(board: Pick<Board, 'archived_at'>): boolean {
   return canWorkOnCards(board);
+}
+
+/** What the viewer does with a card. */
+export interface CardAccess {
+  /** Its fields, its column, its steps, comments. */
+  canWork: boolean;
+  /** Archive, delete, return, copy it, give it to somebody. */
+  canManage: boolean;
+}
+
+/**
+ * On a board the viewer sees (`board` read in his list): all of it, on a live board
+ * (20261119090000). On a board he does not see — a card given to him on a board that is not his to
+ * see (20261126120000) — he works on the card; the rest stays with those who see the board. The
+ * server reads such a card to him only on a live board, and checks the same.
+ */
+export function cardAccess(
+  card: Pick<BoardCard, 'assignee_id'>,
+  board: Pick<Board, 'archived_at'> | null,
+  viewer: BoardViewer,
+): CardAccess {
+  if (board !== null) {
+    const canWork = canWorkOn(board);
+    return { canWork, canManage: canWork };
+  }
+  return { canWork: card.assignee_id === viewer.id, canManage: false };
 }
 
 /** A person of the company's directory, as a card's assignee is picked and named. */

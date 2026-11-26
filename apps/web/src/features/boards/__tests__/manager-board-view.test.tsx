@@ -2,229 +2,36 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
+import { cardDetailSchema, myCardSchema } from '../schema';
 import {
-  boardCardSchema,
-  boardSchema,
-  cardDetailSchema,
-  myCardSchema,
-  type Board,
-  type BoardCard,
-  type CardDetail,
-  type MyCard,
-  type OfficePerson,
-} from '../schema';
+  ADMIN,
+  BOARD,
+  COLUMN,
+  DETAIL,
+  GONE,
+  OWNER,
+  PEOPLE,
+  READER,
+  cardId,
+  makeBoard,
+  makeCard,
+  resetBoards,
+  spies,
+  state,
+} from './fixtures';
 
-const TODAY = '2026-11-18';
-const BOARD = 'b0a2d100-0000-4000-8000-000000000001';
-const OWNER = 'aaaaaaaa-0000-4000-8000-000000000001';
-const READER = 'aaaaaaaa-0000-4000-8000-000000000002';
-const ADMIN = 'aaaaaaaa-0000-4000-8000-000000000003';
-const cardId = (n: number) => `b0a2d200-0000-4000-8000-00000000000${n}`;
-
-function makeBoard(overrides: Partial<Board> = {}): Board {
-  return boardSchema.parse({
-    id: BOARD,
-    title: 'Проекты',
-    owner_id: OWNER,
-    archived_at: null,
-    created_at: '2026-11-01T10:00:00Z',
-    owner: { full_name: 'Ольга Владелец' },
-    ...overrides,
-  });
-}
-
-function makeCard(n: number, overrides: Partial<BoardCard> = {}): BoardCard {
-  return boardCardSchema.parse({
-    id: cardId(n),
-    board_id: BOARD,
-    title: `Карточка ${n}`,
-    description: '',
-    column_key: 'open',
-    color: null,
-    due_on: null,
-    property_id: null,
-    created_at: `2026-11-0${n}T10:00:00Z`,
-    moved_at: `2026-11-0${n}T10:00:00Z`,
-    archived_at: null,
-    deleted_at: null,
-    property: null,
-    steps: [],
-    ...overrides,
-  });
-}
-
-const CARDS: BoardCard[] = [
-  makeCard(1, {
-    title: 'Ремонт ванной',
-    color: 'blue',
-    due_on: '2026-11-10',
-    steps: [
-      { id: 's1', body: 'Плитка', done_at: '2026-11-11T10:00:00Z' },
-      { id: 's2', body: 'Краска', done_at: null },
-      { id: 's3', body: 'Сантехник', done_at: null },
-    ],
-  }),
-  makeCard(2, { title: 'Звонок юристу', column_key: 'in_progress', due_on: TODAY }),
-  makeCard(3, { title: 'Закупка готова', column_key: 'resolved' }),
-  makeCard(4, {
-    title: 'Старый проект',
-    column_key: 'resolved',
-    archived_at: '2026-11-12T10:00:00Z',
-  }),
-  makeCard(5, { title: 'Ошибочная', deleted_at: '2026-11-13T10:00:00Z' }),
-];
-
-const DETAIL: CardDetail = cardDetailSchema.parse({
-  ...CARDS[0],
-  description: 'План: https://example.com/plan',
-  created_by: OWNER,
-  creator: { full_name: 'Ольга Владелец' },
-  steps: [
-    { id: 's1', body: 'Плитка', sort_order: 1, done_at: '2026-11-11T10:00:00Z' },
-    { id: 's2', body: 'Краска', sort_order: 2, done_at: '2026-11-12T10:00:00Z' },
-    { id: 's3', body: 'Сантехник', sort_order: 3, done_at: '2026-11-13T10:00:00Z' },
-  ],
-  entries: [
-    {
-      id: 'e1',
-      kind: 'moved',
-      body: null,
-      facts: { from: 'open', to: 'assigned' },
-      author_id: OWNER,
-      created_at: '2026-11-11T09:00:00Z',
-      edited_at: null,
-      author: { full_name: 'Ольга Владелец' },
-    },
-    {
-      id: 'e2',
-      kind: 'comment',
-      body: 'Сантехник придёт во вторник',
-      facts: {},
-      author_id: OWNER,
-      created_at: '2026-11-12T09:00:00Z',
-      edited_at: '2026-11-12T10:00:00Z',
-      author: { full_name: 'Ольга Владелец' },
-    },
-    {
-      id: 'e3',
-      kind: 'comment',
-      body: 'Заметка админа',
-      facts: {},
-      author_id: ADMIN,
-      created_at: '2026-11-13T09:00:00Z',
-      edited_at: null,
-      author: { full_name: 'Анна Админ' },
-    },
-  ],
-});
-
-const state = {
-  boards: [makeBoard()] as Board[],
-  cards: CARDS,
-  detail: DETAIL as CardDetail | null,
-  /** The last read of the cards failed, the rows read before it still in hand. */
-  isStale: false,
-  /** The writes the server refuses (by their spy). */
-  failing: new Set<unknown>(),
-  people: [] as OfficePerson[],
-  mine: [] as MyCard[],
-};
-
-const GONE = 'aaaaaaaa-0000-4000-8000-000000000009';
-const PEOPLE: OfficePerson[] = [
-  { id: ADMIN, full_name: 'Анна Админ', role: 'admin', is_active: true },
-  { id: GONE, full_name: 'Вера Ушла', role: 'manager', is_active: false },
-  {
-    id: 'aaaaaaaa-0000-4000-8000-000000000008',
-    full_name: 'Галя Горничная',
-    role: 'cleaner',
-    is_active: true,
-  },
-  { id: READER, full_name: 'Ира Читатель', role: 'manager', is_active: true },
-  { id: OWNER, full_name: 'Ольга Владелец', role: 'manager', is_active: true },
-];
-
-/** Every write the view asks for; `onSuccess` runs at once, as a server that agrees. */
-const spies = {
-  saveCard: vi.fn(),
-  move: vi.fn(),
-  shelve: vi.fn(),
-  duplicate: vi.fn(),
-  archiveBoard: vi.fn(),
-  saveBoard: vi.fn(),
-  saveStep: vi.fn(),
-  tick: vi.fn(),
-  deleteStep: vi.fn(),
-  orderSteps: vi.fn(),
-  saveComment: vi.fn(),
-  deleteComment: vi.fn(),
-  assign: vi.fn(),
-};
-
-function mutation(spy: (variables: unknown) => void) {
-  return {
-    isPending: false,
-    isError: false,
-    error: null,
-    mutate: (
-      variables: unknown,
-      options?: {
-        onSuccess?: () => void;
-        onError?: (error: unknown) => void;
-        onSettled?: () => void;
-      },
-    ) => {
-      spy(variables);
-      if (state.failing.has(spy)) {
-        options?.onError?.({ message: 'refused', hint: 'serverErrors.boardNotYours' });
-      } else {
-        options?.onSuccess?.();
-      }
-      options?.onSettled?.();
-    },
-  };
-}
-
-vi.mock('../use-boards', () => ({
-  useBoards: () => ({ isPending: false, isError: false, error: null, data: state.boards }),
-  useBoardCards: () => ({
-    isPending: false,
-    isError: state.isStale,
-    error: state.isStale ? new Error('offline') : null,
-    data: state.cards,
-  }),
-  useCard: () => ({
-    isPending: false,
-    isError: state.isStale,
-    error: state.isStale ? new Error('offline') : null,
-    data: state.detail,
-  }),
-  useSaveCard: () => mutation(spies.saveCard),
-  useMoveCard: () => mutation(spies.move),
-  useSetCardShelf: () => mutation(spies.shelve),
-  useDuplicateCard: () => mutation(spies.duplicate),
-  useSetBoardArchived: () => mutation(spies.archiveBoard),
-  useSaveBoard: () => mutation(spies.saveBoard),
-  useSaveStep: () => mutation(spies.saveStep),
-  useSetStepDone: () => mutation(spies.tick),
-  useDeleteStep: () => mutation(spies.deleteStep),
-  useOrderSteps: () => mutation(spies.orderSteps),
-  useSaveComment: () => mutation(spies.saveComment),
-  useDeleteComment: () => mutation(spies.deleteComment),
-  useSetCardAssignee: () => mutation(spies.assign),
-  useOfficePeople: () => ({ isPending: false, isError: false, error: null, data: state.people }),
-  useMyCards: () => ({ isPending: false, isError: false, error: null, data: state.mine }),
-}));
+vi.mock('../use-boards', async () => (await import('./fixtures')).useBoardsModule);
 
 vi.mock('@/features/tasks/use-tasks', () => ({ useProperties: () => ({ data: [] }) }));
 
 vi.mock('@/lib/format-date', async (original) => ({
   ...(await original<typeof import('@/lib/format-date')>()),
-  todayIso: () => TODAY,
+  todayIso: () => '2026-11-18',
 }));
 
 vi.mock('next/navigation', async () => {
   const { useSyncExternalStore } = await import('react');
+  const { router } = await import('./fixtures');
   const subscribe = (onChange: () => void) => {
     window.addEventListener('popstate', onChange);
     return () => window.removeEventListener('popstate', onChange);
@@ -233,7 +40,7 @@ vi.mock('next/navigation', async () => {
     useSearchParams: () =>
       new URLSearchParams(useSyncExternalStore(subscribe, () => window.location.search)),
     usePathname: () => window.location.pathname,
-    useRouter: () => ({ push: vi.fn() }),
+    useRouter: () => router,
   };
 });
 
@@ -248,14 +55,7 @@ function show(viewer: { id: string; isAdmin: boolean }, search = `?board=${BOARD
 const column = (name: string) => screen.getByRole('region', { name });
 
 beforeEach(() => {
-  state.boards = [makeBoard()];
-  state.cards = CARDS;
-  state.detail = DETAIL;
-  state.isStale = false;
-  state.failing = new Set();
-  state.people = PEOPLE;
-  state.mine = [];
-  vi.clearAllMocks();
+  resetBoards();
 });
 
 describe('after the review of the panel', () => {
@@ -276,7 +76,11 @@ describe('after the review of the panel', () => {
       'true',
     );
     await user.click(within(group).getByRole('button', { name: 'В работе' }));
-    expect(spies.move).toHaveBeenCalledWith({ cardId: cardId(1), column: 'in_progress' });
+    expect(spies.move).toHaveBeenCalledWith({
+      cardId: cardId(1),
+      columnId: COLUMN.in_progress,
+      stage: 'in_progress',
+    });
     await user.click(within(group).getByRole('button', { name: 'Открыто' }));
     expect(spies.move).toHaveBeenCalledTimes(1);
   });
@@ -374,7 +178,7 @@ describe('the owner', () => {
     expect(spies.saveCard).toHaveBeenCalledWith(
       expect.objectContaining({
         boardId: BOARD,
-        column: 'assigned',
+        columnId: COLUMN.assigned,
         fields: {
           title: 'Позвонить электрику',
           description: '',
@@ -391,7 +195,11 @@ describe('the owner', () => {
     show({ id: OWNER, isAdmin: false });
     await user.click(screen.getByRole('button', { name: 'Действия с карточкой «Ремонт ванной»' }));
     await user.click(await screen.findByRole('menuitem', { name: 'В «Выполнено»' }));
-    expect(spies.move).toHaveBeenCalledWith({ cardId: cardId(1), column: 'resolved' });
+    expect(spies.move).toHaveBeenCalledWith({
+      cardId: cardId(1),
+      columnId: COLUMN.resolved,
+      stage: 'resolved',
+    });
   });
 
   test('deletes a card softly, and «Отменить» brings it back', async () => {
@@ -526,7 +334,11 @@ describe('a card opened over the board', () => {
     await user.click(
       within(offer.closest('div') as HTMLElement).getByRole('button', { name: 'Перенести' }),
     );
-    expect(spies.move).toHaveBeenCalledWith({ cardId: cardId(1), column: 'resolved' });
+    expect(spies.move).toHaveBeenCalledWith({
+      cardId: cardId(1),
+      columnId: COLUMN.resolved,
+      stage: 'resolved',
+    });
   });
 
   test('«Не сейчас» puts the offer away', async () => {
@@ -628,7 +440,11 @@ describe('the assignee of a card (20261118230000)', () => {
     expect(await screen.findByRole('menuitem', { name: 'Дублировать' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'В архив' })).toBeInTheDocument();
     await user.click(screen.getByRole('menuitem', { name: 'В «В работе»' }));
-    expect(spies.move).toHaveBeenCalledWith({ cardId: cardId(1), column: 'in_progress' });
+    expect(spies.move).toHaveBeenCalledWith({
+      cardId: cardId(1),
+      columnId: COLUMN.in_progress,
+      stage: 'in_progress',
+    });
   });
 
   test('the assignee works on the card open and assigns, copies and shelves it, as every manager', () => {
@@ -855,7 +671,7 @@ describe('the board itself (20261119090000)', () => {
     show({ id: OWNER, isAdmin: false });
     expect(screen.queryByText(/может только её владелец или админ/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Действия с доской' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Переименовать' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Настройки доски' }));
     expect(
       within(screen.getByRole('dialog')).getByText(
         'Переименовать доску и убрать её в архив может только её владелец или админ.',

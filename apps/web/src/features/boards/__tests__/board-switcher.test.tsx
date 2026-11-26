@@ -15,6 +15,7 @@ const board = (id: string, title: string, archived_at: string | null = null): Bo
     owner_id: 'owner',
     archived_at,
     created_at: '2026-11-01T10:00:00Z',
+    shared: true,
     owner: { full_name: 'Ольга' },
   });
 
@@ -91,5 +92,30 @@ describe('the switcher of «Задания»', () => {
     const [{ boardId, title }] = saveBoard.mock.calls[0] as [{ boardId: string; title: string }];
     expect(title).toBe('Ремонт на Виноградской');
     expect(push).toHaveBeenCalledWith(`/problems?board=${boardId}`);
+  });
+
+  // Who sees a new board (20261126120000): its maker alone, unless she says otherwise.
+  test('a new board is its maker’s alone by default', async () => {
+    const user = userEvent.setup();
+    render(<BoardSwitcher activeId={null} />);
+    await user.click(screen.getByRole('button', { name: 'Новая доска' }));
+    const group = screen.getByRole('group', { name: 'Кто видит доску' });
+    expect(within(group).getByRole('radio', { name: 'Видна только мне' })).toBeChecked();
+    expect(within(group).getByRole('radio', { name: 'Видна другим менеджерам' })).not.toBeChecked();
+    await user.type(screen.getByRole('textbox', { name: 'Название доски' }), 'Личное');
+    await user.click(screen.getByRole('button', { name: 'Создать' }));
+    expect(saveBoard).toHaveBeenCalledWith(expect.objectContaining({ shared: false }));
+  });
+
+  test('a new board shared with the other managers says so', async () => {
+    const user = userEvent.setup();
+    render(<BoardSwitcher activeId={null} />);
+    await user.click(screen.getByRole('button', { name: 'Новая доска' }));
+    await user.click(screen.getByRole('radio', { name: 'Видна другим менеджерам' }));
+    await user.type(screen.getByRole('textbox', { name: 'Название доски' }), 'Общая');
+    await user.click(screen.getByRole('button', { name: 'Создать' }));
+    expect(saveBoard).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Общая', shared: true }),
+    );
   });
 });

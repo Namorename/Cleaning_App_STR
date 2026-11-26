@@ -154,8 +154,8 @@ async function follow(client: QueryClient, data: PushData): Promise<void> {
   // for a list to come back over a weak signal.
   void refresh(client, data);
   const destination = await destinationOf(data, findTaskInTime);
-  if (destination.pathname === '/(tabs)') {
-    // The list itself, not a second copy of it over the screen she was on.
+  if (destination.pathname === '/(tabs)' || destination.pathname === '/(tabs)/boards') {
+    // A tab itself, not a second copy of it over the screen she was on.
     if (router.canDismiss()) {
       router.dismissAll();
     }

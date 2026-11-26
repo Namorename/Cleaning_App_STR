@@ -1,34 +1,42 @@
 'use client';
 
-import type { BoardColumn } from '@str-ops/shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useSupabase } from '@/lib/supabase/use-client';
 
 import {
+  deleteColumn,
   deleteComment,
   deleteStep,
   duplicateCard,
   fetchBoardCards,
+  fetchBoardColumns,
   fetchBoards,
   fetchCard,
   fetchMyCards,
   fetchOfficePeople,
   moveCard,
+  orderColumns,
   orderSteps,
   saveBoard,
   saveCard,
+  saveColumn,
   saveComment,
   saveStep,
   setBoardArchived,
   setCardAssignee,
   setCardShelf,
+  setColumnDone,
   setStepDone,
+  transferBoard,
+  type DeleteColumnVariables,
+  type MoveCardVariables,
   type SaveBoardVariables,
   type SaveCardVariables,
+  type SaveColumnVariables,
 } from './api';
 import { boardKeys } from './keys';
-import type { BoardCard, CardDetail, CardShelf } from './schema';
+import type { BoardCard, CardDetail, CardShelf, ColumnRow } from './schema';
 
 export function useBoards() {
   const client = useSupabase();
@@ -41,6 +49,19 @@ export function useBoardCards(boardId: string | null) {
   return useQuery({
     queryKey: boardKeys.cards(boardId ?? ''),
     queryFn: () => fetchBoardCards(client, boardId ?? ''),
+    enabled: boardId !== null,
+  });
+}
+
+/**
+ * A board's columns, the deleted ones too (20261126120000); idle while no board is named. Read for
+ * a board on screen, and for the board of a card open — one the viewer may not see.
+ */
+export function useBoardColumns(boardId: string | null) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: boardKeys.columns(boardId ?? ''),
+    queryFn: () => fetchBoardColumns(client, boardId === null ? [] : [boardId]),
     enabled: boardId !== null,
   });
 }
@@ -70,14 +91,22 @@ export function useOfficePeople() {
   return useQuery({ queryKey: boardKeys.people(), queryFn: () => fetchOfficePeople(client) });
 }
 
-/** What a write leaves stale: the list of boards, a board's cards, the card open. */
-type Stale = 'boards' | 'cards' | 'card';
+/** What a write leaves stale: the list of boards, a board's cards, the card open, the columns. */
+type Stale = 'boards' | 'cards' | 'card' | 'columns';
 
 const STALE_KEY: Readonly<Record<Stale, readonly string[]>> = {
   boards: boardKeys.list(),
   cards: ['boards', 'cards'],
   card: ['boards', 'card'],
+  columns: ['boards', 'columns'],
 };
+
+/**
+ * What a change of a board's columns leaves stale: the columns, and the cards — an added, ordered,
+ * finishing or deleted column changes the stages the server keeps for them (column_key), and a
+ * deletion moves cards and writes their journals.
+ */
+const COLUMN_STALE: readonly Stale[] = ['columns', 'cards', 'card'];
 
 /**
  * Marks what a write changed as stale — only that: a tick does not read the
@@ -112,6 +141,91 @@ export function useSetBoardArchived() {
   });
 }
 
+/**
+ * Hands a board over (20261126120000): the list reads it again — a private board leaves the list
+ * of its former owner — and so do its cards, its columns and the card open, which he may no longer
+ * see.
+ */
+export function useTransferBoard() {
+  const client = useSupabase();
+  const invalidate = useInvalidate('boards', 'cards', 'card', 'columns');
+  return useMutation({
+    mutationFn: (variables: { boardId: string; toId: string }) => transferBoard(client, variables),
+    onSettled: invalidate,
+  });
+}
+
+/** Adds a column or renames one: a rename leaves the columns alone stale, an add the cards too. */
+export function useSaveColumn() {
+  const client = useSupabase();
+  const invalidateNames = useInvalidate('columns');
+  const invalidateAll = useInvalidate(...COLUMN_STALE);
+  return useMutation({
+    mutationFn: (variables: SaveColumnVariables) => saveColumn(client, variables),
+    onSettled: (_data, _error, variables) =>
+      variables.boardId === null ? invalidateNames() : invalidateAll(),
+  });
+}
+
+/** Passes every column of the board's cached list through `put`. */
+function updateColumns(
+  queryClient: QueryClient,
+  boardId: string,
+  put: (column: ColumnRow) => ColumnRow,
+) {
+  queryClient.setQueryData<ColumnRow[]>(boardKeys.columns(boardId), (columns) => columns?.map(put));
+}
+
+/** A new order of the columns shows at once, and goes back if the server refuses. */
+export function useOrderColumns() {
+  const client = useSupabase();
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidate(...COLUMN_STALE);
+  return useMutation({
+    mutationFn: (variables: { boardId: string; columnIds: readonly string[] }) =>
+      orderColumns(client, variables),
+    onMutate: async ({ boardId, columnIds }) => {
+      const kept = [await keep(queryClient, boardKeys.columns(boardId))];
+      updateColumns(queryClient, boardId, (column) => {
+        const at = columnIds.indexOf(column.id);
+        return at < 0 ? column : { ...column, position: at + 1 };
+      });
+      return kept;
+    },
+    onError: (_error, _variables, kept) => putBack(queryClient, kept),
+    onSettled: invalidate,
+  });
+}
+
+/** «Завершающая» shows at once on the column, and goes back if the server refuses. */
+export function useSetColumnDone(boardId: string) {
+  const client = useSupabase();
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidate(...COLUMN_STALE);
+  return useMutation({
+    mutationFn: (variables: { columnId: string; done: boolean }) =>
+      setColumnDone(client, variables),
+    onMutate: async ({ columnId, done }) => {
+      const kept = [await keep(queryClient, boardKeys.columns(boardId))];
+      updateColumns(queryClient, boardId, (column) =>
+        column.id === columnId ? { ...column, is_done: done } : column,
+      );
+      return kept;
+    },
+    onError: (_error, _variables, kept) => putBack(queryClient, kept),
+    onSettled: invalidate,
+  });
+}
+
+export function useDeleteColumn() {
+  const client = useSupabase();
+  const invalidate = useInvalidate(...COLUMN_STALE);
+  return useMutation({
+    mutationFn: (variables: DeleteColumnVariables) => deleteColumn(client, variables),
+    onSettled: invalidate,
+  });
+}
+
 export function useSaveCard() {
   const client = useSupabase();
   const invalidate = useInvalidate('cards', 'card');
@@ -141,6 +255,17 @@ function putBack(queryClient: QueryClient, kept: readonly Kept[] | undefined) {
 }
 
 /**
+ * Where a moved card stands until the server answers: in the column named — by id, with its stage —
+ * or, moved by a stage alone («Назначено мне»), under that stage in the column it had.
+ */
+function movedTo<T extends Pick<BoardCard, 'column_id' | 'column_key'>>(
+  card: T,
+  { columnId, stage }: MoveCardVariables,
+): T {
+  return { ...card, column_id: columnId ?? card.column_id, column_key: stage };
+}
+
+/**
  * A move shows at once — in the list on screen (a board's cards, or «Назначено мне») and on the
  * card open — while the server is asked, and goes back if it refuses.
  */
@@ -149,17 +274,18 @@ export function useMoveCard(listKey: readonly unknown[]) {
   const queryClient = useQueryClient();
   const invalidate = useInvalidate('cards', 'card');
   return useMutation({
-    mutationFn: (variables: { cardId: string; column: BoardColumn }) => moveCard(client, variables),
-    onMutate: async ({ cardId, column }) => {
+    mutationFn: (variables: MoveCardVariables) => moveCard(client, variables),
+    onMutate: async (variables) => {
+      const { cardId } = variables;
       const kept = [
         await keep(queryClient, listKey),
         await keep(queryClient, boardKeys.card(cardId)),
       ];
       queryClient.setQueryData<BoardCard[]>(listKey, (cards) =>
-        cards?.map((card) => (card.id === cardId ? { ...card, column_key: column } : card)),
+        cards?.map((card) => (card.id === cardId ? movedTo(card, variables) : card)),
       );
       queryClient.setQueryData<CardDetail | null>(boardKeys.card(cardId), (card) =>
-        card === undefined || card === null ? card : { ...card, column_key: column },
+        card === undefined || card === null ? card : movedTo(card, variables),
       );
       return kept;
     },

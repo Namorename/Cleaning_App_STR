@@ -3293,7 +3293,9 @@
     "transferNoteAdmin": "You are an admin: you keep seeing the board.",
     "transferNoteCards": "Cards, their assignees and who sees the board stay as they are; new cards go to the new owner by default. He gets a notification.",
     "transferConfirm": "Hand over",
-    "transferDone": "Board handed to {{name}}"
+    "transferDone": "Board handed to {{name}}",
+    "columnMoveTargetPick": "Choose a column",
+    "shelvedNoteReadOnly": "The card is archived or deleted."
   },
   "serverErrors": {
     "checklistCopySameProperty": "Source and target are the same apartment",

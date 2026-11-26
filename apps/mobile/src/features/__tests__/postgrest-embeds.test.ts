@@ -9,6 +9,7 @@ import { fetchHostSettings } from '@/features/host/api';
 import { fetchKbArticles, fetchKbPlace } from '@/features/knowledge/api';
 import {
   fetchBoardCards,
+  fetchBoardColumns,
   fetchBoards,
   fetchCard,
   fetchMyCards,
@@ -118,6 +119,8 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchBoardCards(ANY_ID),
   () => fetchCard(ANY_ID),
   () => fetchMyCards(ANY_ID),
+  // A board's own columns, the deleted ones too (20261126120000).
+  () => fetchBoardColumns(ANY_ID),
   // The catalogue a cleaner picks a task's category from (20261115100000).
   () => fetchProblemCategories(),
   () => fetchMySupplyRequests(),

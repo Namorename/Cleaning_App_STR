@@ -17,6 +17,7 @@ export type PushDestination =
   | { pathname: '/problem/[id]'; params: { id: string } }
   | { pathname: '/board-card/[id]'; params: { id: string } }
   | { pathname: '/chat/[subject]/[id]'; params: { subject: ChatSubjectKind; id: string } }
+  | { pathname: '/(tabs)/boards'; params: { board: string } }
   | { pathname: '/(tabs)'; params?: { notice: PushNotice } };
 
 /**
@@ -69,6 +70,9 @@ export async function destinationOf(
     case 'board_card_assigned':
       // The card given to her, on its own screen.
       return { pathname: '/board-card/[id]', params: { id: data.cardId } };
+    case 'board_transferred':
+      // «Доски», the board handed to her chosen ((tabs)/boards.tsx reads the param).
+      return { pathname: '/(tabs)/boards', params: { board: data.boardId } };
     default:
       return taskDestination(data, findTask);
   }
@@ -109,7 +113,7 @@ export function staleAfter(data: PushData | null): QueryKey[] {
   if (data.kind === 'problem_new') {
     return [TASKS, problemKeys.all];
   }
-  if (data.kind === 'board_card_assigned') {
+  if (data.kind === 'board_card_assigned' || data.kind === 'board_transferred') {
     return [BOARDS];
   }
   return [TASKS, stepKeys.all];

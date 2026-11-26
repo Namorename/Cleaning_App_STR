@@ -5,17 +5,20 @@ import {
   boardSummary,
   EMPTY_CARD_FILTERS,
   hasCardFilters,
+  liveColumns,
   matchesCardFilters,
   type CardFilters,
   type CardOrder,
   type DueFilter,
 } from '@str-ops/shared';
-import { Ellipsis, Plus } from 'lucide-react';
+import { Ellipsis, Lock, Plus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -30,15 +33,18 @@ import { todayIso } from '@/lib/format-date';
 import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 import { useAddressState } from '@/lib/use-address-state';
 
-import { readBoardAddress, writeBoardAddress, type BoardShelfView } from './address';
+import { boardHref, readBoardAddress, writeBoardAddress, type BoardShelfView } from './address';
 import { BoardArchive } from './board-archive';
 import { BoardFilters } from './board-filters';
 import { BoardNameDialog } from './board-name-dialog';
 import { CardDialog } from './card-dialog';
 import type { CardActions } from './card-tile';
-import { ManagerBoard } from './manager-board';
+import { ColumnsDialog } from './columns-dialog';
 import { boardKeys } from './keys';
+import { columnLanes, laneOfCard, type PresetName } from './lanes';
+import { ManagerBoard } from './manager-board';
 import { NewCardDialog } from './new-card-dialog';
+import { QuickAdd } from './quick-add';
 import {
   assignablePeople,
   canEditBoard,
@@ -48,9 +54,12 @@ import {
   type BoardCard,
   type BoardViewer,
   type CardShelf,
+  type ColumnRow,
 } from './schema';
+import { TransferDialog } from './transfer-dialog';
 import {
   useBoardCards,
+  useBoardColumns,
   useBoards,
   useDuplicateCard,
   useMoveCard,
@@ -65,23 +74,28 @@ interface ManagerBoardViewProps {
 }
 
 /**
- * A manager board in «Задания» (docs/manager-boards.md): its name and owner,
- * what is late and what is due today, the search and the filters, the four
- * columns, and the archive. Every manager and admin works on its cards; the
- * board itself — its name, its archive — is its owner's and an admin's, and its
- * menu is shown to them alone, without a word to anybody else.
+ * A manager board in «Задания» (docs/manager-boards.md): its name, owner and
+ * whether others see it, what is late and what is due today, the search and the
+ * filters, its own columns (20261126120000), and the archive. Every manager and
+ * admin who sees it works on its cards; the board itself — its name, who sees
+ * it, its columns, its owner, its archive — is its owner's and an admin's, and
+ * its menu is shown to them alone, without a word to anybody else.
  */
 export function ManagerBoardView({ boardId, viewer }: ManagerBoardViewProps) {
   const { t } = useTranslation();
   const boards = useBoards();
   const cards = useBoardCards(boardId);
+  const columns = useBoardColumns(boardId);
 
   // A read that failed while the board was already on screen (a refresh after a write, a
   // window focused again) leaves the board as it is — with its drafts, filters and dialogs —
   // and says so under it; only a board never read shows the failure instead.
-  if (boards.data === undefined || cards.data === undefined) {
-    return boards.isError || cards.isError ? (
-      <ErrorState message={t('boards.loadError')} error={boards.error ?? cards.error} />
+  if (boards.data === undefined || cards.data === undefined || columns.data === undefined) {
+    return boards.isError || cards.isError || columns.isError ? (
+      <ErrorState
+        message={t('boards.loadError')}
+        error={boards.error ?? cards.error ?? columns.error}
+      />
     ) : (
       <LoadingState>{t('boards.loading')}</LoadingState>
     );
@@ -98,8 +112,9 @@ export function ManagerBoardView({ boardId, viewer }: ManagerBoardViewProps) {
     <BoardPage
       board={board}
       cards={cards.data}
+      columns={columns.data}
       viewer={viewer}
-      isStale={boards.isError || cards.isError}
+      isStale={boards.isError || cards.isError || columns.isError}
     />
   );
 }
@@ -110,19 +125,23 @@ interface Shelved {
   shelf: CardShelf;
 }
 
-function BoardPage({
-  board,
-  cards,
-  viewer,
-  isStale,
-}: {
+/** The board's own dialogs, one at a time: its owner's and an admin's. */
+type BoardDialog = 'settings' | 'columns' | 'transfer' | 'archive';
+
+interface BoardPageProps {
   board: Board;
+  /** Every card of the board: on it, archived and deleted. */
   cards: readonly BoardCard[];
+  /** Its columns, the deleted ones too. */
+  columns: readonly ColumnRow[];
   viewer: BoardViewer;
   /** The last read failed: what shows is the read before it. */
   isStale: boolean;
-}) {
+}
+
+function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
   const { t } = useTranslation();
+  const router = useRouter();
   const [address, setAddress] = useAddressState(readBoardAddress, writeBoardAddress);
   // The latest failure only: an older one never hides the line of a later success.
   const [failure, setFailure] = useState<ServerErrorText | null>(null);
@@ -139,9 +158,10 @@ function BoardPage({
   const [filters, setFilters] = useState<CardFilters>(EMPTY_CARD_FILTERS);
   const [order, setOrder] = useState<CardOrder>('due');
   const [isCreating, setIsCreating] = useState(false);
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [isArchiving, setIsArchiving] = useState(false);
+  const [dialog, setDialog] = useState<BoardDialog | null>(null);
   const [shelved, setShelved] = useState<Shelved | null>(null);
+  // «Доска передана: …» after a handover the viewer still sees the board after.
+  const [notice, setNotice] = useState<string | null>(null);
   const move = useMoveCard(boardKeys.cards(board.id));
   const shelve = useSetCardShelf();
   const duplicate = useDuplicateCard();
@@ -149,6 +169,9 @@ function BoardPage({
   const people = useOfficePeople();
 
   const today = todayIso();
+  const presetName: PresetName = (key) => t(`problems.statuses.${key}`);
+  const live = liveColumns(columns, board.id);
+  const lanes = columnLanes(columns, board.id, presetName);
   // The board itself: its owner and an admin. Its cards: everybody in the office, on a live board.
   const canEdit = canEditBoard(board, viewer);
   const canWork = canWorkOn(board);
@@ -188,6 +211,7 @@ function BoardPage({
 
   const putOn = (card: Pick<BoardCard, 'id' | 'title'>, shelf: CardShelf) => {
     setShelved(null);
+    setNotice(null);
     shelve.mutate(
       { cardId: card.id, shelf },
       outcome(() => setShelved(shelf === 'active' ? null : { card, shelf })),
@@ -210,17 +234,43 @@ function BoardPage({
     );
   };
 
-  const moveIt = (card: BoardCard, column: BoardCard['column_key']) => {
+  const moveIt = (card: BoardCard, lane: string) => {
+    const target = live.find((column) => column.id === lane);
+    if (target === undefined) {
+      return;
+    }
     setShelved(null);
-    move.mutate({ cardId: card.id, column }, outcome());
+    setNotice(null);
+    move.mutate({ cardId: card.id, columnId: target.id, stage: target.legacy_key }, outcome());
   };
   const actionsFor = (): CardActions | undefined =>
     canWork ? { onMove: moveIt, onDuplicate: copy, onShelve: putOn } : undefined;
+
+  // A private board handed over by its owner leaves his list: the technicians' board takes its
+  // place, not «Доска не найдена». An admin, or the owner of a shared board, stays and is told.
+  const transferred = (name: string) => {
+    setDialog(null);
+    if (!viewer.isAdmin && !board.shared) {
+      router.push(boardHref(null));
+      return;
+    }
+    setShelved(null);
+    setFailure(null);
+    setNotice(t('boards.transferDone', { name }));
+  };
 
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         title={board.title}
+        meta={
+          board.shared ? undefined : (
+            <Badge variant="outline">
+              <Lock aria-hidden="true" />
+              {t('boards.privateBoard')}
+            </Badge>
+          )
+        }
         description={t('boards.owner', {
           name: board.owner?.full_name ?? t('boards.unknownPerson'),
         })}
@@ -240,24 +290,7 @@ function BoardPage({
                 {t('boards.addCard')}
               </Button>
             ) : null}
-            {canEdit ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={<Button type="button" variant="outline" className="size-11" />}
-                  aria-label={t('boards.boardMenu')}
-                >
-                  <Ellipsis aria-hidden="true" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => setIsRenaming(true)}>
-                    {t('boards.rename')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setIsArchiving(true)}>
-                    {t('boards.archiveBoard')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
+            {canEdit ? <BoardMenu onPick={setDialog} /> : null}
           </>
         }
       />
@@ -303,13 +336,20 @@ function BoardPage({
         </TabsList>
         <TabsContent value="board">
           <ManagerBoard
-            boardId={board.id}
+            lanes={lanes}
+            laneOf={(card) => laneOfCard(card, lanes)}
             cards={onBoard}
             order={order}
             today={today}
             isFiltered={isFiltered}
             actionsFor={actionsFor}
-            canAdd={canWork}
+            footerOf={
+              canWork
+                ? (lane) => (
+                    <QuickAdd boardId={board.id} columnId={lane.key} columnName={lane.name} />
+                  )
+                : undefined
+            }
             cardHref={cardHref}
             onOpen={openCard}
           />
@@ -346,6 +386,8 @@ function BoardPage({
               {t('boards.undo')}
             </Button>
           </span>
+        ) : notice !== null ? (
+          notice
         ) : isStale ? (
           t('boards.staleNote')
         ) : canWork ? (
@@ -372,6 +414,7 @@ function BoardPage({
         <NewCardDialog
           boardId={board.id}
           ownerId={board.owner_id}
+          columns={lanes}
           onClose={() => setIsCreating(false)}
           onCreated={(cardId) => {
             setIsCreating(false);
@@ -379,15 +422,32 @@ function BoardPage({
           }}
         />
       ) : null}
-      {isRenaming ? (
+      {dialog === 'settings' ? (
         <BoardNameDialog
           board={board}
-          onClose={() => setIsRenaming(false)}
-          onSaved={() => setIsRenaming(false)}
+          isOthersBoard={board.owner_id !== viewer.id}
+          onClose={() => setDialog(null)}
+          onSaved={() => setDialog(null)}
+        />
+      ) : null}
+      {dialog === 'columns' ? (
+        <ColumnsDialog
+          board={board}
+          columns={columns}
+          cards={cards}
+          onClose={() => setDialog(null)}
+        />
+      ) : null}
+      {dialog === 'transfer' ? (
+        <TransferDialog
+          board={board}
+          viewer={viewer}
+          onClose={() => setDialog(null)}
+          onTransferred={transferred}
         />
       ) : null}
       <ConfirmMoveDialog
-        open={isArchiving}
+        open={dialog === 'archive'}
         title={t('boards.archiveBoard')}
         description={t('boards.archiveBoardText', { title: board.title })}
         confirmLabel={t('boards.archiveBoard')}
@@ -396,12 +456,42 @@ function BoardPage({
         onConfirm={() =>
           archiveBoard.mutate(
             { boardId: board.id, archived: true },
-            { ...outcome(), onSettled: () => setIsArchiving(false) },
+            { ...outcome(), onSettled: () => setDialog(null) },
           )
         }
-        onClose={() => setIsArchiving(false)}
+        onClose={() => setDialog(null)}
       />
     </div>
+  );
+}
+
+/**
+ * The board's menu, for its owner and an admin on a live board: its settings (name, who sees it),
+ * its columns, handing it over, and the archive.
+ */
+function BoardMenu({ onPick }: { onPick: (dialog: BoardDialog) => void }) {
+  const { t } = useTranslation();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button type="button" variant="outline" className="size-11" />}
+        aria-label={t('boards.boardMenu')}
+      >
+        <Ellipsis aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onClick={() => onPick('settings')}>
+          {t('boards.settingsTitle')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onPick('columns')}>{t('boards.columns')}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onPick('transfer')}>
+          {t('boards.transfer')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onPick('archive')}>
+          {t('boards.archiveBoard')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

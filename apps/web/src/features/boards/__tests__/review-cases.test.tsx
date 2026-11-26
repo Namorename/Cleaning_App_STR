@@ -20,16 +20,18 @@ vi.mock('../manager-board-view', () => ({
 }));
 
 const moveCard = vi.fn();
+const orderColumns = vi.fn();
 vi.mock('../api', async (original) => ({
   ...(await original<typeof import('../api')>()),
   moveCard: (...args: unknown[]) => moveCard(...args),
+  orderColumns: (...args: unknown[]) => orderColumns(...args),
 }));
 vi.mock('@/lib/supabase/use-client', () => ({ useSupabase: () => ({}) }));
 
 import { boardKeys } from '../keys';
 import { LinkedText } from '../linked-text';
 import { ProblemsSection } from '../problems-section';
-import { useMoveCard } from '../use-boards';
+import { useMoveCard, useOrderColumns } from '../use-boards';
 
 const BOARD = 'b0a2d100-0000-4000-8000-000000000001';
 const CARD = 'b0a2d200-0000-4000-8000-000000000001';
@@ -76,36 +78,100 @@ test('a link in a card opens in a new tab without handing it this page', () => {
 });
 
 describe('a move', () => {
+  const OPEN = 'c0a2d300-0000-4000-8000-000000000001';
+  const DONE = 'c0a2d300-0000-4000-8000-000000000004';
+
   function setup() {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    client.setQueryData(boardKeys.cards(BOARD), [{ id: CARD, column_key: 'open' }]);
-    client.setQueryData(boardKeys.card(CARD), { id: CARD, column_key: 'open', steps: [] });
+    const card = { id: CARD, column_id: OPEN, column_key: 'open' };
+    client.setQueryData(boardKeys.cards(BOARD), [card]);
+    client.setQueryData(boardKeys.card(CARD), { ...card, steps: [] });
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
     const hook = renderHook(() => useMoveCard(boardKeys.cards(BOARD)), { wrapper });
+    type Place = { column_id: string; column_key: string };
+    const placeOf = ({ column_id, column_key }: Place) => ({ column_id, column_key });
     const column = () => ({
-      board: (client.getQueryData(boardKeys.cards(BOARD)) as { column_key: string }[])[0]
-        .column_key,
-      card: (client.getQueryData(boardKeys.card(CARD)) as { column_key: string }).column_key,
+      board: placeOf((client.getQueryData(boardKeys.cards(BOARD)) as Place[])[0]),
+      card: placeOf(client.getQueryData(boardKeys.card(CARD)) as Place),
     });
     return { hook, column };
   }
 
-  test('shows at once on the board and on the card open', async () => {
+  test('shows at once on the board and on the card open: the column and its stage', async () => {
     let answer: () => void = () => undefined;
     moveCard.mockImplementationOnce(() => new Promise<void>((resolve) => (answer = resolve)));
     const { hook, column } = setup();
-    act(() => hook.result.current.mutate({ cardId: CARD, column: 'resolved' }));
-    await waitFor(() => expect(column()).toEqual({ board: 'resolved', card: 'resolved' }));
+    act(() => hook.result.current.mutate({ cardId: CARD, columnId: DONE, stage: 'resolved' }));
+    const moved = { column_id: DONE, column_key: 'resolved' };
+    await waitFor(() => expect(column()).toEqual({ board: moved, card: moved }));
+    await act(async () => answer());
+  });
+
+  test('a move by a stage alone («Назначено мне») shows the stage, the column as it was', async () => {
+    let answer: () => void = () => undefined;
+    moveCard.mockImplementationOnce(() => new Promise<void>((resolve) => (answer = resolve)));
+    const { hook, column } = setup();
+    act(() => hook.result.current.mutate({ cardId: CARD, stage: 'resolved' }));
+    const moved = { column_id: OPEN, column_key: 'resolved' };
+    await waitFor(() => expect(column()).toEqual({ board: moved, card: moved }));
     await act(async () => answer());
   });
 
   test('a refused move goes back on both', async () => {
     moveCard.mockRejectedValueOnce({ message: 'no', hint: 'serverErrors.boardNotYours' });
     const { hook, column } = setup();
-    act(() => hook.result.current.mutate({ cardId: CARD, column: 'resolved' }));
+    act(() => hook.result.current.mutate({ cardId: CARD, columnId: DONE, stage: 'resolved' }));
     await waitFor(() => expect(hook.result.current.isError).toBe(true));
-    expect(column()).toEqual({ board: 'open', card: 'open' });
+    const back = { column_id: OPEN, column_key: 'open' };
+    expect(column()).toEqual({ board: back, card: back });
+  });
+});
+
+describe('an order of the columns', () => {
+  const A = 'c0a2d300-0000-4000-8000-00000000000a';
+  const B = 'c0a2d300-0000-4000-8000-00000000000b';
+
+  function setup() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(boardKeys.columns(BOARD), [
+      { id: A, board_id: BOARD, position: 1 },
+      { id: B, board_id: BOARD, position: 2 },
+    ]);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const hook = renderHook(() => useOrderColumns(), { wrapper });
+    const positions = () =>
+      (client.getQueryData(boardKeys.columns(BOARD)) as { id: string; position: number }[]).map(
+        ({ id, position }) => [id, position],
+      );
+    return { hook, positions };
+  }
+
+  test('shows at once', async () => {
+    let answer: () => void = () => undefined;
+    orderColumns.mockImplementationOnce(() => new Promise<void>((resolve) => (answer = resolve)));
+    const { hook, positions } = setup();
+    act(() => hook.result.current.mutate({ boardId: BOARD, columnIds: [B, A] }));
+    await waitFor(() =>
+      expect(positions()).toEqual([
+        [A, 2],
+        [B, 1],
+      ]),
+    );
+    await act(async () => answer());
+  });
+
+  test('a refused order goes back', async () => {
+    orderColumns.mockRejectedValueOnce({ message: 'no', hint: 'serverErrors.boardNotYours' });
+    const { hook, positions } = setup();
+    act(() => hook.result.current.mutate({ boardId: BOARD, columnIds: [B, A] }));
+    await waitFor(() => expect(hook.result.current.isError).toBe(true));
+    expect(positions()).toEqual([
+      [A, 1],
+      [B, 2],
+    ]);
   });
 });

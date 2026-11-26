@@ -23,6 +23,7 @@ import { reportError } from '@/lib/sentry';
 import { ActionsSheet } from './board-sheets';
 import { useStaffDirectory } from '@/features/board/use-board';
 
+import { columnLabelById } from './columns';
 import { entrySentence, formatStamp, useCardColor } from './format';
 import {
   canDeleteComment,
@@ -33,6 +34,7 @@ import {
   type CardDetail,
   type CardEntry,
   type CardStep,
+  type ColumnRow,
 } from './schema';
 import {
   useDeleteComment,
@@ -267,21 +269,25 @@ export function CardStepsList({ card, canEdit }: { card: CardDetail; canEdit: bo
 /**
  * A card's journal, oldest first, the newest at the bottom: comments with
  * their author and the phone's own clock, «изменено» on a changed one, and the
- * server's short lines. Its author changes or deletes a comment; an admin
- * deletes any.
+ * server's short lines — a move names the column by its name now, a deleted one
+ * too (`columns`, every column of the board read). Its author changes or
+ * deletes a comment; an admin deletes any.
  */
 export function CardJournalList({
   card,
   viewer,
   canEdit,
+  columns = [],
 }: {
   card: CardDetail;
   viewer: BoardViewer;
   canEdit: boolean;
+  columns?: readonly ColumnRow[];
 }) {
   const staff = useStaffDirectory();
   const nameOf = (id: string) => staff.data?.find((person) => person.id === id)?.full_name ?? null;
   const { t } = useTranslation();
+  const columnNameOf = (id: string) => columnLabelById(columns, id, t);
   const styles = useThemedStyles(createStyles);
   const save = useSaveComment();
   const remove = useDeleteComment();
@@ -337,7 +343,7 @@ export function CardJournalList({
               ) : null}
             </View>
             {entry.kind !== 'comment' ? (
-              <Text tone="secondary">{entrySentence(entry, t, nameOf)}</Text>
+              <Text tone="secondary">{entrySentence(entry, t, nameOf, columnNameOf)}</Text>
             ) : editing?.id === entry.id ? (
               <View style={styles.editRow}>
                 <TextField
