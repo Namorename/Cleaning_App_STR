@@ -1,14 +1,13 @@
--- Undo of manager-boards-private.sql: the two boards that existed before 20261126120000 are
--- shared with the office again, as they were (the state before the write: shared, kept in
--- ~/.str-ops/backups/2026-11-26-boards-private/boards.json). A board its owner or an admin made
--- private or shared since keeps that choice only if it is not one of these two. A WRITE to the
+-- Undo of manager-boards-private.sql as run on 2026-11-26 16:36 UTC: the one board it closed
+-- (75481ee1…, archived) is shared with the office again, as it was. The other board of before,
+-- 46c61e02…, was made private by a person in the panel at 16:33 UTC, before the write, and is not
+-- reopened (~/.str-ops/backups/2026-11-26-boards-private/boards.json). A WRITE to the
 -- cloud: only on the owner's word, never in 03:00–04:40 UTC. Before the migration's own rollback.
 --
 --   npx supabase db query --linked -f docs/one-off-writes/manager-boards-private-rollback.sql
 do $shared$
 declare
   c_boards constant uuid[] := array[
-    '46c61e02-833b-46de-b641-e77eeb8bef20',
     '75481ee1-4982-4ed6-acd6-44e6cf4cb2a8'
   ]::uuid[];
   v_count integer;

@@ -12,7 +12,7 @@
 -- A WRITE to the cloud: only on the owner's word, never in 03:00–04:40 UTC. Order: chats off
 -- (wagner-chats-off.sql), the backup (wagner-chat-cards-backup.sql into
 -- ~/.str-ops/backups/2026-11-26-chat-cards/), then this. It stops unless chats are off and the
--- count is the backup's (c_expected below, the count of the read-only probe of 2026-11-26).
+-- count is the backup's (c_expected below: 179, the backup of 2026-11-26 16:37 UTC).
 --
 --   npx supabase db query --linked -f docs/one-off-writes/wagner-chat-cards-delete.sql
 --
@@ -21,7 +21,7 @@
 do $cards$
 declare
   c_host     constant uuid := 'ce77c272-c330-4b74-ac98-c7d36cba8b2a';
-  c_expected constant integer := 178;
+  c_expected constant integer := 179;
   v_ids      uuid[];
   v_labels   integer;
   v_count    integer;

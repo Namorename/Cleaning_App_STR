@@ -6,9 +6,9 @@
 --   npx supabase db query --linked -f docs/one-off-writes/manager-boards-private.sql
 --
 -- The boards are named by id: the two the cloud held on 2026-11-26 (read by cloud-read, kept in
--- ~/.str-ops/backups/2026-11-26-boards-private/boards.json). Before writing it checks that the
--- shared boards are exactly these two — a board made since is its owner's alone already — and stops
--- otherwise, naming any other shared board for a person to decide. Undo:
+-- ~/.str-ops/backups/2026-11-26-boards-private/boards.json). It closes those of the two still shared
+-- (one a person made private since is left as chosen), and stops if any other board is shared,
+-- naming it for a person to decide — a board made since is its owner's alone already. Undo:
 -- manager-boards-private-rollback.sql.
 do $private$
 declare
@@ -21,12 +21,11 @@ declare
 begin
   perform set_config('lock_timeout', '3s', true);
 
+  -- Those of the two still shared; one a person made private already (in the panel since the
+  -- migration) is left as it is.
   select coalesce(array_agg(b.id order by b.id), '{}') into v_shared
   from public.manager_boards b
   where b.shared and b.id = any (c_boards);
-  if v_shared is distinct from (select array_agg(x order by x) from unnest(c_boards) x) then
-    raise exception 'The boards to close are not all shared as expected: %', v_shared;
-  end if;
   -- Any other shared board is either one made before the migration and not read on 2026-11-26, or
   -- one its owner made shared since: a person decides, not this script.
   if exists (select 1 from public.manager_boards b where b.shared and b.id <> all (c_boards)) then
@@ -37,11 +36,11 @@ begin
 
   update public.manager_boards b
   set shared = false
-  where b.id = any (c_boards) and b.shared;
+  where b.id = any (v_shared) and b.shared;
   get diagnostics v_count = row_count;
-  if v_count <> cardinality(c_boards) then
-    raise exception 'Closed % boards, expected %', v_count, cardinality(c_boards);
+  if v_count <> cardinality(v_shared) then
+    raise exception 'Closed % boards, expected %', v_count, cardinality(v_shared);
   end if;
-  raise notice 'closed % boards: %', v_count, c_boards;
+  raise notice 'closed % boards: %', v_count, v_shared;
 end;
 $private$;
