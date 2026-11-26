@@ -2,7 +2,9 @@
 
 import { useTranslation } from 'react-i18next';
 
+import { BOARD_STAGE_CLASS, BoardViewport } from '@/components/board/board-viewport';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
+import { cn } from '@/lib/utils';
 
 import type { ProblemsAddress } from './address';
 import { BoardColumn } from './board-column';
@@ -42,7 +44,9 @@ interface ProblemsBoardProps {
  * says the move is the menu's or the technician's.
  *
  * The four columns stay side by side and the board scrolls sideways inside
- * its frame on a narrow screen (decision 14).
+ * its frame on a narrow screen (decision 14); from `md` up the board is as
+ * tall as the window leaves it and each column scrolls its cards
+ * (`BoardViewport`, owner, 2026-11-26).
  *
  * «Выполнено» only grows (owner, 10.10): it shows the tasks resolved last,
  * newest first, a page at a time; the other three columns show every card, in
@@ -64,31 +68,26 @@ export function ProblemsBoard({
   const from: ProblemsAddress = { view: 'board', filters };
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="overflow-x-auto pb-1">
-        <div
-          data-slot="problems-board"
-          className="grid grid-cols-[repeat(4,minmax(16rem,1fr))] items-start gap-3"
-        >
-          {BOARD_STATUSES.map((status) => (
-            <BoardColumn
-              key={status}
-              status={status}
-              problems={columnOrder(problems, status)}
-              page={status === 'resolved' ? RESOLVED_PAGE : undefined}
-              isFiltered={isFiltered}
-              isDroppable={drag.isDroppable(status)}
-              isOver={drag.isOver(status)}
-              drop={drag.column(status)}
-              drag={drag.card}
-              onMove={moves.moveTo}
-              onArchive={moves.askArchive}
-              unread={unread.problems}
-              from={from}
-            />
-          ))}
-        </div>
-      </div>
+    <div className={cn(BOARD_STAGE_CLASS, 'gap-3')}>
+      <BoardViewport slot="problems-board" className="grid-cols-[repeat(4,minmax(16rem,1fr))]">
+        {BOARD_STATUSES.map((status) => (
+          <BoardColumn
+            key={status}
+            status={status}
+            problems={columnOrder(problems, status)}
+            page={status === 'resolved' ? RESOLVED_PAGE : undefined}
+            isFiltered={isFiltered}
+            isDroppable={drag.isDroppable(status)}
+            isOver={drag.isOver(status)}
+            drop={drag.column(status)}
+            drag={drag.card}
+            onMove={moves.moveTo}
+            onArchive={moves.askArchive}
+            unread={unread.problems}
+            from={from}
+          />
+        ))}
+      </BoardViewport>
       <BoardStatusLine moves={moves} />
       <BoardQuestions moves={moves} />
     </div>
@@ -105,7 +104,7 @@ function BoardStatusLine({ moves }: { moves: BoardMoves }) {
   const { failure, notice } = moves;
 
   return (
-    <p role="status" aria-live="polite" className="min-h-5 text-xs text-muted-foreground">
+    <p role="status" aria-live="polite" className="min-h-5 shrink-0 text-xs text-muted-foreground">
       {failure !== null ? (
         <span className="text-destructive">
           {failure.text}

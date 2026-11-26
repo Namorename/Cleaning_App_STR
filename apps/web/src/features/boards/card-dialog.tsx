@@ -230,7 +230,7 @@ function CardBody({
           className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-highlight p-3 text-sm text-highlight-foreground"
         >
           <span>{t('boards.allStepsDone', { column: columnName(doneColumn, presetName) })}</span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               className="h-11"

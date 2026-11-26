@@ -12,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { BOARD_STAGE_CLASS } from '@/components/board/board-viewport';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { todayIso } from '@/lib/format-date';
 import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 import { useAddressState } from '@/lib/use-address-state';
+import { cn } from '@/lib/utils';
 
 import { MY_CARDS, readBoardAddress, writeBoardAddress } from './address';
 import { BoardFilters } from './board-filters';
@@ -182,7 +184,7 @@ function MyCardsPage({
   const openBoard = boardOfOpenCard(address.cardId, cards, boards, opened);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={cn(BOARD_STAGE_CLASS, 'gap-4')}>
       <PageHeader
         title={t('boards.assignedToMe')}
         actions={
@@ -219,7 +221,11 @@ function MyCardsPage({
           boardLabelOf={boardLabelOf}
         />
       )}
-      <p role="status" aria-live="polite" className="min-h-11 text-sm text-muted-foreground">
+      <p
+        role="status"
+        aria-live="polite"
+        className="min-h-11 shrink-0 text-sm text-muted-foreground"
+      >
         {failure !== null ? (
           <span className="text-destructive">
             {failure.text}

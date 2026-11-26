@@ -4,12 +4,14 @@ import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { BOARD_STAGE_CLASS } from '@/components/board/board-viewport';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAddressState } from '@/lib/use-address-state';
+import { cn } from '@/lib/utils';
 
 import { readProblemsAddress, writeProblemsAddress, type ProblemView } from './address';
 import {
@@ -73,7 +75,7 @@ export function ProblemsView({ isAdmin = false }: { isAdmin?: boolean }) {
   const emptyText = isFiltered ? t('panel.problems.emptyFiltered') : t('panel.problems.empty');
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={cn(BOARD_STAGE_CLASS, 'gap-4')}>
       <PageHeader
         title={t('panel.problems.title')}
         actions={
@@ -109,6 +111,7 @@ export function ProblemsView({ isAdmin = false }: { isAdmin?: boolean }) {
           <Tabs
             value={view}
             onValueChange={(value) => setAddress({ view: value as ProblemView, filters }, 'push')}
+            className={BOARD_STAGE_CLASS}
           >
             <TabsList className="h-auto">
               <TabsTrigger value="board" className="min-h-11 px-3">
@@ -122,7 +125,7 @@ export function ProblemsView({ isAdmin = false }: { isAdmin?: boolean }) {
                 <span className="ml-1 text-xs text-muted-foreground">{archived.length}</span>
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="board">
+            <TabsContent value="board" className={BOARD_STAGE_CLASS}>
               <ProblemsBoard problems={problems} isFiltered={isFiltered} filters={filters} />
             </TabsContent>
             <TabsContent value="list">

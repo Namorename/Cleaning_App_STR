@@ -330,7 +330,7 @@ function CalendarBody({
         <div
           role="group"
           aria-label={t('panel.calendar.depthLabel')}
-          className="ml-auto flex gap-1"
+          className="ml-auto flex flex-wrap gap-1"
         >
           {DEPTHS.map((one) => (
             <Button

@@ -130,7 +130,7 @@ export function CalendarFilters({
         {t('panel.calendar.showCancelled')}
       </label>
 
-      <div role="group" aria-label={t('panel.calendar.chipView')} className="flex gap-1">
+      <div role="group" aria-label={t('panel.calendar.chipView')} className="flex flex-wrap gap-1">
         {CHIP_VIEWS.map((one) => (
           <Button
             key={one}

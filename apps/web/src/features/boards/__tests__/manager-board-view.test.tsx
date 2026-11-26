@@ -44,6 +44,9 @@ vi.mock('next/navigation', async () => {
   };
 });
 
+import { expectBoardFillsPage } from '@/components/board/board-fill.expect';
+import { BOARD_PAGE_CLASS } from '@/components/board/board-viewport';
+
 import { ManagerBoardView } from '../manager-board-view';
 import { MyCardsView } from '../my-cards-view';
 
@@ -151,6 +154,39 @@ describe('the owner', () => {
     expect(within(column('Назначено')).getByText('Пусто')).toBeInTheDocument();
     expect(screen.queryByText('Старый проект')).not.toBeInTheDocument();
     expect(screen.queryByText('Ошибочная')).not.toBeInTheDocument();
+  });
+
+  // Owner, 2026-11-26: under the header, the summary, the filters and the
+  // tabs, the board takes the rest of the window and each column scrolls.
+  test('the board fills the page under its rows, each column scrolling its cards', () => {
+    window.history.replaceState(null, '', `/problems?board=${BOARD}`);
+    const { container } = render(
+      <div className={BOARD_PAGE_CLASS}>
+        <ManagerBoardView boardId={BOARD} viewer={{ id: OWNER, isAdmin: false }} />
+      </div>,
+    );
+
+    expectBoardFillsPage(container.firstElementChild as HTMLElement);
+    const cards = column('Открыто').querySelector('[data-slot="board-column-items"]');
+    expect(cards).toHaveClass('overflow-y-auto');
+    expect(within(cards as HTMLElement).getByText('Ремонт ванной')).toBeInTheDocument();
+  });
+
+  test('«Назначено мне» fills the page the same way', () => {
+    state.mine = [
+      myCardSchema.parse({
+        ...makeCard(1, { title: 'Ремонт ванной', assignee_id: OWNER }),
+        board: { id: BOARD, title: 'Проекты', owner_id: OWNER, archived_at: null },
+      }),
+    ];
+    window.history.replaceState(null, '', '/problems?board=mine');
+    const { container } = render(
+      <div className={BOARD_PAGE_CLASS}>
+        <MyCardsView viewer={{ id: OWNER, isAdmin: false }} />
+      </div>,
+    );
+
+    expectBoardFillsPage(container.firstElementChild as HTMLElement);
   });
 
   test('reads what is late and what is due today above the board', () => {

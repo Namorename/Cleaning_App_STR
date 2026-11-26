@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { BoardColumnFrame } from '@/components/board/board-column';
+import { BoardViewport } from '@/components/board/board-viewport';
 import { cardColorStyle, SWATCH_CLASS } from '@/components/board/card-color';
 import { useColumnDrag } from '@/components/board/use-column-drag';
 import { StatusBadge } from '@/components/status-badge';
@@ -46,7 +47,8 @@ const LANE_MIN_WIDTH = '16rem';
 /**
  * A manager board's lanes side by side — its own columns (20261126120000), or on «Назначено мне» the
  * four stages — scrolling sideways inside their frame on a narrow screen or a board of many
- * columns. Each lane is headed by its name in the tone of its stage; a long name ends in «…»
+ * columns; from `md` up the board is as tall as the window leaves it and each lane scrolls its
+ * cards (`BoardViewport`). Each lane is headed by its name in the tone of its stage; a long name ends in «…»
  * rather than widening the lane. A card goes to any other lane it may go to by the mouse or by
  * its menu; each lane may end in a quick add. An archived board is the same board without either.
  */
@@ -77,57 +79,55 @@ export function ManagerBoard({
   };
 
   return (
-    <div className="overflow-x-auto pb-1">
-      <div data-slot="manager-board" className="grid items-start gap-3" style={template}>
-        {lanes.map((lane) => {
-          const inLane = orderCards(
-            cards.filter((card) => laneOf(card) === lane.key),
-            order,
-          );
-          return (
-            <BoardColumnFrame
-              key={lane.key}
-              label={lane.name}
-              heading={
-                <StatusBadge status={`problems.${lane.stage}`} className="min-w-0 shrink">
-                  <span className="truncate" title={lane.name}>
-                    {lane.name}
-                  </span>
-                </StatusBadge>
-              }
-              markClassName={
-                lane.color === null ? TONE_MARK_BG[problemStatusTone(lane.stage)] : SWATCH_CLASS
-              }
-              markStyle={cardColorStyle(lane.color)}
-              count={inLane.length}
-              isDroppable={drag.isDroppable(lane.key)}
-              isOver={drag.isOver(lane.key)}
-              drop={drag.column(lane.key)}
-              emptyText={isFiltered ? t('boards.columnEmptyFiltered') : t('boards.columnEmpty')}
-              footer={footerOf?.(lane)}
-            >
-              {inLane.map((card) => {
-                const actions = actionsFor(card);
-                return (
-                  <CardTile
-                    key={card.id}
-                    card={card}
-                    today={today}
-                    href={cardHref(card.id)}
-                    onOpen={onOpen}
-                    actions={actions}
-                    moveTargets={lanes.filter(
-                      (other) => other.key !== lane.key && canMoveTo(card, other.key),
-                    )}
-                    drag={actions === undefined ? undefined : drag.item}
-                    boardLabel={boardLabelOf?.(card)}
-                  />
-                );
-              })}
-            </BoardColumnFrame>
-          );
-        })}
-      </div>
-    </div>
+    <BoardViewport slot="manager-board" style={template}>
+      {lanes.map((lane) => {
+        const inLane = orderCards(
+          cards.filter((card) => laneOf(card) === lane.key),
+          order,
+        );
+        return (
+          <BoardColumnFrame
+            key={lane.key}
+            label={lane.name}
+            heading={
+              <StatusBadge status={`problems.${lane.stage}`} className="min-w-0 shrink">
+                <span className="truncate" title={lane.name}>
+                  {lane.name}
+                </span>
+              </StatusBadge>
+            }
+            markClassName={
+              lane.color === null ? TONE_MARK_BG[problemStatusTone(lane.stage)] : SWATCH_CLASS
+            }
+            markStyle={cardColorStyle(lane.color)}
+            count={inLane.length}
+            isDroppable={drag.isDroppable(lane.key)}
+            isOver={drag.isOver(lane.key)}
+            drop={drag.column(lane.key)}
+            emptyText={isFiltered ? t('boards.columnEmptyFiltered') : t('boards.columnEmpty')}
+            footer={footerOf?.(lane)}
+          >
+            {inLane.map((card) => {
+              const actions = actionsFor(card);
+              return (
+                <CardTile
+                  key={card.id}
+                  card={card}
+                  today={today}
+                  href={cardHref(card.id)}
+                  onOpen={onOpen}
+                  actions={actions}
+                  moveTargets={lanes.filter(
+                    (other) => other.key !== lane.key && canMoveTo(card, other.key),
+                  )}
+                  drag={actions === undefined ? undefined : drag.item}
+                  boardLabel={boardLabelOf?.(card)}
+                />
+              );
+            })}
+          </BoardColumnFrame>
+        );
+      })}
+    </BoardViewport>
   );
 }

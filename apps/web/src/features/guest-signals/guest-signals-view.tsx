@@ -372,7 +372,7 @@ function ReviewList({ filters, onReset }: ReviewListProps) {
               total: number(total),
             })}
           </span>
-          <span className="flex gap-2">
+          <span className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"

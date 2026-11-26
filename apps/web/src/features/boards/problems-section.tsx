@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 
+import { BOARD_PAGE_CLASS } from '@/components/board/board-viewport';
 import { ProblemsView } from '@/features/problems/problems-view';
 
 import { MY_CARDS, readBoardAddress } from './address';
@@ -24,18 +25,24 @@ interface ProblemsSectionProps {
  * the technicians' board as it always was — a bare `/problems` — or the
  * manager board the address names. The technicians' board, its views and its
  * address are untouched. Without boards, the technicians' board alone, under
- * any address: no switcher, no «Назначено мне».
+ * any address: no switcher, no «Назначено мне». While a board shows, from `md`
+ * up, the section is the window's height and the board takes what is left of
+ * it (`BOARD_PAGE_CLASS`).
  */
 export function ProblemsSection({ viewer, hasBoards = true }: ProblemsSectionProps) {
   const params = useSearchParams();
   const { boardId } = readBoardAddress(new URLSearchParams(params.toString()));
 
   if (!hasBoards) {
-    return <ProblemsView isAdmin={viewer.isAdmin} />;
+    return (
+      <div className={BOARD_PAGE_CLASS}>
+        <ProblemsView isAdmin={viewer.isAdmin} />
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={BOARD_PAGE_CLASS}>
       <BoardSwitcher activeId={boardId} />
       {boardId === null ? (
         <ProblemsView isAdmin={viewer.isAdmin} />

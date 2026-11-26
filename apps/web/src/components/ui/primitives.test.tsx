@@ -81,7 +81,7 @@ describe('the new primitives', () => {
     expect(screen.getByRole('button', { name: 'SDT' })).toBeInTheDocument();
   });
 
-  test('a tab list never widens the page: on a narrow screen it scrolls within itself', () => {
+  test('a tab list never widens the page: on a narrow screen it breaks onto a second line', () => {
     // Decision 14: on a phone the page never scrolls sideways — the five tabs
     // of a listing's card are wider than 390 px.
     render(
@@ -92,7 +92,33 @@ describe('the new primitives', () => {
       </Tabs>,
     );
 
-    expect(screen.getByRole('tablist')).toHaveClass('max-w-full', 'overflow-x-auto');
+    expect(screen.getByRole('tablist')).toHaveClass('max-w-full', 'flex-wrap');
+  });
+
+  test('a tab list never scrolls and is as tall as its tabs: no scrollbar of its own', () => {
+    // Owner, 2026-11-26: «Доска / Список / Архив» drew a little vertical scrollbar
+    // with arrows — the scrolling list took its tabs' underline for overflow.
+    render(
+      <Tabs defaultValue="board">
+        <TabsList className="h-auto">
+          <TabsTrigger value="board">Доска</TabsTrigger>
+          <TabsTrigger value="list">Список</TabsTrigger>
+          <TabsTrigger value="archive">Архив 9</TabsTrigger>
+        </TabsList>
+      </Tabs>,
+    );
+
+    const list = screen.getByRole('tablist');
+    expect(list.className).not.toMatch(/(^|\s)overflow-/);
+    expect(list.className).not.toMatch(/(^|[\s:])h-8(\s|$)/);
+    // A board's page shares out its height: the row is never squeezed under its tabs.
+    expect(list).toHaveClass('shrink-0');
+    for (const tab of screen.getAllByRole('tab')) {
+      expect(tab).toHaveClass('whitespace-nowrap');
+      expect(tab.className).not.toMatch(/(^|\s)(truncate|overflow-hidden)(\s|$)/);
+      // A height in per cent of the list grew every tab to the list's two lines.
+      expect(tab.className).not.toMatch(/(^|\s)h-\[calc\(100%/);
+    }
   });
 
   // 5.4: the «⋯» of a row. Its items are the row's actions, each a full target.

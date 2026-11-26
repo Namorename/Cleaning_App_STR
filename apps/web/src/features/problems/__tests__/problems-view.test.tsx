@@ -134,6 +134,8 @@ vi.mock('next/navigation', async () => {
 });
 const push = vi.fn();
 
+import { expectBoardFillsPage } from '@/components/board/board-fill.expect';
+import { BOARD_PAGE_CLASS } from '@/components/board/board-viewport';
 import { expectPageTitle } from '@/components/page-header.expect';
 
 import { ProblemsView } from '../problems-view';
@@ -168,6 +170,24 @@ describe('ProblemsView', () => {
     expect(
       screen.getByRole('heading', { level: 1 }).closest('[data-slot="page-header"]'),
     ).toContainElement(screen.getByRole('searchbox'));
+  });
+
+  // Owner, 2026-11-26: the board takes the window's height under the header,
+  // the filters and the tabs, and each column scrolls; the list and the archive
+  // grow the page as before.
+  test('the board fills the page from the tabs down; the list does not hold the page', async () => {
+    useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+    const { container } = render(
+      <div className={BOARD_PAGE_CLASS}>
+        <ProblemsView />
+      </div>,
+    );
+    const page = container.firstElementChild as HTMLElement;
+
+    expectBoardFillsPage(page);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Список' }));
+    expect(page.querySelector('[data-board-fill]')).toBeNull();
   });
 
   test('the search and the tabs are 44 px targets', () => {

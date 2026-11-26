@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { BOARD_STAGE_CLASS } from '@/components/board/board-viewport';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +33,7 @@ import { ConfirmMoveDialog } from '@/features/problems/board-dialogs';
 import { todayIso } from '@/lib/format-date';
 import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 import { useAddressState } from '@/lib/use-address-state';
+import { cn } from '@/lib/utils';
 
 import { boardHref, readBoardAddress, writeBoardAddress, type BoardShelfView } from './address';
 import { BoardArchive } from './board-archive';
@@ -301,7 +303,7 @@ function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={cn(BOARD_STAGE_CLASS, 'gap-4')}>
       <PageHeader
         title={board.title}
         meta={
@@ -380,6 +382,7 @@ function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
       <Tabs
         value={address.view}
         onValueChange={(value) => setAddress({ ...here, view: value as BoardShelfView }, 'push')}
+        className={BOARD_STAGE_CLASS}
       >
         <TabsList className="h-auto">
           <TabsTrigger value="board" className="min-h-11 px-3">
@@ -390,7 +393,7 @@ function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
             <span className="ml-1 text-xs text-muted-foreground">{offBoard.length}</span>
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="board">
+        <TabsContent value="board" className={BOARD_STAGE_CLASS}>
           <ManagerBoard
             lanes={lanes}
             laneOf={(card) => laneOfCard(card, lanes)}
@@ -422,7 +425,11 @@ function BoardPage({ board, cards, columns, viewer, isStale }: BoardPageProps) {
         </TabsContent>
       </Tabs>
 
-      <p role="status" aria-live="polite" className="min-h-11 text-sm text-muted-foreground">
+      <p
+        role="status"
+        aria-live="polite"
+        className="min-h-11 shrink-0 text-sm text-muted-foreground"
+      >
         {failure !== null ? (
           <span className="text-destructive">
             {failure.text}

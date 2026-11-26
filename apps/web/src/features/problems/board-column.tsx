@@ -4,9 +4,9 @@ import { problemStatusTone } from '@str-ops/shared';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { BoardColumnFrame } from '@/components/board/board-column';
 import { StatusBadge } from '@/components/status-badge';
 import { TONE_MARK_BG } from '@/lib/design/tone-classes';
-import { cn } from '@/lib/utils';
 
 import type { ProblemsAddress } from './address';
 import { menuMoves } from './board-moves';
@@ -40,13 +40,13 @@ interface BoardColumnProps {
 }
 
 /**
- * One column of the board: its status's tone and glyph at the head, the
- * count, the cards. While a card is dragged, the column it may go to is
- * outlined in the primary colour, dashed (the review of 05.10: a faint ring
- * alone was below 3:1); the card over it turns the outline solid. No words
- * in the head — the owner (05.10) found «Можно сюда» one sign too many.
+ * One column of the board, in the frame every board's columns share (`BoardColumnFrame`): its
+ * status's tone and glyph at the head, the count, the cards scrolling under them. While a card is
+ * dragged, the column it may go to is outlined in the primary colour, dashed (the review of 05.10: a
+ * faint ring alone was below 3:1); the card over it turns the outline solid. No words in the head —
+ * the owner (05.10) found «Можно сюда» one sign too many.
  *
- * A column given a page shows that many cards and «Показать ещё» under them
+ * A column given a page shows that many cards and «Показать ещё» under them, in the scrolling box
  * (owner, 10.10); the head still counts them all.
  */
 export function BoardColumn({
@@ -65,7 +65,7 @@ export function BoardColumn({
 }: BoardColumnProps) {
   const { t } = useTranslation();
   const heading = t(`problems.statuses.${status}`);
-  const cardsRef = useRef<HTMLElement>(null);
+  const cardsRef = useRef<HTMLDivElement>(null);
   const paging = useShowMore({
     total: problems.length,
     page,
@@ -75,54 +75,35 @@ export function BoardColumn({
   });
 
   return (
-    <section
-      ref={cardsRef}
-      aria-label={heading}
-      onDragEnter={drop.onDragEnter}
-      onDragOver={drop.onDragOver}
-      onDragLeave={drop.onDragLeave}
-      onDrop={drop.onDrop}
-      data-droppable={isDroppable ? 'true' : undefined}
-      className={cn(
-        'flex min-h-32 flex-col gap-2 rounded-lg bg-muted/40 p-2 transition-colors',
-        isDroppable && 'outline-2 outline-offset-2 outline-primary',
-        isDroppable && (isOver ? 'bg-accent outline-solid' : 'outline-dashed'),
-      )}
+    <BoardColumnFrame
+      label={heading}
+      heading={<StatusBadge status={`problems.${status}`}>{heading}</StatusBadge>}
+      markClassName={TONE_MARK_BG[problemStatusTone(status)]}
+      count={problems.length}
+      isDroppable={isDroppable}
+      isOver={isOver}
+      drop={drop}
+      emptyText={
+        isFiltered
+          ? t('panel.problems.board.columnEmptyFiltered')
+          : t('panel.problems.board.columnEmpty')
+      }
+      listRef={cardsRef}
     >
-      <span
-        aria-hidden="true"
-        className={cn('h-1 rounded-full', TONE_MARK_BG[problemStatusTone(status)])}
-      />
-      <header className="flex items-center justify-between gap-2 px-1">
-        <StatusBadge status={`problems.${status}`}>{heading}</StatusBadge>
-        <span className="text-xs font-semibold text-muted-foreground tabular-nums">
-          {problems.length}
-        </span>
-      </header>
-      {problems.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">
-          {isFiltered
-            ? t('panel.problems.board.columnEmptyFiltered')
-            : t('panel.problems.board.columnEmpty')}
-        </p>
-      ) : (
-        problems
-          .slice(0, paging.shown)
-          .map((problem) => (
-            <ProblemCard
-              key={problem.id}
-              problem={problem}
-              moves={menuMoves(problem)}
-              onMove={onMove}
-              onArchive={onArchive}
-              hasUnread={unread.has(problem.id)}
-              from={from}
-              onDragStart={drag.onDragStart}
-              onDragEnd={drag.onDragEnd}
-            />
-          ))
-      )}
+      {problems.slice(0, paging.shown).map((problem) => (
+        <ProblemCard
+          key={problem.id}
+          problem={problem}
+          moves={menuMoves(problem)}
+          onMove={onMove}
+          onArchive={onArchive}
+          hasUnread={unread.has(problem.id)}
+          from={from}
+          onDragStart={drag.onDragStart}
+          onDragEnd={drag.onDragEnd}
+        />
+      ))}
       <ShowMoreButton more={paging.more} total={problems.length} onPress={paging.showMore} />
-    </section>
+    </BoardColumnFrame>
   );
 }

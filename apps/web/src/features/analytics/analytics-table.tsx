@@ -189,7 +189,7 @@ export function AnalyticsTable({ table, query, period, names, listingName }: Ana
               total: formatNumber(total, language),
             })}
           </span>
-          <span className="flex gap-2">
+          <span className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"

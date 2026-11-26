@@ -338,7 +338,7 @@ function JournalLine({
         <LinkedText text={entry.body ?? ''} className="text-sm" />
       )}
       {isComment && editing === null && (canEdit || canDelete) ? (
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {canEdit ? (
             <Button type="button" variant="ghost" className="h-11 px-2 text-xs" onClick={onEdit}>
               {t('boards.editComment')}
