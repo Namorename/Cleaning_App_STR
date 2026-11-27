@@ -219,6 +219,35 @@ describe('the technicians’ tasks', () => {
       names(orderQueue(given, { language: 'en' })),
     );
   });
+
+  // The owner, 2026-11-27 («Задания не отсортированы»): a board card shows the technician's day,
+  // so a task with live work stands on it, over its planned day and the day it was made.
+  test('a list that shows the work’s day stands a task on it', () => {
+    const workDays: Readonly<Record<string, string>> = {
+      curtains: '2026-11-28',
+      dishwasher: '2026-11-29',
+      sofa: '2026-11-29',
+      bulb: '2026-11-26',
+    };
+    const given = [
+      task('curtains', 'Skolska - ap.1A', { created_at: '2026-10-25T10:00:00Z' }),
+      task('dishwasher', 'Skolska - Ap.2', { created_at: '2026-10-26T10:00:00Z' }),
+      task('sofa', 'Ostrovni 7 Apt 13', { created_at: '2026-10-30T10:00:00Z' }),
+      task('bulb', 'Skolska - ap.6', { created_at: '2026-10-31T10:00:00Z', due_on: '2026-12-01' }),
+      task('no work', 'Alpha', { created_at: '2026-10-01T10:00:00Z', due_on: '2026-11-27' }),
+    ];
+
+    const onWork = orderQueue(given, { language: 'en', workDay: (one) => workDays[one.name] });
+    expect(names(onWork)).toEqual(['bulb', 'no work', 'curtains', 'sofa', 'dishwasher']);
+    // Without it, as before: the planned day, else the day made.
+    expect(names(orderQueue(given, { language: 'en' }))).toEqual([
+      'curtains',
+      'dishwasher',
+      'sofa',
+      'no work',
+      'bulb',
+    ]);
+  });
 });
 
 describe('a history of tasks', () => {

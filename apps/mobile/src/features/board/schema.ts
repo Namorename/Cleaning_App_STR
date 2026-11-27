@@ -87,6 +87,11 @@ export function liveRepair(problem: BoardProblem): BoardRepair | null {
   return problem.fix_tasks.find((task) => task.type === REPAIR && !OVER.has(task.status)) ?? null;
 }
 
+/** The day of the live repair the card shows, or null: a board's queue stands on it. */
+export function repairDay(problem: BoardProblem): string | null {
+  return liveRepair(problem)?.scheduled_date ?? null;
+}
+
 /** Who holds the live repair, or null. */
 export function liveHolder(problem: BoardProblem): string | null {
   return liveRepair(problem)?.assignee_id ?? null;
@@ -255,8 +260,10 @@ export function cutBoard(board: BoardRead, limits: BoardLimits): CutBoard {
 /**
  * Live tasks first, the closed ones under their heading, as her own list has
  * them. The live ones of the board stand in the technicians' queue (owner,
- * 2026-11-26 and 2026-11-27): the planned day, else the day made; then the
- * property by name; then the level; then the older first (`orderQueue`) —
+ * 2026-11-26 and 2026-11-27): the day of the live repair the card shows beside
+ * its holder («Задания не отсортированы», 2026-11-27), else the planned day,
+ * else the day made; then the property by name; then the level; then the older
+ * first (`orderQueue`) —
  * ordered here, after `cutBoard`, which keeps the newest of each part as read.
  * The closed ones, and the whole archive, by the day made, the latest first as
  * the pages come, then the property (`orderTaskHistory`): a later page only
@@ -267,7 +274,9 @@ export function boardSections(
   { isQueue = true, language }: { isQueue?: boolean; language?: string } = {},
 ): BoardSection[] {
   const live = problems.filter((problem) => !isClosed(problem));
-  const active = isQueue ? orderQueue(live, { language }) : orderTaskHistory(live, { language });
+  const active = isQueue
+    ? orderQueue(live, { language, workDay: repairDay })
+    : orderTaskHistory(live, { language });
   const closed = orderTaskHistory(problems.filter(isClosed), { language });
 
   return [

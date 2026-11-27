@@ -869,6 +869,41 @@ describe('the board in the queue’s order', () => {
     expect(within(card('С 24-го')).queryByText('Просрочено')).toBeNull();
     expect(within(card('С 24-го')).getByText('Висит 2 дня')).toBeInTheDocument();
   });
+
+  // The owner, 2026-11-27 («Задания не отсортированы»): a card with work shows the technician's
+  // day, so it stands on that day, not on the day it was made, which the card does not show.
+  test('a card with work stands on its technician’s day, then the property', () => {
+    const assigned = (n: number, title: string, place: string, made: string, day: string) =>
+      task(n, {
+        title,
+        status: 'assigned',
+        created_at: made,
+        property: { name: place },
+        fix_tasks: [
+          {
+            id: `44444444-4444-4444-8444-${String(n).padStart(12, '0')}`,
+            assignee_id: TECH_ID,
+            status: 'assigned',
+            scheduled_date: day,
+            time_from: null,
+            time_to: null,
+            assignee: { full_name: 'Petr Fixer' },
+          },
+        ],
+      });
+    render(
+      <ProblemsBoard
+        problems={[
+          assigned(1, 'Шторы', 'Skolska - ap.1A', '2026-10-25T10:00:00Z', '2026-11-28'),
+          assigned(2, 'Посудомойка', 'Skolska - Ap.2', '2026-10-26T10:00:00Z', '2026-11-29'),
+          assigned(3, 'Диван', 'Ostrovni 7 Apt 13', '2026-10-30T10:00:00Z', '2026-11-29'),
+          assigned(4, 'Лампочка', 'Skolska - ap.6', '2026-10-31T10:00:00Z', '2026-11-26'),
+        ]}
+      />,
+    );
+
+    expect(titlesIn('Назначено')).toEqual(['Лампочка', 'Шторы', 'Диван', 'Посудомойка']);
+  });
 });
 
 // Owner, 2026-11-26: «В архив» from a card's menu — the action and the question of the task's page.

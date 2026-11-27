@@ -349,6 +349,44 @@ describe('the filters', () => {
     expect(ids(archive.data)).toEqual([liveA.id, liveB.id]);
   });
 
+  // The owner, 2026-11-27 («Задания не отсортированы»): a card with a live repair shows its
+  // holder and its day, so the queue stands it on that day, not on the day it was made.
+  test('a live task with a repair stands on the repair’s day, then the property', () => {
+    const id = (n: number) => `d1e2f3a4-4444-4444-8444-${String(n).padStart(12, '0')}`;
+    const at = (name: string) => ({ name, hostaway_unit_id: null, timezone: null, parent: null });
+    const goes = (n: number, place: string, made: string, day: string | null) =>
+      boardProblem({
+        id: id(n),
+        status: 'assigned',
+        created_at: made,
+        property: at(place),
+        fix_tasks: [repair({ id: id(100 + n), scheduled_date: day })],
+      });
+    const curtains = goes(1, 'Skolska - ap.1A', '2026-10-25T08:00:00+00:00', '2026-11-28');
+    const dishwasher = goes(2, 'Skolska - Ap.2', '2026-10-26T08:00:00+00:00', '2026-11-29');
+    const sofa = goes(3, 'Ostrovni 7 Apt 13', '2026-10-30T08:00:00+00:00', '2026-11-29');
+    const bulb = goes(4, 'Skolska - ap.6', '2026-10-31T08:00:00+00:00', '2026-11-26');
+    // A repair an older build saved without its day: the day made stands in.
+    const undated = goes(5, 'Alpha', '2026-10-01T08:00:00+00:00', null);
+    const unheld = boardProblem({
+      id: id(6),
+      created_at: '2026-11-27T08:00:00+00:00',
+      property: at('Beta'),
+    });
+
+    const [active] = boardSections([curtains, dishwasher, sofa, bulb, undated, unheld], {
+      language: 'en',
+    });
+    expect(ids(active.data)).toEqual([
+      undated.id,
+      bulb.id,
+      unheld.id,
+      curtains.id,
+      sofa.id,
+      dishwasher.id,
+    ]);
+  });
+
   test('the archive keeps the order of its pages, newest first', () => {
     const newer = boardProblem({ id: OTHER, archived_at: '2026-11-25T08:00:00+00:00' });
     const older = boardProblem({

@@ -14,8 +14,10 @@ import { byUrgencyFirst, problemLevel, type StoredUrgency } from './level';
  * order for every queue of both apps — the technicians' board in the panel, «Задания» there, the
  * technician's, the head technician's and the manager's lists on the phone:
  *
- * 1. the effective day: the planned day, else the day the task was made (in its listing's zone);
- *    earlier first, so what is planned ahead stands below today's work;
+ * 1. the effective day: on a board, whose card shows the technician's day, the day of the live
+ *    work (owner, 2026-11-27: «Задания не отсортированы»); else the planned day, else the day the
+ *    task was made (in its listing's zone); earlier first, so what is planned ahead stands below
+ *    today's work;
  * 2. the property, by its name as the list shows it (schedule/day-place-order.ts); a task with no
  *    property last in its day;
  * 3. the level: critical first, then high, normal, low;
@@ -47,6 +49,12 @@ export interface QueueOrderOptions<T> {
   readonly place?: (task: T) => string | null | undefined;
   /** Earlier days first unless said otherwise. */
   readonly days?: DayDirection;
+  /**
+   * The day of the task's live work, for a list whose row shows it (a board card: the technician
+   * and the day); it leads over the planned day and the day made. Without it, or without work,
+   * the task stands on those as before.
+   */
+  readonly workDay?: (task: T) => string | null | undefined;
 }
 
 /** The name a task's property is shown by: the house, and the room inside it when it is one. */
@@ -68,9 +76,12 @@ export function dayOfInstant(instant: string, timeZone: string | null | undefine
   return todayInZone(timeZone, new Date(instant));
 }
 
-/** The day a task stands on in the queue: its planned day, else the day it was made. */
-export function queueDay(task: QueueFacts): string {
-  return task.due_on ?? dayOfInstant(task.created_at, task.property?.timezone);
+/**
+ * The day a task stands on in the queue: the day of its live work when the list shows it, else its
+ * planned day, else the day it was made.
+ */
+export function queueDay(task: QueueFacts, workDay?: string | null): string {
+  return workDay ?? task.due_on ?? dayOfInstant(task.created_at, task.property?.timezone);
 }
 
 /** Between tasks of one day and property: the level (critical first), then the older first. */
@@ -87,8 +98,9 @@ export function orderQueue<T extends QueueFacts>(
   tasks: readonly T[],
   options: QueueOrderOptions<T> = {},
 ): T[] {
+  const workDay = options.workDay;
   return orderByDayAndPlace(tasks, {
-    day: queueDay,
+    day: workDay === undefined ? (task) => queueDay(task) : (task) => queueDay(task, workDay(task)),
     place: options.place ?? queuePlace,
     then: compareLevelThenAge,
     days: options.days,
