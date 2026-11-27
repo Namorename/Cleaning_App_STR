@@ -19,6 +19,7 @@ import {
   useMyDoneTasks,
   useMyTasks,
 } from '@/features/tasks/use-tasks';
+import { useLanguage } from '@/hooks/use-language';
 import { wordContext } from '@/i18n';
 import { alertMessage, serverErrorText } from '@/lib/server-error';
 
@@ -38,6 +39,7 @@ export default function FirstTab() {
 
 function MyTasksScreen() {
   const { t } = useTranslation();
+  const language = useLanguage();
   const { data, isPending, error, refetch, isRefetching } = useMyTasks();
   const { mutateAsync: accept } = useAcceptTask();
   const [acceptingIds, setAcceptingIds] = useState<ReadonlySet<string>>(NO_ACCEPTS);
@@ -60,11 +62,11 @@ function MyTasksScreen() {
     if (data === undefined) {
       return undefined;
     }
-    const open = groupMyTasks(data, isRepairApart);
+    const open = groupMyTasks(data, isRepairApart, language);
     const openIds = new Set(data.map((task) => task.id));
     const finished = (done.data ?? []).filter((task) => !openIds.has(task.id));
-    return isDoneOpen ? [...open, ...groupMyDone(finished, isRepairApart)] : open;
-  }, [data, done.data, isDoneOpen, isRepairApart]);
+    return isDoneOpen ? [...open, ...groupMyDone(finished, isRepairApart, language)] : open;
+  }, [data, done.data, isDoneOpen, isRepairApart, language]);
 
   // The marks are asked for exactly the jobs on this screen. A repair speaks
   // in its report's thread, so its report is asked about too.

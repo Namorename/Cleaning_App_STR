@@ -1,5 +1,8 @@
+import { compareCleaningTimes, orderCleanings } from '@str-ops/shared';
+
 import {
   isTechnicianJob,
+  taskPropertyName,
   type CalendarTask,
   type ExpiredTask,
   type Staff,
@@ -189,18 +192,12 @@ export function isBookingChanged(task: JudgedTask, bookings: BookingsRead | null
   );
 }
 
-/** Earliest window first; a task without one after those that have one. */
+/**
+ * Earliest window first; a task without one after those that have one; then the one made first
+ * (packages/shared, `compareCleaningTimes`), then the id, so equal rows never swap.
+ */
 function byWindow(a: CalendarTask, b: CalendarTask): number {
-  if (a.time_from !== b.time_from) {
-    if (a.time_from === null) {
-      return 1;
-    }
-    if (b.time_from === null) {
-      return -1;
-    }
-    return a.time_from.localeCompare(b.time_from);
-  }
-  return a.id.localeCompare(b.id);
+  return compareCleaningTimes(a, b) || a.id.localeCompare(b.id);
 }
 
 /** The tasks of every row by day, each cell in window order. */
@@ -221,18 +218,21 @@ function subtreeIds<T extends TreeRow>(node: PropertyNode<T>): number[] {
 }
 
 /**
- * The chips of one cell. A closed group folds its rooms' and parts' chips
- * into the listing's row (§3), in the same window order.
+ * The chips of one cell, each in window order. A closed group folds its rooms' and parts' chips
+ * into the listing's row (§3): those stand by the flat's name as a list shows it — the house's
+ * own first, then its rooms and parts by name (owner, 2026-11-27: the order of cleanings) — and
+ * each flat's in window order.
  */
 export function cellTasks<T extends TreeRow>(
   node: PropertyNode<T>,
   day: string,
   byRowDay: ReadonlyMap<number, ReadonlyMap<string, readonly CalendarTask[]>>,
   isFolded: boolean,
+  language?: string,
 ): CalendarTask[] {
   const ids = isFolded ? subtreeIds(node) : [node.row.id];
   const found = ids.flatMap((id) => byRowDay.get(id)?.get(day) ?? []);
-  return isFolded ? [...found].sort(byWindow) : [...found];
+  return isFolded ? orderCleanings(found, { place: taskPropertyName, language }) : [...found];
 }
 
 /** A chip read in full needs about a week's column (§4: about 130 px). */

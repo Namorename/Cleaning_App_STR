@@ -82,7 +82,7 @@ export function TasksView() {
   const today = todayIso(now);
   const tasks = (data ?? []).filter((task) => matchesFilters(task, filters));
   const inTab = (key: TaskTab) => tasks.filter((task) => tabOf(task, today) === key);
-  const groups = groupTasks(inTab(tab), tab, now);
+  const groups = groupTasks(inTab(tab), tab, now, language);
 
   /** A row's «⋯»: where the focus goes back when the menu or drawer that led away is gone. */
   const rowMenuOf = (taskId: string) =>

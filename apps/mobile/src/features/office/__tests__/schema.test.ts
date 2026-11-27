@@ -144,11 +144,25 @@ describe('days', () => {
     officeTask({ id: ID_3, scheduled_date: '2026-11-19' }),
   ];
 
-  test('a section per day, the nearest first, the server’s order kept inside a day', () => {
+  test('a section per day, the nearest first; one flat’s rows of one window as they came', () => {
     const days = groupOfficeByDay(rows);
 
     expect(days.map((day) => day.key)).toEqual(['2026-11-18', '2026-11-19']);
     expect(days[1].data.map((task) => task.id)).toEqual([ID_2, ID_3]);
+  });
+
+  test('inside a day the flats by name, a room under its house (owner, 2026-11-27)', () => {
+    const days = groupOfficeByDay(
+      [
+        officeTask({ id: ID_2, time_from: '08:00:00' }),
+        officeTask({ id: ID_3, time_from: '12:00:00', property: ROYAL_ROOM }),
+        officeTask({ time_from: '09:00:00', property: { ...ROYAL_ROOM, name: '2 - 2110' } }),
+      ],
+      'ru',
+    );
+
+    // «CZ - Nadrazni Apt 6» before «CZ - Vinohradska Royal — 1 - 2109», then «… — 2 - 2110».
+    expect(days[0].data.map((task) => task.id)).toEqual([ID_2, ID_3, officeTask().id]);
   });
 
   test('the grid counts a day’s cleanings and marks one waiting for a person', () => {

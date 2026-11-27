@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 
 import type { EmptyStateProps } from '@/components/empty-state';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
+import { useLanguage } from '@/hooks/use-language';
 
 import { BOARD_CLOSED_LIMIT, BOARD_OPEN_LIMIT } from './api';
 import { AssigneeSheet, BoardFilters } from './board-filters';
@@ -48,6 +49,7 @@ const HOLDS_NOBODY: ReadonlySet<BoardStatusFilter> = new Set(['resolved', 'archi
  */
 export function BoardScreen() {
   const { t } = useTranslation();
+  const language = useLanguage();
   const board = useBoardProblems();
   const readCut = useBoardCut();
   const [status, setStatus] = useState<BoardStatusFilter>(FIRST_STATUS);
@@ -74,8 +76,9 @@ export function BoardScreen() {
   );
   // The live part in the technicians' queue; the archive as its pages came, newest first.
   const sections = useMemo(
-    () => (shown === undefined ? undefined : boardSections(shown, { isQueue: !isArchive })),
-    [shown, isArchive],
+    () =>
+      shown === undefined ? undefined : boardSections(shown, { isQueue: !isArchive, language }),
+    [shown, isArchive, language],
   );
 
   // The marks are asked once for everything the phone holds — the board, and

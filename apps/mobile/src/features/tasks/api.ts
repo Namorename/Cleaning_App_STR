@@ -51,7 +51,7 @@ export const TASK_COLUMNS =
   'id, type, status, priority, scheduled_date, due_at, assignee_id, property_id, reservation_id, ' +
   'problem_id, ' +
   'time_from, time_to, guests_count, started_at, completed_at, is_parallel, ' +
-  'notes, title, title_i18n, ' +
+  'notes, title, title_i18n, created_at, ' +
   'property:properties(name, address, hostaway_unit_id, effective_cleaner_notes, parent:parent_id(name)), ' +
   'problem:problem_id(id, title, priority, critical), ' +
   // Who did it and who closed it, with the names (20261106125500).

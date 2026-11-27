@@ -8,6 +8,7 @@ import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { groupByDay } from '@/features/tasks/schema';
 import { TaskList } from '@/features/tasks/task-list';
 import { useClaimTask, useFreeTasks } from '@/features/tasks/use-tasks';
+import { useLanguage } from '@/hooks/use-language';
 import { alertMessage, serverErrorText } from '@/lib/server-error';
 
 const NO_IDS: readonly string[] = [];
@@ -15,6 +16,7 @@ const NO_CLAIMS: ReadonlySet<string> = new Set();
 
 export default function FreeQueueScreen() {
   const { t } = useTranslation();
+  const language = useLanguage();
   const { userId } = useSession();
   const { data, isPending, error, refetch, isRefetching } = useFreeTasks();
   const { mutateAsync: claim } = useClaimTask();
@@ -23,7 +25,10 @@ export default function FreeQueueScreen() {
   // A section per day, grouped here from the rows already fetched: the queue
   // spans a week, and which day a cleaning is on decides whether she can take
   // it. No work under way here by definition.
-  const sections = useMemo(() => (data === undefined ? undefined : groupByDay(data)), [data]);
+  const sections = useMemo(
+    () => (data === undefined ? undefined : groupByDay(data, language)),
+    [data, language],
+  );
 
   // A note the office left on free work is the case the conversation exists
   // for, so the queue carries the marks too.

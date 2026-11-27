@@ -2,6 +2,7 @@ import {
   availableActions,
   calendarDay,
   canStartNow,
+  cleaningPlace,
   cleaningTaskSchema,
   earliestClaimableDate,
   groupByDay,
@@ -219,7 +220,7 @@ describe('groupByDay', () => {
   const ON_11TH_URGENT = 'a1b2c3d4-2222-4222-8222-a1b2c3d40002';
   const ON_11TH = 'a1b2c3d4-3333-4333-8333-a1b2c3d40003';
 
-  test('one section per planned day, the nearest first, each in the order the rows came', () => {
+  test('one section per planned day, the nearest first; one flat’s rows of one window as they came', () => {
     // Arrange: as the server orders them — by day, then the same-day check-in first.
     const rows = [
       task({ id: ON_10TH, scheduled_date: '2026-11-10' }),
@@ -249,6 +250,71 @@ describe('groupByDay', () => {
 
   test('no rows, no sections: an empty list is said by the list, not by an empty heading', () => {
     expect(groupByDay([])).toEqual([]);
+  });
+
+  // The order of cleanings (owner, 2026-11-27): the day, then the flat by name.
+  test('inside a day the flats by name, numbers by value, the hour only within one flat', () => {
+    const flat = (name: string) => ({
+      name,
+      address: null,
+      hostaway_unit_id: null,
+      effective_cleaner_notes: null,
+      parent: null,
+    });
+    const groups = groupByDay(
+      [
+        task({
+          id: 'a1b2c3d4-1111-4111-8111-a1b2c3d40001',
+          time_from: '08:00:00',
+          property: flat('Apt 10'),
+        }),
+        task({ id: 'a1b2c3d4-2222-4222-8222-a1b2c3d40002', time_from: '07:00:00', property: null }),
+        task({
+          id: 'a1b2c3d4-3333-4333-8333-a1b2c3d40003',
+          time_from: '14:00:00',
+          property: flat('apt 2'),
+        }),
+        task({
+          id: 'a1b2c3d4-4444-4444-8444-a1b2c3d40004',
+          time_from: '11:00:00',
+          property: flat('Apt 2'),
+        }),
+      ],
+      'en',
+    );
+
+    // Apt 2 at eleven, then at two; Apt 10; the one whose flat was not read, last.
+    expect(groups[0].data.map((item) => item.id.slice(-1))).toEqual(['4', '3', '1', '2']);
+  });
+
+  test('a room stands under its house, as the card names it', () => {
+    const room = {
+      name: '3 - 3008',
+      address: null,
+      hostaway_unit_id: 3008,
+      effective_cleaner_notes: null,
+      parent: { name: 'Royal' },
+    };
+    expect(cleaningPlace({ property: room })).toBe('Royal — 3 - 3008');
+    expect(cleaningPlace({ property: null })).toBeNull();
+  });
+
+  test('Czech names in Czech order', () => {
+    const flat = (name: string) => ({
+      name,
+      address: null,
+      hostaway_unit_id: null,
+      effective_cleaner_notes: null,
+      parent: null,
+    });
+    const groups = groupByDay(
+      [
+        task({ id: 'a1b2c3d4-1111-4111-8111-a1b2c3d40001', property: flat('Chalupa') }),
+        task({ id: 'a1b2c3d4-2222-4222-8222-a1b2c3d40002', property: flat('Horní') }),
+      ],
+      'cs',
+    );
+    expect(groups[0].data.map((item) => item.property?.name)).toEqual(['Horní', 'Chalupa']);
   });
 });
 
@@ -343,6 +409,29 @@ describe('groupMyDone', () => {
   test('nothing finished, no section; without the flag, one section for all', () => {
     expect(groupMyDone([], true)).toEqual([]);
     expect(groupMyDone([repair, cleaning]).map((group) => group.kind)).toEqual(['done']);
+  });
+
+  test('by the day finished, the latest first, the flats by name within it', () => {
+    const flat = (name: string) => ({
+      name,
+      address: null,
+      hostaway_unit_id: null,
+      effective_cleaner_notes: null,
+      parent: null,
+    });
+    // Noon UTC is the same day everywhere in Europe.
+    const done = (id: string, day: string, name: string) =>
+      task({ id, status: 'done', completed_at: `${day}T12:00:00Z`, property: flat(name) });
+    const groups = groupMyDone(
+      [
+        done('a1b2c3d4-1111-4111-8111-a1b2c3d40001', '2026-11-10', 'Beta'),
+        done('a1b2c3d4-2222-4222-8222-a1b2c3d40002', '2026-11-09', 'Alpha'),
+        done('a1b2c3d4-3333-4333-8333-a1b2c3d40003', '2026-11-10', 'Alpha'),
+      ],
+      false,
+      'en',
+    );
+    expect(groups[0].data.map((item) => item.id.slice(-1))).toEqual(['3', '1', '2']);
   });
 });
 

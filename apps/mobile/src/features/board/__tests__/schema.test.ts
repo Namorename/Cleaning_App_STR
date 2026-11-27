@@ -320,6 +320,35 @@ describe('the filters', () => {
     ]);
   });
 
+  test('within a day the property by name: live in the queue, closed and archived alike', () => {
+    const id = (n: number) => `d1e2f3a4-3333-4333-8333-${String(n).padStart(12, '0')}`;
+    const at = (name: string) => ({ name, hostaway_unit_id: null, timezone: null, parent: null });
+    const day = '2026-11-20T08:00:00+00:00';
+    const liveB = boardProblem({ id: id(1), created_at: day, property: at('Beta 10') });
+    const liveA = boardProblem({ id: id(2), created_at: day, property: at('beta 2') });
+    const closedB = boardProblem({
+      id: id(3),
+      status: 'resolved',
+      created_at: day,
+      property: at('B'),
+    });
+    const closedA = boardProblem({
+      id: id(4),
+      status: 'resolved',
+      created_at: day,
+      property: at('A'),
+    });
+
+    const sections = boardSections([liveB, closedB, liveA, closedA], { language: 'en' });
+    expect(sections.map((section) => [section.key, ids(section.data)])).toEqual([
+      ['active', [liveA.id, liveB.id]],
+      ['closed', [closedA.id, closedB.id]],
+    ]);
+
+    const [archive] = boardSections([liveB, liveA], { isQueue: false, language: 'en' });
+    expect(ids(archive.data)).toEqual([liveA.id, liveB.id]);
+  });
+
   test('the archive keeps the order of its pages, newest first', () => {
     const newer = boardProblem({ id: OTHER, archived_at: '2026-11-25T08:00:00+00:00' });
     const older = boardProblem({

@@ -149,16 +149,35 @@ export {
 } from './boards/columns';
 export {
   DUE_DAYS_AHEAD,
+  compareLevelThenAge,
   compareQueue,
   dayOfInstant,
   orderQueue,
+  orderTaskHistory,
   plannedDay,
   plannedTail,
   queueDay,
+  queuePlace,
   tailDay,
+  type HistoryOrderOptions,
   type PlannedDay,
   type QueueFacts,
+  type QueueOrderOptions,
+  type QueueProperty,
 } from './problems/queue';
+export {
+  byIsoText,
+  byIsoTextMissingLast,
+  compareCleaningTimes,
+  comparePlaces,
+  orderByDayAndPlace,
+  orderCleanings,
+  placeCollator,
+  type CleaningOrderFacts,
+  type CleaningOrderOptions,
+  type DayDirection,
+  type DayPlaceOrder,
+} from './schedule/day-place-order';
 export {
   STALE_CLOCK_MESSAGE,
   STALE_CLOCK_RETRY_DELAYS_MS,

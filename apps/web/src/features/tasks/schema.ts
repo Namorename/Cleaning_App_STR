@@ -2,6 +2,7 @@ import {
   CLOSED_HOWS,
   WORKER_SOURCES,
   jobTail,
+  orderCleanings,
   propertyPath,
   propertyPathOf,
   splitPlace,
@@ -643,30 +644,14 @@ export interface TaskGroup {
 }
 
 /**
- * Earliest window first; a task with no window closes the group.
- *
- * Equal windows are settled by the flat — building first, then the room in it,
- * which is what `taskPropertyName` composes. Sorting by the row's own name
- * instead would interleave the rooms of different houses under one heading.
+ * The rows under one heading in the order of cleanings (owner, 2026-11-27; packages/shared,
+ * schedule/day-place-order.ts): the day, then the flat by its name as the row shows it — building
+ * first, then the room in it, which is what `taskPropertyName` composes; sorting by the row's own
+ * name instead would interleave the rooms of different houses — then the earliest window, one
+ * with no window after it, then the one made first.
  */
-function byTime(left: Task, right: Task): number {
-  if (left.time_from === right.time_from) {
-    return (taskPropertyName(left) ?? '').localeCompare(taskPropertyName(right) ?? '');
-  }
-  if (left.time_from === null) {
-    return 1;
-  }
-  if (right.time_from === null) {
-    return -1;
-  }
-  return left.time_from.localeCompare(right.time_from);
-}
-
-/** The oldest day first — the longest overdue is the first to chase. */
-function byDayThenTime(left: Task, right: Task): number {
-  return left.scheduled_date === right.scheduled_date
-    ? byTime(left, right)
-    : left.scheduled_date.localeCompare(right.scheduled_date);
+function cleaningOrder(tasks: readonly Task[], language: string): Task[] {
+  return orderCleanings(tasks, { place: taskPropertyName, language });
 }
 
 /**
@@ -674,20 +659,29 @@ function byDayThenTime(left: Task, right: Task): number {
  * left over from earlier days goes above all of it, in a group of its own —
  * spread over the parts of the day, a tail stood among today's work and was
  * found only by its border. A tail is what `tailOf` says, with the same `now`
- * the cards get, so the heading and the border never disagree.
+ * the cards get, so the heading and the border never disagree. The tail is the
+ * oldest day first — the longest overdue is the first to chase.
  *
  * The other tabs span days, so there the day itself is the heading — nearest
- * first when the work is ahead, most recent first when it is behind.
+ * first when the work is ahead, most recent first when it is behind. Under
+ * every heading the flats stand by name (`cleaningOrder`).
  */
-export function groupTasks(tasks: Task[], tab: TaskTab, now: Date): TaskGroup[] {
+export function groupTasks(tasks: Task[], tab: TaskTab, now: Date, language: string): TaskGroup[] {
   if (tab === 'today') {
     const tails = tasks.filter((task) => tailOf(task, now) !== null);
     const current = tasks.filter((task) => tailOf(task, now) === null);
-    const tailGroup: TaskGroup = { key: 'tail', kind: 'tail', tasks: tails.sort(byDayThenTime) };
+    const tailGroup: TaskGroup = {
+      key: 'tail',
+      kind: 'tail',
+      tasks: cleaningOrder(tails, language),
+    };
     const timeGroups = TIME_GROUPS.map((key) => ({
       key,
       kind: 'time' as const,
-      tasks: current.filter((task) => timeGroup(task) === key).sort(byTime),
+      tasks: cleaningOrder(
+        current.filter((task) => timeGroup(task) === key),
+        language,
+      ),
     }));
     return [tailGroup, ...timeGroups].filter((group) => group.tasks.length > 0);
   }
@@ -698,7 +692,10 @@ export function groupTasks(tasks: Task[], tab: TaskTab, now: Date): TaskGroup[] 
   return days.map((day) => ({
     key: day,
     kind: 'day' as const,
-    tasks: tasks.filter((task) => task.scheduled_date === day).sort(byTime),
+    tasks: cleaningOrder(
+      tasks.filter((task) => task.scheduled_date === day),
+      language,
+    ),
   }));
 }
 

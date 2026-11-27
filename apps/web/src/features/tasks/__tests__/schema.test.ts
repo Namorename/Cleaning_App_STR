@@ -166,6 +166,7 @@ describe('groupTasks', () => {
       ],
       'today',
       ON_TODAY,
+      'en',
     );
 
     expect(groups.map((group) => group.key)).toEqual(['morning', 'evening', 'anytime']);
@@ -183,6 +184,7 @@ describe('groupTasks', () => {
       ],
       'today',
       ON_TODAY,
+      'en',
     );
 
     // Act & Assert: the tails no longer hide in the morning and the evening.
@@ -212,6 +214,7 @@ describe('groupTasks', () => {
       ],
       'today',
       lateEvening,
+      'en',
     );
 
     expect(groups.map((group) => group.key)).toEqual(['tail', 'anytime']);
@@ -226,6 +229,7 @@ describe('groupTasks', () => {
       ],
       'upcoming',
       ON_TODAY,
+      'en',
     );
 
     expect(groups.map((group) => group.key)).toEqual(['2026-09-12', '2026-09-14']);
@@ -240,6 +244,7 @@ describe('groupTasks', () => {
       ],
       'closed',
       ON_TODAY,
+      'en',
     );
 
     expect(groups.map((group) => group.key)).toEqual(['2026-09-10', '2026-09-08']);
@@ -266,10 +271,60 @@ describe('groupTasks', () => {
       ],
       'today',
       ON_TODAY,
+      'en',
     );
 
     // Act & Assert
     expect(groups[0]?.tasks.map((entry) => entry.id)).toEqual([id(2), id(3), id(1)]);
+  });
+
+  test('within a day the flats by name, numbers by value, before the hour (owner, 2026-11-27)', () => {
+    const flat = (name: string) => ({ name, hostaway_unit_id: null, parent: null });
+    const groups = groupTasks(
+      [
+        task({
+          id: id(1),
+          scheduled_date: '2026-09-12',
+          time_from: '08:00:00',
+          property: flat('Apt 10'),
+        }),
+        task({
+          id: id(2),
+          scheduled_date: '2026-09-12',
+          time_from: '15:00:00',
+          property: flat('apt 2'),
+        }),
+        task({ id: id(3), scheduled_date: '2026-09-12', time_from: '09:00:00', property: null }),
+        task({
+          id: id(4),
+          scheduled_date: '2026-09-12',
+          time_from: '11:00:00',
+          property: flat('Apt 2'),
+        }),
+      ],
+      'upcoming',
+      ON_TODAY,
+      'en',
+    );
+
+    // The two of Apt 2 by their hour, then Apt 10, the one with no flat last.
+    expect(groups[0]?.tasks.map((entry) => entry.id)).toEqual([id(4), id(2), id(1), id(3)]);
+  });
+
+  test('a part of the day stands by flat too, the hour only between the cleanings of one', () => {
+    const flat = (name: string) => ({ name, hostaway_unit_id: null, parent: null });
+    const groups = groupTasks(
+      [
+        task({ id: id(1), time_from: '08:00:00', property: flat('Zeta') }),
+        task({ id: id(2), time_from: '11:00:00', property: flat('Alpha') }),
+      ],
+      'today',
+      ON_TODAY,
+      'en',
+    );
+
+    expect(groups.map((group) => group.key)).toEqual(['morning']);
+    expect(groups[0]?.tasks.map((entry) => entry.id)).toEqual([id(2), id(1)]);
   });
 
   test('a task with no window closes its day', () => {
@@ -280,6 +335,7 @@ describe('groupTasks', () => {
       ],
       'upcoming',
       ON_TODAY,
+      'en',
     );
 
     expect(groups[0]?.tasks.map((entry) => entry.id)).toEqual([id(2), id(1)]);

@@ -2,7 +2,7 @@ import type { TaskStatus } from '@str-ops/shared';
 import { z } from 'zod';
 
 import type { StaffMember } from '@/features/board/schema';
-import { cleaningTaskSchema } from '@/features/tasks/schema';
+import { cleaningTaskSchema, orderCleaningTasks } from '@/features/tasks/schema';
 import {
   daysBetween,
   firstDayOf,
@@ -231,13 +231,18 @@ export interface OfficeDay {
   readonly data: OfficeTask[];
 }
 
-/** A section per day, the nearest first; inside a day the server's order (time, then id). */
-export function groupOfficeByDay(tasks: readonly OfficeTask[]): OfficeDay[] {
-  const days = [...new Set(tasks.map((task) => task.scheduled_date))].sort();
+/**
+ * A section per day, the nearest first; inside a day the flats by name, then the earliest window,
+ * then the one made first (owner, 2026-11-27: `orderCleaningTasks`). The calendar's day is the
+ * same section, filtered to the day picked.
+ */
+export function groupOfficeByDay(tasks: readonly OfficeTask[], language?: string): OfficeDay[] {
+  const ordered = orderCleaningTasks(tasks, language);
+  const days = [...new Set(ordered.map((task) => task.scheduled_date))];
   return days.map((day) => ({
     kind: 'day' as const,
     key: day,
-    data: tasks.filter((task) => task.scheduled_date === day),
+    data: ordered.filter((task) => task.scheduled_date === day),
   }));
 }
 

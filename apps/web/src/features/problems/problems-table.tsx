@@ -50,8 +50,9 @@ interface ProblemsTableProps {
  * guest's review or chat where the reporter would stand.
  *
  * The live tasks first, in the technicians' queue order — the planned day or
- * the day made, the level, the older first — and the closed ones after them,
- * newest reported first (owner, 2026-11-26: `listOrder`); a planned live task
+ * the day made, the property, the level, the older first — and the closed ones after them,
+ * by the day reported, the latest first, then the property (owner, 2026-11-26 and 2026-11-27:
+ * `listOrder`); a planned live task
  * says its day beside its title. A page at a time (owner, 10.10: the page must
  * not grow without end); «Показать ещё» under the table brings the rest.
  */
@@ -62,7 +63,7 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
   const from: ProblemsAddress = { view: 'list', filters };
   // One instant for the whole table, so every row agrees on a repair's days.
   const now = new Date();
-  const rows = useMemo(() => listOrder(problems), [problems]);
+  const rows = useMemo(() => listOrder(problems, language), [problems, language]);
   const tableRef = useRef<HTMLDivElement>(null);
   const paging = useShowMore({
     total: rows.length,

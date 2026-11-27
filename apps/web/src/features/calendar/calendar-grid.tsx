@@ -241,7 +241,7 @@ const GridRow = memo(function GridRow({
       <RowTrack
         rowId={property.id}
         layout={layout}
-        cells={days.map((day) => cellTasks(node, day, byRowDay, isGroup && isClosed))}
+        cells={days.map((day) => cellTasks(node, day, byRowDay, isGroup && isClosed, language))}
         bookings={bookings}
         days={days}
         dayWidth={dayWidth}

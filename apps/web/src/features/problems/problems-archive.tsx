@@ -1,8 +1,8 @@
 'use client';
 
-import { problemStatusTone } from '@str-ops/shared';
+import { orderTaskHistory, problemStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/states';
@@ -38,8 +38,9 @@ interface ProblemsArchiveProps {
  * An archived problem may still be written about; its mark leads to the
  * conversation, as in the list.
  *
- * The archive only grows, so it shows a page at a time (owner, 10.10), newest
- * reported first; «Показать ещё» under it brings the older ones. An admin also
+ * The archive only grows, so it shows a page at a time (owner, 10.10): by the day
+ * reported, the latest first, then the property by name (owner, 2026-11-27:
+ * `orderTaskHistory`); «Показать ещё» under it brings the older ones. An admin also
  * has «Удалить навсегда» on each, behind a question (owner, 2026-11-26).
  */
 export function ProblemsArchive({
@@ -55,15 +56,19 @@ export function ProblemsArchive({
   const failure = unarchive.isError ? serverErrorText(unarchive.error) : null;
   const from: ProblemsAddress = { view: 'archive', filters };
   const listRef = useRef<HTMLUListElement>(null);
+  const rows = useMemo(
+    () => orderTaskHistory(problems, { place: problemPlace, language }),
+    [problems, language],
+  );
   const paging = useShowMore({
-    total: problems.length,
+    total: rows.length,
     page: ARCHIVE_PAGE,
     listRef,
     itemSelector: ':scope > li',
     resetKey: filtersKey(filters),
   });
 
-  if (problems.length === 0) {
+  if (rows.length === 0) {
     return (
       <EmptyState>
         {isFiltered ? t('panel.problems.emptyFiltered') : t('panel.problems.archive.empty')}
@@ -75,7 +80,7 @@ export function ProblemsArchive({
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">{t('panel.problems.archive.hint')}</p>
       <ul ref={listRef} className="flex flex-col gap-2">
-        {problems.slice(0, paging.shown).map((problem) => (
+        {rows.slice(0, paging.shown).map((problem) => (
           <li
             key={problem.id}
             className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3 text-sm"

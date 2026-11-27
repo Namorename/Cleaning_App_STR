@@ -279,6 +279,45 @@ describe('queueProblems', () => {
     expect(titles(groups[2])).toEqual(['closed newer', 'closed older']);
   });
 
+  // The owner, 2026-11-27: within a day the property by name, before the level.
+  test('within a day the property by name, the level only within one property', () => {
+    const at = (name: string) => ({ name, hostaway_unit_id: null, timezone: null, parent: null });
+    const groups = queueProblems(
+      [
+        task('critical in Žižkov', {
+          property: at('Žižkov 5'),
+          priority: 'high',
+          critical: true,
+          created_at: '2026-11-26T08:00:00+00:00',
+        }),
+        task('Apt 10', { property: at('Apt 10'), created_at: '2026-11-26T08:00:00+00:00' }),
+        task('nowhere', { property: null, created_at: '2026-11-26T08:00:00+00:00' }),
+        task('Apt 2', { property: at('apt 2'), created_at: '2026-11-26T09:00:00+00:00' }),
+        task('closed Apt 2', {
+          property: at('Apt 2'),
+          status: 'resolved',
+          created_at: '2026-11-26T07:00:00+00:00',
+        }),
+        task('closed Žižkov', {
+          property: at('Žižkov 5'),
+          status: 'resolved',
+          created_at: '2026-11-26T10:00:00+00:00',
+        }),
+        task('closed earlier', {
+          property: at('Apt 1'),
+          status: 'resolved',
+          created_at: '2026-11-25T10:00:00+00:00',
+        }),
+      ],
+      NOW,
+      'cs',
+    );
+
+    expect(titles(groups[0])).toEqual(['Apt 2', 'Apt 10', 'critical in Žižkov', 'nowhere']);
+    // Closed: the later day first, the property within it.
+    expect(titles(groups[1])).toEqual(['closed Apt 2', 'closed Žižkov', 'closed earlier']);
+  });
+
   test('no heading for what is not there', () => {
     expect(queueProblems([task('today')], NOW).map((group) => group.key)).toEqual(['active']);
     expect(

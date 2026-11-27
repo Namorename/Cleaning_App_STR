@@ -12,6 +12,7 @@ import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { ProblemList } from '@/features/problems/problem-list';
 import { groupProblems, queueProblems } from '@/features/problems/schema';
 import { useMyProblems } from '@/features/problems/use-problems';
+import { useLanguage } from '@/hooks/use-language';
 import { useNow } from '@/hooks/use-now';
 
 const NO_IDS: readonly string[] = [];
@@ -71,6 +72,7 @@ interface MyProblemsProps {
 
 function MyProblems({ canReport, isQueue }: MyProblemsProps) {
   const { t } = useTranslation();
+  const language = useLanguage();
   const { data, isPending, error, refetch, isRefetching } = useMyProblems();
   // The moment the queue is read at, refreshed on a timer: a task planned for tomorrow leaves
   // «Запланировано» when the day comes, with the screen left open. A cleaner's list has no clock.
@@ -81,8 +83,8 @@ function MyProblems({ canReport, isQueue }: MyProblemsProps) {
     if (data === undefined) {
       return undefined;
     }
-    return queueNow === null ? groupProblems(data) : queueProblems(data, queueNow);
-  }, [data, queueNow]);
+    return queueNow === null ? groupProblems(data) : queueProblems(data, queueNow, language);
+  }, [data, queueNow, language]);
 
   // The marks are asked for exactly the reports on this screen.
   const problemIds = useMemo(

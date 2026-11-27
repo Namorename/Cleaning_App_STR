@@ -1,4 +1,4 @@
-import { orderQueue } from '@str-ops/shared';
+import { orderQueue, orderTaskHistory } from '@str-ops/shared';
 import { z } from 'zod';
 
 import { isTechnician, knownRole } from '@/features/auth/role';
@@ -255,17 +255,20 @@ export function cutBoard(board: BoardRead, limits: BoardLimits): CutBoard {
 /**
  * Live tasks first, the closed ones under their heading, as her own list has
  * them. The live ones of the board stand in the technicians' queue (owner,
- * 2026-11-26): the planned day, else the day made; then the level; then the
- * older first (`orderQueue`) — ordered here, after `cutBoard`, which keeps the
- * newest of each part as read. The archive keeps its pages' order, newest first.
+ * 2026-11-26 and 2026-11-27): the planned day, else the day made; then the
+ * property by name; then the level; then the older first (`orderQueue`) —
+ * ordered here, after `cutBoard`, which keeps the newest of each part as read.
+ * The closed ones, and the whole archive, by the day made, the latest first as
+ * the pages come, then the property (`orderTaskHistory`): a later page only
+ * adds rows of the same or earlier days.
  */
 export function boardSections(
   problems: readonly BoardProblem[],
-  { isQueue = true }: { isQueue?: boolean } = {},
+  { isQueue = true, language }: { isQueue?: boolean; language?: string } = {},
 ): BoardSection[] {
   const live = problems.filter((problem) => !isClosed(problem));
-  const active = isQueue ? orderQueue(live) : live;
-  const closed = problems.filter(isClosed);
+  const active = isQueue ? orderQueue(live, { language }) : orderTaskHistory(live, { language });
+  const closed = orderTaskHistory(problems.filter(isClosed), { language });
 
   return [
     ...(active.length > 0 ? [{ key: 'active' as const, data: active }] : []),

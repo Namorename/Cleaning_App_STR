@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BOARD_STAGE_CLASS, BoardViewport } from '@/components/board/board-viewport';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
+import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
 
 import type { ProblemsAddress } from './address';
@@ -50,7 +51,8 @@ interface ProblemsBoardProps {
  *
  * «Выполнено» only grows (owner, 10.10): it shows the tasks resolved last,
  * newest first, a page at a time; the other three columns show every card, in
- * the technicians' queue order (owner, 2026-11-26: `columnOrder`).
+ * the technicians' queue order (owner, 2026-11-26), within a day by property (owner, 2026-11-27:
+ * `columnOrder`); «Выполнено» by the day resolved, the latest first, then the property.
  * The filters have narrowed `problems` before any page is cut.
  */
 export function ProblemsBoard({
@@ -58,6 +60,7 @@ export function ProblemsBoard({
   isFiltered = false,
   filters = EMPTY_PROBLEM_FILTERS,
 }: ProblemsBoardProps) {
+  const language = useLanguage();
   const unread = useUnreadSubjects();
   const moves = useBoardMoves();
   const drag = useBoardDrag({
@@ -74,7 +77,7 @@ export function ProblemsBoard({
           <BoardColumn
             key={status}
             status={status}
-            problems={columnOrder(problems, status)}
+            problems={columnOrder(problems, status, language)}
             page={status === 'resolved' ? RESOLVED_PAGE : undefined}
             isFiltered={isFiltered}
             isDroppable={drag.isDroppable(status)}

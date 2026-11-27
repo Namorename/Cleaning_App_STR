@@ -1,4 +1,12 @@
-import { CLOSED_HOWS, Constants, WORKER_SOURCES } from '@str-ops/shared';
+import {
+  CLOSED_HOWS,
+  Constants,
+  WORKER_SOURCES,
+  dayOfInstant,
+  orderCleanings,
+  propertyPath,
+  splitPlace,
+} from '@str-ops/shared';
 import { z } from 'zod';
 
 const closingPersonSchema = z
@@ -109,6 +117,9 @@ export const cleaningTaskSchema = z.object({
   // Stamped by the database when she starts and finishes; never sent by us.
   started_at: z.string().nullable(),
   completed_at: z.string().nullable(),
+  // When the job was made: the last tie-break of the order of cleanings (owner, 2026-11-27).
+  // Absent from a row cached before it was asked for — the order then keeps the server's.
+  created_at: z.string().nullable().catch(null).optional(),
   // Overlapped another of her cleanings. Shown so a long measurement is not
   // mistaken for a slow one.
   is_parallel: z.boolean(),
@@ -202,21 +213,47 @@ export function isDoneGroup(group: Pick<TaskGroup, 'kind'>): boolean {
 }
 
 /**
+ * The place a cleaning is sorted by: the house, then the room in it, as the card shows them
+ * (`taskPlace`); null when the listing was not joined — the card names it by number then, and
+ * it stands last in its day.
+ */
+export function cleaningPlace(task: Pick<CleaningTask, 'property'>): string | null {
+  const property = task.property ?? null;
+  if (property === null) {
+    return null;
+  }
+  const { building, room } = splitPlace(property);
+  return propertyPath(building, room);
+}
+
+/**
+ * The order of cleanings (owner, 2026-11-27; packages/shared, schedule/day-place-order.ts): the
+ * day, then the flat by name in the interface language, one with no flat last in its day, then
+ * the earliest window, then the one made first.
+ */
+export function orderCleaningTasks<T extends CleaningTask>(
+  tasks: readonly T[],
+  language?: string,
+): T[] {
+  return orderCleanings(tasks, { place: cleaningPlace, language });
+}
+
+/**
  * One section per planned day, the nearest first.
  *
  * The day is `scheduled_date` as it came: a calendar date at the listing,
  * which is where the phone is — the same reading as `earliestClaimableDate`.
- * Inside a day the rows keep the order the server gave them (the same-day
- * check-in first); the list is grouped, not re-sorted. A day with nothing on
- * it gets no section.
+ * Inside a day the flats stand by name (`orderCleaningTasks`). A day with
+ * nothing on it gets no section.
  */
-export function groupByDay(tasks: readonly CleaningTask[]): TaskGroup[] {
-  const days = [...new Set(tasks.map((task) => task.scheduled_date))].sort();
+export function groupByDay(tasks: readonly CleaningTask[], language?: string): TaskGroup[] {
+  const ordered = orderCleaningTasks(tasks, language);
+  const days = [...new Set(ordered.map((task) => task.scheduled_date))];
 
   return days.map((day) => ({
     kind: 'day' as const,
     key: day,
-    data: tasks.filter((task) => task.scheduled_date === day),
+    data: ordered.filter((task) => task.scheduled_date === day),
   }));
 }
 
@@ -234,12 +271,22 @@ export function groupByDay(tasks: readonly CleaningTask[]): TaskGroup[] {
  * the work under way, whatever its day and state, so she sees it without
  * scrolling past her days. A technician's list is all repairs, and stays as
  * it was.
+ *
+ * Every section in the order of cleanings: the day, then the flat by name.
  */
-export function groupMyTasks(tasks: readonly CleaningTask[], isRepairApart = false): TaskGroup[] {
-  const repairs = isRepairApart ? tasks.filter(isRepairJob) : [];
-  const cleanings = isRepairApart ? tasks.filter((task) => !isRepairJob(task)) : tasks;
+export function groupMyTasks(
+  tasks: readonly CleaningTask[],
+  isRepairApart = false,
+  language?: string,
+): TaskGroup[] {
+  const ordered = orderCleaningTasks(tasks, language);
+  const repairs = isRepairApart ? ordered.filter(isRepairJob) : [];
+  const cleanings = isRepairApart ? ordered.filter((task) => !isRepairJob(task)) : ordered;
   const running = cleanings.filter(isRunning);
-  const days = groupByDay(cleanings.filter((task) => !isRunning(task)));
+  const days = groupByDay(
+    cleanings.filter((task) => !isRunning(task)),
+    language,
+  );
 
   return [
     ...(running.length === 0
@@ -252,18 +299,37 @@ export function groupMyTasks(tasks: readonly CleaningTask[], isRepairApart = fal
   ];
 }
 
+/** The day a cleaning was finished, on the phone's calendar; its planned day without a stamp. */
+function doneDay(task: CleaningTask): string {
+  return task.completed_at === null ? task.scheduled_date : dayOfInstant(task.completed_at, null);
+}
+
 /**
  * «Выполненные», once she has opened them: her finished cleanings, then —
  * with `isRepairApart`, a cleaner's list — the repairs she finished, as a
  * block «Ремонт» of their own (owner, 2026-11-05). The heading «Выполненные»
  * stands over both, so it is kept even when only repairs were finished.
+ *
+ * Newest first as the pages come: by the day finished, the latest first, then
+ * the flat by name, the earlier window, the one made first (owner,
+ * 2026-11-27). A later page only adds the same or earlier days.
  */
-export function groupMyDone(finished: readonly CleaningTask[], isRepairApart = false): TaskGroup[] {
+export function groupMyDone(
+  finished: readonly CleaningTask[],
+  isRepairApart = false,
+  language?: string,
+): TaskGroup[] {
   if (finished.length === 0) {
     return [];
   }
-  const repairs = isRepairApart ? finished.filter(isRepairJob) : [];
-  const cleanings = isRepairApart ? finished.filter((task) => !isRepairJob(task)) : [...finished];
+  const ordered = orderCleanings(finished, {
+    place: cleaningPlace,
+    language,
+    days: 'later-first',
+    day: doneDay,
+  });
+  const repairs = isRepairApart ? ordered.filter(isRepairJob) : [];
+  const cleanings = isRepairApart ? ordered.filter((task) => !isRepairJob(task)) : ordered;
 
   return [
     { kind: 'done' as const, key: 'done' as const, data: cleanings },

@@ -347,6 +347,43 @@ describe('the chips of a cell', () => {
   test('a closed group folds its rooms’ chips into its row', () => {
     expect(cellTasks(tree[0], '2026-09-28', byRowDay, true)).toEqual([early, own, late, loose]);
   });
+
+  // The owner, 2026-11-27: the content of one day stands by flat — the house's own first, then
+  // its rooms by name, numbers by value — and each flat's by its window.
+  test('folded, the chips stand by flat as a list names it, each flat’s by its window', () => {
+    const house = { name: 'Royal Cerna', hostaway_unit_id: null, parent: null };
+    const room = (name: string, unit: number) => ({
+      name,
+      hostaway_unit_id: unit,
+      parent: { name: 'Royal Cerna' },
+    });
+    const unit10 = task(11, '2026-09-29', {
+      time_from: '08:00:00',
+      property: room('Unit 10', 7001),
+    });
+    const unit2Late = task(12, '2026-09-29', {
+      time_from: '15:00:00',
+      property: room('unit 2', 7002),
+    });
+    const unit2Early = task(12, '2026-09-29', {
+      time_from: '09:00:00',
+      property: room('Unit 2', 7002),
+    });
+    const houseOwn = task(10, '2026-09-29', { time_from: '16:00:00', property: house });
+    const byDay = tasksByRowDay([unit10, unit2Late, unit2Early, houseOwn]);
+
+    expect(cellTasks(tree[0], '2026-09-29', byDay, true, 'en')).toEqual([
+      houseOwn,
+      unit2Early,
+      unit2Late,
+      unit10,
+    ]);
+    // Open, a room's own cell keeps its window order.
+    expect(cellTasks(tree[0].children[1], '2026-09-29', byDay, false, 'en')).toEqual([
+      unit2Early,
+      unit2Late,
+    ]);
+  });
 });
 
 describe('how many chips a cell has room for', () => {

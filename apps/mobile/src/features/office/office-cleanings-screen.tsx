@@ -16,6 +16,7 @@ import { LoadingState } from '@/components/loading-state';
 import { MonthGrid, type DayMark } from '@/components/month-grid';
 import { Spacing, type Theme } from '@/constants/theme';
 import { SectionHeading } from '@/features/tasks/section-heading';
+import { useLanguage } from '@/hooks/use-language';
 import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -54,6 +55,7 @@ const FIRST_DATE: DateFilter = { choice: 'today', day: null };
  */
 export function OfficeCleaningsScreen() {
   const { t } = useTranslation();
+  const language = useLanguage();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const today = todayDay(useNow());
@@ -83,9 +85,12 @@ export function OfficeCleaningsScreen() {
       return [];
     }
     return isCalendar
-      ? groupOfficeByDay(shown.filter((task) => task.scheduled_date === selectedDay))
-      : groupOfficeByDay(shown);
-  }, [shown, isCalendar, selectedDay]);
+      ? groupOfficeByDay(
+          shown.filter((task) => task.scheduled_date === selectedDay),
+          language,
+        )
+      : groupOfficeByDay(shown, language);
+  }, [shown, isCalendar, selectedDay, language]);
 
   const { refetch } = query;
   const onRefresh = useCallback(() => {

@@ -1,5 +1,6 @@
 import {
   orderQueue,
+  orderTaskHistory,
   problemLevel,
   storedUrgency,
   todayInZone,
@@ -259,19 +260,24 @@ function isPlannedAhead(problem: Problem, now: Date): boolean {
 }
 
 /**
- * The technician's «Мои задания» (owner, 2026-11-26): the live tasks in the queue's order — the
- * planned day, else the day made; then the level; then the older first (`orderQueue`) — those
- * planned after today under their own heading below today's work; the closed ones under theirs,
- * newest first as before.
+ * The technician's «Мои задания» (owner, 2026-11-26 and 2026-11-27): the live tasks in the queue's
+ * order — the planned day, else the day made; then the property by name; then the level; then
+ * the older first (`orderQueue`) — those planned after today under their own heading below
+ * today's work; the closed ones under theirs, by the day made, the latest first as before, then
+ * the property (`orderTaskHistory`).
  */
 export function queueProblems(
   problems: readonly Problem[],
   now: Date = new Date(),
+  language?: string,
 ): ProblemGroup[] {
-  const live = orderQueue(problems.filter((problem) => !isProblemClosed(problem)));
+  const live = orderQueue(
+    problems.filter((problem) => !isProblemClosed(problem)),
+    { language },
+  );
   return sections([
     { key: 'active', data: live.filter((problem) => !isPlannedAhead(problem, now)) },
     { key: 'planned', data: live.filter((problem) => isPlannedAhead(problem, now)) },
-    { key: 'closed', data: problems.filter(isProblemClosed) },
+    { key: 'closed', data: orderTaskHistory(problems.filter(isProblemClosed), { language }) },
   ]);
 }
