@@ -62,6 +62,25 @@
 --destination-branch preview` и `--group 7274a596-3277-4b42-af4e-97cc66b6ed5f --destination-branch
 field`.
 
+## Разделители по дням 27.11 (только панель)
+
+Промпт владельца 27.11 («выкатывай веб»): в колонках доски «Задания техников» и в «Списке» перед
+первой карточкой каждого дня — подпись дня и тонкая линия (`docs/day-place-order.md`, «Разделители
+по дням»). База, функции, API и телефон не менялись, OTA не было.
+
+| UTC | Шаг | Итог |
+|---|---|---|
+| 18:14 | `main` 9f45ce9 → 4b4603c (перемотка) | — |
+| 18:16 | Vercel прод `woom-dgbfsvt2u` | Ready; `woom-bnb.vercel.app` смотрит на него; `/login` 200, `/problems` 307 на вход |
+
+Проверки (лёгкий режим): `tsc` панели — 0; `eslint` и prettier изменённых файлов — чисто; vitest
+`day-entries`, `day-divider`, `problems-board`, `problems-view`, `source-badge`, `repair-tail` — 6
+файлов / 139 тестов; паритет ключей (`apps/mobile` `i18n.test.ts`) — 60 тестов. Вид — скриншоты
+настоящей разметки колонки и таблицы с CSS панели, светлая и тёмная темы, 1280 и 1100 px.
+
+Откат: в Vercel сделать текущим `woom-35ptfxbiw` (e7f739b; коммит 9f45ce9 — только docs) или
+`git revert 4b4603c` в `main`.
+
 ## Откат
 
 - Панель: в Vercel сделать текущим прежний прод-деплой `woom-ifwjk5xqc` (adab741) или `git revert
