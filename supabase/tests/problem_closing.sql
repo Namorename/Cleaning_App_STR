@@ -40,10 +40,19 @@ update public.profiles set host_id = 'f9700000-0000-4000-8000-00000000000b'
 where id = 'f9700006-0000-4000-8000-0000000000e6';
 update public.profiles set is_active = false where id = 'f9700005-0000-4000-8000-0000000000e5';
 
--- UTC listings, so that current_date is the listing's own date at any hour.
+-- UTC listings: the analytics count a repair on the listing's own (UTC) day of its finish.
 insert into public.properties (id, name, timezone, check_in_time, check_out_time)
 select 900097000 + n, 'Closing flat ' || n, 'UTC', '15:00', '10:00'
 from generate_series(1, 12) n;
+
+-- The days the analytics below are asked for, counted from now() rather than from the hour the
+-- suite runs at: from the listing's day of the earliest finish the suite moves back (an hour)
+-- through its day of now(). Asked for today alone, a run between 00:00 and 01:00 UTC found the
+-- round finished an hour back on yesterday and counted it out.
+create function pg_temp.first_day() returns date language sql stable as $$
+  select ((now() - interval '1 hour') at time zone 'UTC')::date $$;
+create function pg_temp.last_day() returns date language sql stable as $$
+  select (now() at time zone 'UTC')::date $$;
 
 insert into public.property_cleaners (property_id, cleaner_id, mode)
 select 900097000 + n, 'f9700001-0000-4000-8000-0000000000e1', 'claim'
@@ -344,7 +353,7 @@ select pg_temp.as_user(pg_temp.boss());
 select pg_temp.check('a repair closed for her counts as hers, without its times',
   (select repairs_done::text || ' ' || coalesce(work_minutes_avg::text, 'null') || ' '
           || coalesce(hours_to_resolve_avg::text, 'null')
-   from public.analytics_problems_by_technician(current_date, current_date,
+   from public.analytics_problems_by_technician(pg_temp.first_day(), pg_temp.last_day(),
                                                 p_include_test => true)
    where person_id = pg_temp.tech2()),
   '1 null null');
@@ -353,13 +362,13 @@ select pg_temp.check('a repair closed for her counts as hers, without its times'
 select pg_temp.check('her own finish keeps its times',
   (select repairs_done::text || ' ' || (work_minutes_avg is not null)::text || ' '
           || (hours_to_resolve_avg is not null)::text
-   from public.analytics_problems_by_technician(current_date, current_date,
+   from public.analytics_problems_by_technician(pg_temp.first_day(), pg_temp.last_day(),
                                                 p_include_test => true)
    where person_id = pg_temp.tech1()),
   '3 true true');
 create function pg_temp.done_by(person uuid) returns integer language sql as $$
   select coalesce((select repairs_done from public.analytics_problems_by_technician(
-                     current_date, current_date, p_include_test => true)
+                     pg_temp.first_day(), pg_temp.last_day(), p_include_test => true)
                    where person_id = person), 0) $$;
 select pg_temp.done_by(pg_temp.boss()) as boss_before \gset
 select pg_temp.done_by(pg_temp.tech1()) as tech1_before \gset

@@ -229,8 +229,12 @@ begin
     (select string_agg(theme || ':' || origin || ':' || layer, ',' order by theme) from public.issue_facts
      where host_id = v_host and conversation_key = pg_temp.k('c7001')),
     'hot_water:message:guest_message,noise_outside:message:guest_message');
-  perform pg_temp.check('an episode of a chat is the building''s and this month''s',
-    (select property_id || '/' || (month = date_trunc('month', (now() at time zone 'Europe/Prague'))::date)
+  -- The month of the chat's day in Prague, as the reader counts it — not of now(): the last
+  -- message went ten minutes back, so in a month's first ten minutes the two months differ.
+  perform pg_temp.check('an episode of a chat is the building''s and the month of its day',
+    (select property_id || '/' || (month = date_trunc('month', (
+              select max(g.submitted_at) at time zone 'Europe/Prague' from public.guest_signals g
+              where g.host_id = v_host and g.conversation_key = pg_temp.k('c7001')))::date)
      from public.issue_facts where host_id = v_host and theme = 'hot_water' and origin = 'message'),
     '900062001/true');
 
@@ -241,9 +245,12 @@ begin
   perform pg_temp.check('the card keeps no words of the model',
     v_finding.summary || '|' || v_finding.summary_i18n::text || '|' || coalesce(v_finding.evidence, '-'),
     'hot_water|{}|-');
+  -- 89 days from the Prague day of the message the card was made of, as the reader counts them —
+  -- not from today: in a Prague day's first ten minutes (23:00–23:10 UTC in winter) they differ.
   perform pg_temp.check('the card names the conversation, for 89 days at most',
     v_finding.external_conversation_id || '/' || (v_finding.conversation_link_ends
-      - (now() at time zone 'Europe/Prague')::date), '7001/89');
+      - (select (g.submitted_at at time zone 'Europe/Prague')::date from public.guest_signals g
+         where g.id = v_finding.signal_id)), '7001/89');
   perform pg_temp.check('noise makes no card', (select count(*)::integer from public.signal_findings
     where host_id = v_host and kind = 'noise'), 0);
   perform pg_temp.check('the run is done at what it cost',
@@ -341,10 +348,12 @@ begin
     (select state from raw.signal_message_queue where host_id = v_host and external_conversation_id = '7007'), 'idle');
 
   -- ---------------------------------------------------------------- quality
+  -- The windows by the company's (Prague) months, as the screen asks for them and as today is
+  -- passed: by UTC months they would lag a month behind today in a month's last evening hour.
   v_out := public.quality_theme_rows(v_host, (now() at time zone 'Europe/Prague')::date, 'month',
-                                     (date_trunc('month', now()) - interval '2 months')::date,
-                                     (date_trunc('month', now()) - interval '5 months')::date,
-                                     (date_trunc('month', now()) - interval '3 months')::date, null);
+                                     (date_trunc('month', (now() at time zone 'Europe/Prague')) - interval '2 months')::date,
+                                     (date_trunc('month', (now() at time zone 'Europe/Prague')) - interval '5 months')::date,
+                                     (date_trunc('month', (now() at time zone 'Europe/Prague')) - interval '3 months')::date, null);
   perform pg_temp.check('chats count apart from reviews',
     (select x ->> 'messages' || '/' || (x ->> 'reviews') || '/' || (x ->> 'recent')
      from jsonb_array_elements(v_out) x where x ->> 'theme' = 'hot_water'), '2/0/0');
@@ -359,9 +368,9 @@ begin
   update public.signal_settings set messages_enabled = false, tasks_enabled = false
   where host_id = v_host and kind = 'message';
   v_out := public.quality_theme_rows(v_host, (now() at time zone 'Europe/Prague')::date, 'month',
-                                     (date_trunc('month', now()) - interval '2 months')::date,
-                                     (date_trunc('month', now()) - interval '5 months')::date,
-                                     (date_trunc('month', now()) - interval '3 months')::date, null);
+                                     (date_trunc('month', (now() at time zone 'Europe/Prague')) - interval '2 months')::date,
+                                     (date_trunc('month', (now() at time zone 'Europe/Prague')) - interval '5 months')::date,
+                                     (date_trunc('month', (now() at time zone 'Europe/Prague')) - interval '3 months')::date, null);
   perform pg_temp.check('off: chats leave the screen', jsonb_array_length(v_out), 0);
   perform pg_temp.check('off: the labels stay, hidden',
     (select count(*)::integer from public.issue_facts where host_id = v_host and origin = 'message'), 4);
