@@ -1,4 +1,4 @@
-import { orderQueue, orderTaskHistory } from '@str-ops/shared';
+import { dayOfInstant, orderQueue, orderTaskHistory, queueDay } from '@str-ops/shared';
 
 import {
   isProblemClosed,
@@ -43,6 +43,32 @@ export function columnOrder(
   return status === 'resolved'
     ? orderTaskHistory(cards, { at: resolvedAt, place: problemPlace, language })
     : orderQueue(cards, { language, workDay: workDayOf });
+}
+
+/**
+ * The day a card stands on in its column (`columnOrder`), `YYYY-MM-DD`, for the column's day
+ * headings (owner, 2026-11-27): in «Выполнено» the day resolved, elsewhere the queue's day — the
+ * technician's day of the live work, else the planned day, else the day made.
+ */
+export function columnDay(problem: Problem, status: BoardStatus): string {
+  return status === 'resolved'
+    ? dayOfInstant(resolvedAt(problem), problem.property?.timezone)
+    : queueDay(problem, workDayOf(problem));
+}
+
+/** The part of the list a row is ordered in (`listOrder`): the live tasks, then the closed ones. */
+export function listPart(problem: Problem): 'live' | 'closed' {
+  return isProblemClosed(problem) ? 'closed' : 'live';
+}
+
+/**
+ * The day a row stands on in the list (`listOrder`), `YYYY-MM-DD`: a live task's planned day, else
+ * the day made; a closed task's day made.
+ */
+export function listDay(problem: Problem): string {
+  return isProblemClosed(problem)
+    ? dayOfInstant(problem.created_at, problem.property?.timezone)
+    : queueDay(problem);
 }
 
 /**

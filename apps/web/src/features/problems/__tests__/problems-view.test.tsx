@@ -854,7 +854,11 @@ describe('the level above high, «Критическая» (20261115090000)', ()
   const badgeOf = (word: HTMLElement) => word.closest('[data-slot="badge"]') ?? word;
 
   test('a critical task carries «Критическая» in the strongest tone on the board', () => {
-    useProblems.mockReturnValue({ data: [critical, problems[1]], isPending: false, isError: false });
+    useProblems.mockReturnValue({
+      data: [critical, problems[1]],
+      isPending: false,
+      isError: false,
+    });
     render(<ProblemsView />);
 
     expect(badgeOf(screen.getByText('Критическая'))).toHaveClass('bg-tone-critical-mark');
@@ -862,7 +866,11 @@ describe('the level above high, «Критическая» (20261115090000)', ()
   });
 
   test('and in the list', () => {
-    useProblems.mockReturnValue({ data: [critical, problems[1]], isPending: false, isError: false });
+    useProblems.mockReturnValue({
+      data: [critical, problems[1]],
+      isPending: false,
+      isError: false,
+    });
     window.history.pushState(null, '', '/problems?view=list');
     render(<ProblemsView />);
 
@@ -951,7 +959,10 @@ describe('the list in the queue’s order', () => {
     window.history.pushState(null, '', '/problems?view=list');
     render(<ProblemsView />);
 
-    const rows = screen.getAllByRole('row').slice(1);
+    const rows = screen
+      .getAllByRole('row')
+      .slice(1)
+      .filter((row) => !row.hasAttribute('data-day-divider'));
     expect(rows.map((row) => within(row).getAllByRole('link')[0].textContent)).toEqual([
       'Срочная на 20-е',
       'Обычная старше',
@@ -985,5 +996,50 @@ describe('the list in the queue’s order', () => {
     expect(within(row('Позже')).getByText('Дата: 04.12')).toBeInTheDocument();
     expect(within(row('Закрыта')).queryByText(/^Дата:/)).toBeNull();
     expect(within(row('Без даты')).queryByText(/^Дата:/)).toBeNull();
+  });
+
+  // The owner, 2026-11-27: the list heads its days as the board does — the day a row stands on —
+  // and its closed part, ordered on its own, starts its days afresh.
+  test('heads each day of the live part, and the closed part’s days afresh', () => {
+    useProblems.mockReturnValue({
+      data: [
+        task(1, {
+          title: 'Закрыта сегодня',
+          status: 'resolved',
+          created_at: '2026-11-26T08:00:00Z',
+        }),
+        task(2, { title: 'Новое', created_at: '2026-11-26T09:00:00Z' }),
+        task(3, { title: 'На завтра', created_at: '2026-11-25T09:00:00Z', due_on: '2026-11-27' }),
+        task(4, { title: 'Раньше', created_at: '2026-11-20T09:00:00Z' }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+    window.history.pushState(null, '', '/problems?view=list');
+    render(<ProblemsView />);
+
+    const bodyRows = screen.getAllByRole('row').slice(1);
+    expect(
+      bodyRows.map((row) =>
+        row.hasAttribute('data-day-divider')
+          ? `# ${row.querySelector('[aria-hidden="true"]')?.textContent}`
+          : within(row).getAllByRole('link')[0].textContent,
+      ),
+    ).toEqual([
+      '# пт 20.11',
+      'Раньше',
+      '# Сегодня · чт 26.11',
+      'Новое',
+      '# Завтра · пт 27.11',
+      'На завтра',
+      '# Сегодня · чт 26.11',
+      'Закрыта сегодня',
+    ]);
+    // A heading spans the whole table, as a heading a reader can jump to.
+    const heading = bodyRows[0];
+    expect(heading.querySelector('td')).toHaveAttribute('colspan', '7');
+    expect(within(heading).getByRole('heading', { level: 2 })).toHaveAccessibleName(
+      'пятница, 20 ноября',
+    );
   });
 });

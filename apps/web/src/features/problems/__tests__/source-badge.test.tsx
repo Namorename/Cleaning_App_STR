@@ -35,7 +35,12 @@ const fromReview: Problem = problemSchema.parse({
   reporter: null,
   title: 'Нет горячей воды',
   source: 'review',
-  source_facts: { kind: 'repair', subject: 'hot_water', channel: 'airbnb', period_month: '2026-10' },
+  source_facts: {
+    kind: 'repair',
+    subject: 'hot_water',
+    channel: 'airbnb',
+    period_month: '2026-10',
+  },
 });
 const fromChat: Problem = problemSchema.parse({
   ...base,
@@ -101,7 +106,9 @@ describe('the source chip', () => {
     expect(SIGNAL_SOURCE_LOOK.review.tone).toBe(STATUS_TONE['problems.source.review']);
     expect(SIGNAL_SOURCE_LOOK.message.tone).toBe(STATUS_TONE['problems.source.message']);
     const taskTones = Object.entries(STATUS_TONE)
-      .filter(([key]) => /^problems\.(open|assigned|in_progress|resolved|cancelled|priority\.)/.test(key))
+      .filter(([key]) =>
+        /^problems\.(open|assigned|in_progress|resolved|cancelled|priority\.)/.test(key),
+      )
       .map(([, tone]) => tone);
     expect(taskTones).not.toContain(SIGNAL_SOURCE_LOOK.review.tone);
     expect(taskTones).not.toContain(SIGNAL_SOURCE_LOOK.message.tone);
@@ -154,7 +161,10 @@ describe('the chip where a task is shown', () => {
 
   test('in the table: the chip before the title, and the guest where the reporter would stand', () => {
     render(<ProblemsTable problems={[fromReview, fromChat, fromStaff]} />);
-    const [, review, chat, staff] = screen.getAllByRole('row');
+    // The day's heading is a row too (owner, 2026-11-27); the tasks' rows are the rest.
+    const [, review, chat, staff] = screen
+      .getAllByRole('row')
+      .filter((row) => !row.hasAttribute('data-day-divider'));
     expect(within(review).getByText('Из отзыва')).toBeInTheDocument();
     expect(within(review).getByText('Из отзыва гостя')).toBeInTheDocument();
     expect(within(chat).getByText('Из чата')).toBeInTheDocument();

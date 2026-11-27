@@ -46,6 +46,10 @@
     "cancel": "Cancel",
     "close": "Close",
     "toDashboard": "To the dashboard",
+    "dayDivider": {
+      "today": "Today",
+      "tomorrow": "Tomorrow"
+    },
     "notFound": {
       "title": "Page not found",
       "text": "There is no such page in the panel: the address has a typo or the link is out of date."

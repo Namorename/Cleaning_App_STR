@@ -906,6 +906,149 @@ describe('the board in the queue’s order', () => {
   });
 });
 
+// The owner, 2026-11-27: before the first card of each new day a column says the day, small and
+// muted, with a hairline — the first day too; the headings are no cards.
+describe('the board’s day headings', () => {
+  const task = (n: number, patch: Record<string, unknown>) =>
+    problemSchema.parse({
+      ...base,
+      id: `99999999-0000-4000-8000-${String(n).padStart(12, '0')}`,
+      status: 'open',
+      fix_tasks: [],
+      ...patch,
+    });
+  const assigned = (n: number, title: string, place: string, day: string) =>
+    task(n, {
+      title,
+      status: 'assigned',
+      created_at: '2026-10-25T10:00:00Z',
+      property: { name: place },
+      fix_tasks: [
+        {
+          id: `44444444-4444-4444-8444-${String(n).padStart(12, '0')}`,
+          assignee_id: TECH_ID,
+          status: 'assigned',
+          scheduled_date: day,
+          time_from: null,
+          time_to: null,
+          assignee: { full_name: 'Petr Fixer' },
+        },
+      ],
+    });
+
+  /** A column as it reads from the top: «# day» for a heading, the title for a card. */
+  const linesIn = (name: string) =>
+    Array.from(column(name).querySelector('[data-slot="board-column-items"]')?.children ?? []).map(
+      (child) =>
+        child.matches('[data-slot="day-divider"]')
+          ? `# ${child.querySelector('[aria-hidden="true"]')?.textContent}`
+          : within(child as HTMLElement).getByRole('link').textContent,
+    );
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-26T10:00:00'));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('a live column heads each day of the technician, the first one too', () => {
+    render(
+      <ProblemsBoard
+        problems={[
+          assigned(1, 'Шторы', 'Skolska - ap.1A', '2026-11-28'),
+          assigned(2, 'Посудомойка', 'Skolska - Ap.2', '2026-11-29'),
+          assigned(3, 'Диван', 'Ostrovni 7 Apt 13', '2026-11-29'),
+          assigned(4, 'Лампочка', 'Skolska - ap.6', '2026-11-26'),
+        ]}
+      />,
+    );
+
+    expect(linesIn('Назначено')).toEqual([
+      '# Сегодня · чт 26.11',
+      'Лампочка',
+      '# сб 28.11',
+      'Шторы',
+      '# вс 29.11',
+      'Диван',
+      'Посудомойка',
+    ]);
+    const headings = within(column('Назначено')).getAllByRole('heading', { level: 2 });
+    expect(headings).toHaveLength(3);
+    expect(headings[0]).toHaveAccessibleName('Сегодня, четверг, 26 ноября');
+    // The head still counts the cards, not the headings.
+    expect(within(column('Назначено')).getByText('4')).toBeInTheDocument();
+  });
+
+  test('a day gone by is only its date, tomorrow says so, the day after is its date', () => {
+    render(
+      <ProblemsBoard
+        problems={[
+          task(1, { title: 'Старое', created_at: '2026-11-20T10:00:00Z' }),
+          task(2, { title: 'На завтра', due_on: '2026-11-27' }),
+          task(3, { title: 'Позже', due_on: '2026-12-04' }),
+        ]}
+      />,
+    );
+
+    expect(linesIn('Открыто')).toEqual([
+      '# пт 20.11',
+      'Старое',
+      '# Завтра · пт 27.11',
+      'На завтра',
+      '# пт 04.12',
+      'Позже',
+    ]);
+  });
+
+  test('«Выполнено» heads the days resolved, the latest first', () => {
+    render(
+      <ProblemsBoard
+        problems={[
+          task(1, {
+            title: 'Вчера',
+            status: 'resolved',
+            resolved_at: '2026-11-25T09:00:00Z',
+          }),
+          task(2, {
+            title: 'Сегодня',
+            status: 'resolved',
+            resolved_at: '2026-11-26T09:00:00Z',
+          }),
+        ]}
+      />,
+    );
+
+    expect(linesIn('Выполнено')).toEqual([
+      '# Сегодня · чт 26.11',
+      'Сегодня',
+      '# ср 25.11',
+      'Вчера',
+    ]);
+  });
+
+  test('an empty column has no heading', () => {
+    render(<ProblemsBoard problems={[]} />);
+
+    expect(within(column('В работе')).queryByRole('heading')).toBeNull();
+  });
+
+  test('a card let go over a day’s heading lands in that column', async () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    const heading = within(column('Назначено')).getByRole('heading');
+    const dragged = card('Течёт кран');
+    fireEvent.dragStart(dragged);
+    fireEvent.dragEnter(heading);
+    fireEvent.dragOver(heading);
+    fireEvent.drop(heading);
+    fireEvent.dragEnd(dragged);
+
+    expect(await screen.findByRole('dialog', { name: 'Назначить техника' })).toBeInTheDocument();
+  });
+});
+
 // Owner, 2026-11-26: «В архив» from a card's menu — the action and the question of the task's page.
 describe('«В архив» from a card’s menu', () => {
   test('stands apart under the moves, and asks the task page’s question first', async () => {

@@ -46,6 +46,10 @@
     "cancel": "Zrušit",
     "close": "Zavřít",
     "toDashboard": "Na přehled",
+    "dayDivider": {
+      "today": "Dnes",
+      "tomorrow": "Zítra"
+    },
     "notFound": {
       "title": "Stránka nenalezena",
       "text": "Taková stránka v panelu není: adresa je zadaná s chybou nebo je odkaz zastaralý."

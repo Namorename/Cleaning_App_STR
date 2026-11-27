@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DayDivider } from '@/components/day-divider';
 import { Person } from '@/components/person';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -23,18 +24,22 @@ import {
 } from '@/components/ui/table';
 import { UnreadChatLink } from '@/features/chat/unread-mark';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
-import { formatDateTime } from '@/lib/format-date';
+import { withDayHeadings } from '@/lib/day-entries';
+import { formatDateTime, todayIn } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
 import { problemChatHref, problemHref, type ProblemsAddress } from './address';
 import { EMPTY_PROBLEM_FILTERS, filtersKey, type ProblemFilters } from './filters';
-import { listOrder } from './order';
+import { listDay, listOrder, listPart } from './order';
 import { ProblemClosing } from './problem-closing';
 import { DueBadge } from './problem-due';
 import { RepairTail } from './repair-tail';
 import { liveFixTask, problemPlace, repairTail, type Problem } from './schema';
 import { SourceBadge } from './source-badge';
 import { LIST_PAGE, ShowMoreButton, useShowMore } from './show-more';
+
+/** The table's columns: a day's heading spans them all. */
+const COLUMN_COUNT = 7;
 
 interface ProblemsTableProps {
   problems: Problem[];
@@ -55,6 +60,10 @@ interface ProblemsTableProps {
  * `listOrder`); a planned live task
  * says its day beside its title. A page at a time (owner, 10.10: the page must
  * not grow without end); «Показать ещё» under the table brings the rest.
+ *
+ * Each day opens with its heading (owner, 2026-11-27: `DayDivider`, as on the board), on the day
+ * the row is ordered by (`listDay`); the closed part starts its days afresh. The heading's hairline
+ * is the one line between two days: the row above it draws none.
  */
 export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: ProblemsTableProps) {
   const { t } = useTranslation();
@@ -69,9 +78,10 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
     total: rows.length,
     page: LIST_PAGE,
     listRef: tableRef,
-    itemSelector: 'tbody > tr',
+    itemSelector: 'tbody > tr:not([data-day-divider])',
     resetKey: filtersKey(filters),
   });
+  const entries = withDayHeadings(rows.slice(0, paging.shown), listDay, listPart);
 
   return (
     <div className="flex flex-col gap-3">
@@ -88,8 +98,28 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
               <TableHead>{t('panel.problems.columns.reported')}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {rows.slice(0, paging.shown).map((problem) => {
+          <TableBody className="[&_tr:has(+tr[data-day-divider])]:border-b-0">
+            {entries.map((entry) => {
+              if (entry.kind === 'day') {
+                return (
+                  <TableRow
+                    key={entry.key}
+                    data-day-divider=""
+                    className="border-b-0 hover:bg-transparent"
+                  >
+                    <TableCell
+                      colSpan={COLUMN_COUNT}
+                      className="px-2 pt-5 pb-1 [tr:first-child>&]:pt-3"
+                    >
+                      <DayDivider
+                        day={entry.day}
+                        today={todayIn(entry.first.property?.timezone, now)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              }
+              const problem = entry.item;
               const fixTask = liveFixTask(problem);
               return (
                 <TableRow key={problem.id}>

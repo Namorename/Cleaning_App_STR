@@ -5,12 +5,16 @@ import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { BoardColumnFrame } from '@/components/board/board-column';
+import { DayDivider } from '@/components/day-divider';
 import { StatusBadge } from '@/components/status-badge';
+import { withDayHeadings } from '@/lib/day-entries';
 import { TONE_MARK_BG } from '@/lib/design/tone-classes';
+import { todayIn } from '@/lib/format-date';
 
 import type { ProblemsAddress } from './address';
 import { menuMoves } from './board-moves';
 import { filtersKey } from './filters';
+import { columnDay } from './order';
 import { ProblemCard } from './problem-card';
 import type { BoardStatus, Problem } from './schema';
 import { ShowMoreButton, useShowMore, WHOLE, type PageSize } from './show-more';
@@ -48,6 +52,10 @@ interface BoardColumnProps {
  *
  * A column given a page shows that many cards and «Показать ещё» under them, in the scrolling box
  * (owner, 10.10); the head still counts them all.
+ *
+ * Each day of the column opens with its heading (owner, 2026-11-27: `DayDivider`), on the day the
+ * column orders its cards by (`columnDay`); the headings are no cards — not dragged, not counted,
+ * and «Показать ещё» passes them by.
  */
 export function BoardColumn({
   status,
@@ -73,6 +81,11 @@ export function BoardColumn({
     itemSelector: ':scope > article',
     resetKey: filtersKey(from.filters),
   });
+  // One instant for the column, so every heading agrees on today.
+  const now = new Date();
+  const entries = withDayHeadings(problems.slice(0, paging.shown), (problem) =>
+    columnDay(problem, status),
+  );
 
   return (
     <BoardColumnFrame
@@ -90,19 +103,27 @@ export function BoardColumn({
       }
       listRef={cardsRef}
     >
-      {problems.slice(0, paging.shown).map((problem) => (
-        <ProblemCard
-          key={problem.id}
-          problem={problem}
-          moves={menuMoves(problem)}
-          onMove={onMove}
-          onArchive={onArchive}
-          hasUnread={unread.has(problem.id)}
-          from={from}
-          onDragStart={drag.onDragStart}
-          onDragEnd={drag.onDragEnd}
-        />
-      ))}
+      {entries.map((entry) =>
+        entry.kind === 'day' ? (
+          <DayDivider
+            key={entry.key}
+            day={entry.day}
+            today={todayIn(entry.first.property?.timezone, now)}
+          />
+        ) : (
+          <ProblemCard
+            key={entry.item.id}
+            problem={entry.item}
+            moves={menuMoves(entry.item)}
+            onMove={onMove}
+            onArchive={onArchive}
+            hasUnread={unread.has(entry.item.id)}
+            from={from}
+            onDragStart={drag.onDragStart}
+            onDragEnd={drag.onDragEnd}
+          />
+        ),
+      )}
       <ShowMoreButton more={paging.more} total={problems.length} onPress={paging.showMore} />
     </BoardColumnFrame>
   );
