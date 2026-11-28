@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Здоровье объектов — объект А-07</title>
+<meta name="description" content="Макет: уровень объекта — статус и причина, четыре области, цепочка «заезд → уборка → кто убирал → оценка», техника и единая лента сигналов.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="health.css">
+<script src="theme.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side" aria-label="Меню панели">
+    <div class="brand">STR Ops</div>
+    <ul class="nav">
+      <li><a href="#">Сводка</a></li>
+      <li><a href="#">Уборки</a></li>
+      <li><a href="#">Задания</a></li>
+      <li><a href="#">Гости</a></li>
+      <li><a href="portfolio.html" aria-current="page">Здоровье объектов</a></li>
+      <li><a href="#">Календарь</a></li>
+      <li><a href="#">Аналитика</a></li>
+      <li><a href="#">Команда</a></li>
+    </ul>
+  </aside>
+
+  <main class="main">
+    <div class="head">
+      <div class="head-text">
+        <p class="crumbs"><a href="portfolio.html">Здоровье объектов</a> › А-07</p>
+        <h1>А-07 <span class="chip bad">Требует мер</span></h1>
+        <p><b>Почему:</b> чистота — 58 % высших оценок при 73 % по портфелю (48 оценок за 12 месяцев, это заметно ниже), и 2 оценки «плохо» за 30 дней.</p>
+        <p class="muted small">2 комнаты · 4 гостя · 31 заезд за 90 дней · постоянная горничная: Горничная Б</p>
+      </div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Период">
+          <button type="button" aria-pressed="false">90 дней</button>
+          <button type="button" aria-pressed="true">12 месяцев</button>
+        </div>
+        <div class="theme-switch" role="group" aria-label="Тема">
+          <button type="button" class="btn" data-theme-set="light">Светлая</button>
+          <button type="button" class="btn" data-theme-set="dark">Тёмная</button>
+          <button type="button" class="btn" data-theme-set="auto">Как в системе</button>
+        </div>
+      </div>
+    </div>
+
+    <section class="area-cards" aria-label="Области">
+      <article class="card area-card">
+        <div class="card-head"><h3>Чистота</h3><span class="chip bad">Требует мер</span></div>
+        <div class="big">58 %</div>
+        <p class="small muted">высших оценок чистоты · 48 оценок · портфель 73 %</p>
+        <div class="meter" aria-hidden="true"><i style="width:58%"></i><b style="left:73%"></b></div>
+        <p class="small">Открыт 1 случай · уборки закрыты в приложении 6 из 7</p>
+      </article>
+      <article class="card area-card">
+        <div class="card-head"><h3>Техника</h3><span class="chip attn">Внимание</span></div>
+        <div class="big">2</div>
+        <p class="small muted">случая: «Освещение» в работе, «Горячая вода» на проверке</p>
+        <p class="small">Удобства (Booking): 80 % высших · 19 оценок</p>
+      </article>
+      <article class="card area-card">
+        <div class="card-head"><h3>Заезд и общение</h3><span class="chip ok">В порядке</span></div>
+        <div class="big">96 %</div>
+        <p class="small muted">высших оценок заезда и общения · 48 оценок</p>
+        <p class="small">Гость ждал ответа дольше 30 мин: 1 раз за 30 дней</p>
+      </article>
+      <article class="card area-card">
+        <div class="card-head"><h3>Комфорт</h3><span class="chip ok">В порядке</span></div>
+        <div class="big">88 %</div>
+        <p class="small muted">высших оценок комфорта и точности · 48 оценок</p>
+        <p class="small">Расположение 94 %, цена/качество 81 % — вне статуса</p>
+      </article>
+    </section>
+
+    <div class="cols">
+      <div class="stack">
+        <section class="card" aria-labelledby="clean">
+          <div class="card-head">
+            <h2 id="clean">Чистота: заезд → уборка → кто убирал → оценка гостя</h2>
+            <span class="badge-private">Колонку «Кто убирал» видят менеджер и админ</span>
+          </div>
+          <p class="note">За 30 дней: 7 заездов, 6 отзывов с оценкой чистоты — высших 2, ниже высшей 2, «плохо» 2. Уборки перед заездом закрыты в приложении у 6 из 7, с фото — у 4.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Заезд</th><th>Уборка перед заездом</th><th>Кто убирал</th><th>Чистота</th><th>Темы гостя</th></tr></thead>
+              <tbody>
+                <tr><td class="num">26.11</td><td>26.11 · закрыта 14:05 · 8 фото</td><td>Горничная Б</td><td class="muted">отзыва пока нет</td><td>—</td></tr>
+                <tr><td class="num">23.11</td><td>23.11 · закрыта 13:20 · <b>без фото</b></td><td>Горничная Б</td><td><span class="chip attn">4★ Airbnb</span></td><td><span class="tag">запах</span></td></tr>
+                <tr><td class="num">21.11</td><td>20.11 · <b>не закрыта в приложении</b></td><td class="muted">назначена Горничная Б, не подтверждено</td><td><span class="chip bad">3★ Airbnb · плохо</span></td><td><span class="tag">бельё и полотенца</span></td></tr>
+                <tr><td class="num">18.11</td><td>18.11 · закрыта 12:50 · 6 фото</td><td>Горничная В (замена)</td><td><span class="chip ok">5★ Airbnb</span></td><td>—</td></tr>
+                <tr><td class="num">16.11</td><td>16.11 · закрыта 13:45 · 5 фото</td><td>Горничная Б</td><td><span class="chip attn">7,5 Booking</span></td><td>—</td></tr>
+                <tr><td class="num">13.11</td><td>13.11 · закрыта 12:30 · <b>без фото</b></td><td>Горничная Б</td><td><span class="chip bad">5 Booking · плохо</span></td><td><span class="tag">чистота</span></td></tr>
+                <tr><td class="num">10.11</td><td>09.11 · закрыта 15:10 · 7 фото</td><td>Горничная Б</td><td><span class="chip ok">5★ Airbnb</span></td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">Связано с уборкой — это сигнал: стоит посмотреть фото уборки и чек-лист. Насекомые и плесень относятся к объекту, а не к уборке. Текст отзыва — кнопкой «Показать текст из Hostaway», у нас он не хранится.</p>
+          <div class="actions"><button type="button" class="btn primary">Открыть случай «Чистота»</button><button type="button" class="btn">Назначить проверочную уборку</button></div>
+        </section>
+
+        <section class="card" aria-labelledby="tech">
+          <div class="card-head"><h2 id="tech">Техника</h2><span class="muted small">случаи за 90 дней</span></div>
+          <ul class="rows">
+            <li><span class="chip watch">На проверке</span><span class="what"><a href="case.html"><b>Горячая вода</b></a> · критическая · возврат 1 · решится 03.12, если пройдёт ещё 1 заезд без сигналов</span><span class="muted small">Техник Т2</span></li>
+            <li><span class="chip work">В работе</span><span class="what"><b>Освещение</b> · ванная · «Задание» горничной 23.11 · работа назначена 24.11</span><span class="muted small">Техник Т1</span></li>
+            <li><span class="chip ok">Решён</span><span class="what"><b>Кухонная техника</b> · плита · решён 18.11 с первого раза · проверка 14 дней, 4 заезда</span><span class="muted small">Техник Т1</span></li>
+          </ul>
+        </section>
+
+        <section class="card" aria-labelledby="feed">
+          <div class="card-head">
+            <h2 id="feed">Лента сигналов</h2>
+            <div class="seg" role="group" aria-label="Область">
+              <button type="button" aria-pressed="true">Все</button>
+              <button type="button" aria-pressed="false">Чистота</button>
+              <button type="button" aria-pressed="false">Техника</button>
+              <button type="button" aria-pressed="false">Заезд</button>
+              <button type="button" aria-pressed="false">Комфорт</button>
+            </div>
+          </div>
+          <ul class="feed">
+            <li class="signal"><time>28.11 07:02</time><span class="dot"></span><div class="ev"><p><b>Отзыв Airbnb</b> · чистота 4★ · тема «запах»</p><p class="muted small">Чистота · присоединён к случаю «Чистота: оценки ниже обычного»</p></div></li>
+            <li class="fixed"><time>26.11 14:05</time><span class="dot"></span><div class="ev"><p><b>Уборка закрыта</b> · 8 фото · все шаги</p><p class="muted small">Чистота · перед заездом 26.11</p></div></li>
+            <li class="watch"><time>26.11 11:00</time><span class="dot"></span><div class="ev"><p><b>Заезд прошёл без сигналов</b> · «Горячая вода» на проверке: 2 из 3</p><p class="muted small">Техника</p></div></li>
+            <li class="work"><time>24.11 09:30</time><span class="dot"></span><div class="ev"><p><b>Работа назначена</b> Технику Т1 · «Освещение»</p><p class="muted small">Техника · случай «В работе»</p></div></li>
+            <li class="signal"><time>23.11 13:15</time><span class="dot"></span><div class="ev"><p><b>«Задание» горничной</b> · категория «Освещение» · ванная</p><p class="muted small">Техника · открыт случай «Освещение»</p></div></li>
+            <li class="signal"><time>22.11 18:40</time><span class="dot"></span><div class="ev"><p><b>Отзыв Booking</b> · удобства 10, чистота 10</p><p class="muted small">Техника и чистота · без замечаний</p></div></li>
+            <li class="signal"><time>21.11 19:05</time><span class="dot"></span><div class="ev"><p><b>Сообщение гостя</b> · вопрос о парковке · человек ответил через 42 мин</p><p class="muted small">Заезд и общение · не ремонт, случай не открыт</p></div></li>
+            <li class="fixed"><time>19.11 11:05</time><span class="dot"></span><div class="ev"><p><b>Работа выполнена</b> · «Горячая вода» · Техник Т2 · 4 фото</p><p class="muted small">Техника · на проверке 14 дней и 3 заезда (после возврата — вдвое)</p></div></li>
+          </ul>
+          <p class="note"><a href="#">Показать ещё 23 события за 90 дней</a></p>
+        </section>
+      </div>
+
+      <div class="stack">
+        <section class="card" aria-labelledby="open">
+          <h2 id="open">Открытые и на проверке</h2>
+          <ul class="rows">
+            <li><span class="chip attn">Новый</span><span class="what"><b>Чистота: оценки ниже обычного</b> · 2 «плохо» за 30 дней · ответственный Менеджер М · срок первого действия — 24 ч</span></li>
+            <li><span class="chip work">В работе</span><span class="what"><b>Освещение</b> · Техник Т1 · 4 дня</span></li>
+            <li><span class="chip watch">На проверке</span><span class="what"><a href="case.html"><b>Горячая вода</b></a> · до 03.12</span></li>
+          </ul>
+        </section>
+        <section class="card" aria-labelledby="who">
+          <h2 id="who">Ответственные</h2>
+          <dl class="kv">
+            <dt>Чистота</dt><dd>Горничная Б · Менеджер М</dd>
+            <dt>Техника</dt><dd>Техник Т1 <span class="muted small">(чаще всех за 90 дней)</span></dd>
+            <dt>Заезд и общение</dt><dd>Reception</dd>
+            <dt>Комфорт</dt><dd>Менеджер М</dd>
+          </dl>
+          <p class="note">По умолчанию: постоянная горничная, самый частый техник за 90 дней, менеджер объекта. Можно сменить.</p>
+        </section>
+        <section class="card" aria-labelledby="scores">
+          <h2 id="scores">Оценки за 12 месяцев</h2>
+          <dl class="kv">
+            <dt>Чистота</dt><dd>58 % · портфель 73 %</dd>
+            <dt>Заезд</dt><dd>97 % · 91 %</dd>
+            <dt>Общение</dt><dd>95 % · 93 %</dd>
+            <dt>Точность описания</dt><dd>86 % · 79 %</dd>
+            <dt>Комфорт (Booking)</dt><dd>89 % · 71 %</dd>
+            <dt>Удобства (Booking)</dt><dd>80 % · 66 %</dd>
+          </dl>
+          <p class="note">Доля высших оценок: 5★ на Airbnb, 10 на Booking. Средние «X из 10» почти не различают объекты.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Здоровье объектов — макеты</title>
+<meta name="description" content="Оглавление статичных макетов вкладки «Здоровье объектов»: портфель, объект, лента одного случая.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="health.css">
+<script src="theme.js"></script>
+</head>
+<body>
+<main class="main" style="max-width:860px;margin:0 auto">
+  <div class="head">
+    <div class="head-text">
+      <h1>Здоровье объектов — макеты</h1>
+      <p class="muted small">28.11.2026 · к документу <code>docs/property-health-redesign.md</code> · статичные страницы, кнопки не работают</p>
+    </div>
+    <div class="theme-switch" role="group" aria-label="Тема">
+      <button type="button" class="btn" data-theme-set="light">Светлая</button>
+      <button type="button" class="btn" data-theme-set="dark">Тёмная</button>
+      <button type="button" class="btn" data-theme-set="auto">Как в системе</button>
+    </div>
+  </div>
+  <section class="card">
+    <ul class="rows">
+      <li><span class="what"><a href="portfolio.html"><b>Портфель</b></a> — статусы объектов по четырём областям, сводка «что требует внимания сегодня», блок «Связано с уборками» (только менеджер и админ), правила статуса.</span></li>
+      <li><span class="what"><a href="property.html"><b>Объект</b></a> — статус и причина, области, цепочка «заезд → уборка → кто убирал → оценка», техника, лента сигналов, ответственные.</span></li>
+      <li><span class="what"><a href="case.html"><b>Случай</b></a> — «Горячая вода» с одним возвратом: шаги, лента событий, проверка по дням и заездам, метрики, действия.</span></li>
+    </ul>
+  </section>
+  <p class="note">Объёмы, доли и сроки взяты из аудита 28.11; объекты (А-07, Б-12 …) и люди (Горничная А, Техник Т1 …) условные. Подписи следуют словарю разделов панели: единица контроля называется «случай», а «Задание» — как в панели.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Здоровье объектов — случай «Горячая вода»</title>
+<meta name="description" content="Макет: лента жизненного цикла одного случая — сигналы, «Задания», работы с фото, проверка, возврат, единый статус и метрики.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="health.css">
+<script src="theme.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side" aria-label="Меню панели">
+    <div class="brand">STR Ops</div>
+    <ul class="nav">
+      <li><a href="#">Сводка</a></li>
+      <li><a href="#">Уборки</a></li>
+      <li><a href="#">Задания</a></li>
+      <li><a href="#">Гости</a></li>
+      <li><a href="portfolio.html" aria-current="page">Здоровье объектов</a></li>
+      <li><a href="#">Календарь</a></li>
+      <li><a href="#">Аналитика</a></li>
+      <li><a href="#">Команда</a></li>
+    </ul>
+  </aside>
+
+  <main class="main">
+    <div class="head">
+      <div class="head-text">
+        <p class="crumbs"><a href="portfolio.html">Здоровье объектов</a> › <a href="property.html">А-07</a> › Горячая вода</p>
+        <h1>Горячая вода · А-07</h1>
+        <p><span class="chip watch">На проверке</span> <span class="chip bad">Возврат 1</span> <span class="chip plain">Критическая категория</span> <span class="chip plain">Техника</span></p>
+        <p><b>Что дальше:</b> решится 03.12, если не будет новых сигналов этой темы и пройдёт ещё 1 заезд (прошло 2 из 3).</p>
+      </div>
+      <div class="controls">
+        <div class="theme-switch" role="group" aria-label="Тема">
+          <button type="button" class="btn" data-theme-set="light">Светлая</button>
+          <button type="button" class="btn" data-theme-set="dark">Тёмная</button>
+          <button type="button" class="btn" data-theme-set="auto">Как в системе</button>
+        </div>
+      </div>
+    </div>
+
+    <section class="card" aria-label="Шаги случая">
+      <ol class="steps">
+        <li class="done">Новый · 14.11</li>
+        <li class="done">В работе · 14.11</li>
+        <li class="done">Исправлено · 15.11</li>
+        <li class="loop">Вернулся · 18.11</li>
+        <li class="done">В работе · 18.11</li>
+        <li class="done">Исправлено · 19.11</li>
+        <li class="now">На проверке · до 03.12</li>
+        <li>Решён</li>
+      </ol>
+    </section>
+
+    <div class="cols">
+      <section class="card" aria-labelledby="life">
+        <div class="card-head"><h2 id="life">Лента случая</h2><span class="muted small">новое сверху · текстов гостей здесь нет</span></div>
+        <ul class="feed">
+          <li class="stay"><time>26.11 11:00</time><span class="dot"></span><div class="ev"><p><b>Заезд прошёл без сигналов</b> · 2 из 3</p><p class="muted small">Проверка идёт</p></div></li>
+          <li class="signal"><time>22.11 18:40</time><span class="dot"></span><div class="ev"><p><b>Отзыв Booking</b> о заезде 19.11 · удобства 10</p><p class="muted small">Оценка аспекта в норме — засчитано в проверку</p></div></li>
+          <li class="stay"><time>21.11 10:30</time><span class="dot"></span><div class="ev"><p><b>Заезд прошёл без сигналов</b> · 1 из 3</p></div></li>
+          <li class="watch"><time>19.11 11:05</time><span class="dot"></span><div class="ev"><p><b>Проверка начата</b> · 14 дней и 3 заезда</p><p class="muted small">После возврата период вдвое длиннее (обычно 7 дней и 2 заезда)</p></div></li>
+          <li class="fixed"><time>19.11 11:05</time><span class="dot"></span><div class="ev"><p><b>Работа выполнена</b> · Техник Т2 · 4 фото · закрыл исполнитель</p><p class="muted small">Исправлено · подтверждено фото · ушло 1 д 2 ч 30 мин после возврата</p></div></li>
+          <li class="work"><time>18.11 08:35</time><span class="dot"></span><div class="ev"><p><b>Работа назначена</b> Технику Т2 · менеджер М</p><p class="muted small">В работе · через 15 мин после сигнала (срок — 1 ч)</p></div></li>
+          <li class="back"><time>18.11 08:20</time><span class="dot"></span><div class="ev"><p><b>Вернулся</b> · «Задание» горничной во время уборки · категория «Горячая вода» · та же комната</p><p class="muted small">Сигнал на проверке → возврат 1 · push ответственному и главному технику</p></div></li>
+          <li class="watch"><time>16.11 12:00</time><span class="dot"></span><div class="ev"><p><b>Заезд прошёл без сигналов</b> · 1 из 2</p></div></li>
+          <li class="watch"><time>15.11 09:40</time><span class="dot"></span><div class="ev"><p><b>Проверка начата</b> · 7 дней и 2 заезда</p></div></li>
+          <li class="fixed"><time>15.11 09:40</time><span class="dot"></span><div class="ev"><p><b>Работа выполнена</b> · Техник Т2 · 3 фото · закрыл исполнитель</p><p class="muted small">Исправлено · подтверждено фото · 12 ч 36 мин от первого сигнала</p></div></li>
+          <li class="work"><time>14.11 21:19</time><span class="dot"></span><div class="ev"><p><b>«Задание» создано</b> менеджером М · категория «Горячая вода» (критическая) · назначено Технику Т2</p><p class="muted small">В работе · 15 мин от первого сигнала</p></div></li>
+          <li class="signal"><time>14.11 21:10</time><span class="dot"></span><div class="ev"><p><b>Карточка из чата</b> · без задержки: критическая категория · открытого «Задания» на доме не было</p><p class="muted small">Push ответственному (Техник Т2) и главному технику</p></div></li>
+          <li class="signal"><time>14.11 21:04</time><span class="dot"></span><div class="ev"><p><b>Сообщение гостя</b> · тема «горячая вода» · срочная · Airbnb</p><p class="muted small">Открыт случай · человек ответил гостю через 7 мин · <a href="#">Показать текст из Hostaway</a></p></div></li>
+        </ul>
+      </section>
+
+      <div class="stack">
+        <section class="card" aria-labelledby="metrics">
+          <h2 id="metrics">Метрики случая</h2>
+          <dl class="kv">
+            <dt>Открыт</dt><dd>14 дней назад</dd>
+            <dt>До первого действия</dt><dd>15 мин</dd>
+            <dt>До исправления (первый раз)</dt><dd>12 ч 36 мин</dd>
+            <dt>Возвратов</dt><dd>1</dd>
+            <dt>Решён с первого раза</dt><dd>нет</dd>
+            <dt>Ответственный</dt><dd>Техник Т2</dd>
+          </dl>
+          <p class="note">На доме за 12 месяцев: 2 случая этой темы. Возвраты после работ Техника Т2 — 12 % при 31 % по портфелю (24 работы).</p>
+        </section>
+        <section class="card" aria-labelledby="linked">
+          <h2 id="linked">Связано</h2>
+          <ul class="rows small">
+            <li><span class="what">«Задание» от 14.11 · закрыто · работа 3 фото</span><span class="tag">авто</span></li>
+            <li><span class="what">«Задание» горничной от 18.11 · закрыто · работа 4 фото</span><span class="tag">авто</span></li>
+            <li><span class="what">Карточка из чата от 14.11 · «уже в работе»</span><span class="tag">авто</span></li>
+            <li><span class="what">Отзыв Booking от 22.11 · удобства 10</span><span class="tag">авто</span></li>
+          </ul>
+        </section>
+        <section class="card" aria-labelledby="act">
+          <h2 id="act">Действия</h2>
+          <div class="actions">
+            <button type="button" class="btn">Связать «Задание»</button>
+            <button type="button" class="btn">Продлить проверку</button>
+            <button type="button" class="btn">Сменить ответственного</button>
+            <button type="button" class="btn">Принять без исправления</button>
+            <button type="button" class="btn">Отклонить</button>
+          </div>
+          <p class="note">«Принять без исправления» и «Отклонить» просят причину из списка; автор и время пишутся в ленту.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

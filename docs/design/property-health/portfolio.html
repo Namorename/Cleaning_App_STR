@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Здоровье объектов — портфель</title>
+<meta name="description" content="Макет: уровень портфеля вкладки «Здоровье объектов» — статусы объектов по областям, сводка на сегодня, сигналы по уборкам.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="health.css">
+<script src="theme.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side" aria-label="Меню панели">
+    <div class="brand">STR Ops</div>
+    <ul class="nav">
+      <li><a href="#">Сводка</a></li>
+      <li><a href="#">Уборки</a></li>
+      <li><a href="#">Задания</a></li>
+      <li><a href="#">Гости</a></li>
+      <li><a href="portfolio.html" aria-current="page">Здоровье объектов</a></li>
+      <li><a href="#">Календарь</a></li>
+      <li><a href="#">Аналитика</a></li>
+      <li><a href="#">Команда</a></li>
+    </ul>
+  </aside>
+
+  <main class="main">
+    <div class="head">
+      <div class="head-text">
+        <h1>Здоровье объектов</h1>
+        <p class="muted small">81 объект · случаи — на сейчас · оценки гостей за 12 месяцев · посчитано 28.11 в 06:40</p>
+      </div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Период оценок">
+          <button type="button" aria-pressed="false">90 дней</button>
+          <button type="button" aria-pressed="true">12 месяцев</button>
+        </div>
+        <button type="button" class="btn">Город: все</button>
+        <button type="button" class="btn">Область: все</button>
+        <div class="theme-switch" role="group" aria-label="Тема">
+          <button type="button" class="btn" data-theme-set="light">Светлая</button>
+          <button type="button" class="btn" data-theme-set="dark">Тёмная</button>
+          <button type="button" class="btn" data-theme-set="auto">Как в системе</button>
+        </div>
+      </div>
+    </div>
+
+    <section class="tiles" aria-label="Статусы объектов">
+      <div class="tile bad"><span class="label">Требуют мер</span><span class="value">6</span><span class="muted small">критическое, возвраты, сильно ниже портфеля</span></div>
+      <div class="tile attn"><span class="label">Внимание</span><span class="value">21</span><span class="muted small">открытые случаи или проверка</span></div>
+      <div class="tile ok"><span class="label">В порядке</span><span class="value">47</span><span class="muted small">≥ 20 оценок и ничего открытого</span></div>
+      <div class="tile none"><span class="label">Мало данных</span><span class="value">7</span><span class="muted small">меньше 20 оценок за 12 месяцев</span></div>
+    </section>
+    <section class="tiles" aria-label="Случаи">
+      <div class="tile"><span class="label">Открытые случаи</span><span class="value">38</span><span class="muted small">новые 9 · в работе 21 · вернулись 8</span></div>
+      <div class="tile"><span class="label">На проверке</span><span class="value">17</span><span class="muted small">решатся сами, если сигналов не будет</span></div>
+      <div class="tile"><span class="label">Решено с первого раза</span><span class="value">69 %</span><span class="muted small">за 90 дней · 31 % возвращались</span></div>
+      <div class="tile bad"><span class="label">Без движения дольше срока</span><span class="value">2</span><span class="muted small">ушло в сводку менеджеру</span></div>
+    </section>
+
+    <section class="card" aria-labelledby="today">
+      <div class="card-head">
+        <h2 id="today">Что требует внимания сегодня</h2>
+        <span class="muted small">5 из 9 · по срочности</span>
+      </div>
+      <ul class="rows">
+        <li><span class="chip bad">Без исполнителя 3 ч</span><span class="what"><a href="#"><b>Б-12</b> · Отопление</a> — гость написал в 06:10, срок для критической категории — 1 ч. Ответственный: Техник Т1, затем главный техник.</span></li>
+        <li><span class="chip bad">Вернулся второй раз</span><span class="what"><a href="#"><b>С-30</b> · Доступ в квартиру</a> — после замены батареек в замке гость снова не смог войти. В работе у Техника Т2 с 08:15.</span></li>
+        <li><span class="chip attn">Заезд в 15:00</span><span class="what"><a href="#"><b>К-03</b></a> — уборка перед заездом назначена Горничной Г, в приложении не начата.</span></li>
+        <li><span class="chip attn">Новый</span><span class="what"><a href="property.html"><b>А-07</b> · Чистота: оценки ниже обычного</a> — 2 оценки «плохо» за 30 дней, уборки перед ними без фото. Ответственный: Менеджер М.</span></li>
+        <li><span class="chip watch">Проверка продлена</span><span class="what"><a href="#"><b>В-21</b> · Мебель</a> — за 14 дней 1 заезд из 3; решится не раньше 12.12.</span></li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="objects" class="stack">
+      <div class="card-head">
+        <h2 id="objects">Объекты</h2>
+        <span class="muted small">сначала «Требуют мер» · показаны 9 из 81</span>
+      </div>
+      <div class="grid">
+        <article class="card prop">
+          <div class="prop-top"><div><div class="prop-name"><a href="property.html">А-07</a></div><div class="muted small">2 комнаты · 4 гостя</div></div><span class="chip bad">Требует мер</span></div>
+          <div class="areas" role="list" aria-label="Области">
+            <div class="area bad" role="listitem">Чистота<span>58 % высших</span></div>
+            <div class="area attn" role="listitem">Техника<span>2 случая</span></div>
+            <div class="area ok" role="listitem">Заезд<span>96 % высших</span></div>
+            <div class="area ok" role="listitem">Комфорт<span>в порядке</span></div>
+          </div>
+          <div class="prop-meta"><span>Открыто: 3</span><span>Чистота: 71 % → 58 % за год</span></div>
+          <p class="prop-last"><span class="muted">28.11 ·</span> отзыв Airbnb: чистота 4★, тема «запах»</p>
+        </article>
+
+        <article class="card prop">
+          <div class="prop-top"><div><div class="prop-name"><a href="#">Б-12</a></div><div class="muted small">3 комнаты · 6 гостей</div></div><span class="chip bad">Требует мер</span></div>
+          <div class="areas">
+            <div class="area ok">Чистота<span>78 % высших</span></div>
+            <div class="area bad">Техника<span>отопление, критич.</span></div>
+            <div class="area ok">Заезд<span>в порядке</span></div>
+            <div class="area attn">Комфорт<span>температура</span></div>
+          </div>
+          <div class="prop-meta"><span>Открыто: 2</span><span>Отопление: 3-й случай за сезон</span></div>
+          <p class="prop-last"><span class="muted">28.11 06:10 ·</span> сообщение гостя: отопление, без исполнителя</p>
+        </article>
+
+        <article class="card prop">
+          <div class="prop-top"><div><div class="prop-name"><a href="#">С-30</a></div><div class="muted small">студия · 2 гостя</div></div><span class="chip bad">Требует мер</span></div>
+          <div class="areas">
+            <div class="area ok">Чистота<span>81 % высших</span></div>
+            <div class="area ok">Техника<span>в порядке</span></div>
+            <div class="area bad">Заезд<span>замок, возврат 2</span></div>
+            <div class="area none">Комфорт<span>мало данных</span></div>
+          </div>
+          <div class="prop-meta"><span>Открыто: 1</span><span>Заезд: 92 % → 79 %</span></div>
+          <p class="prop-last"><span class="muted">28.11 08:15 ·</span> работа назначена Технику Т2</p>
+        </article>
+
+        <article class="card prop">
+          <div class="prop-top"><div><div class="prop-name"><a href="#">Дом Л</a></div><div class="muted small">6 комнат · отзывы на дом</div></div><span class="chip attn">Внимание</span></div>
+          <div class="areas">
+            <div class="area attn">Чистота<span>бельё, 2 сигнала</span></div>
+            <div class="area ok">Техника<span>в порядке</span></div>
+            <div class="area ok">Заезд<span>в порядке</span></div>
+            <div class="area ok">Комфорт<span>шум улицы — принят</span></div>
+          </div>
+          <div class="prop-meta"><span>Открыто: 1</span><span>Без перемен</span></div>
+          <p class="prop-last"><span class="muted">26.11 ·</span> горничная: «Бельё и полотенца» — недостаёт полотенец</p>
+        </article>
+
+        <article class="card prop">
+          <div class="prop-top"><div><div class="prop-name"><a href="#">К-03</a></div><div class="muted small">студия · 2 гостя</div></div><span class="chip attn">Внимание</span></div>
+          <div class="areas">
+            <div class="area ok">Чистота<span>74 % высших</span></div>
+            <div class="area attn">Техника<span>Wi-Fi на проверке</span></div>
+            <div class="area ok">Заезд<span>в порядке</span></div>
+            <div class="area ok">Комфорт<span>в порядке</span></div>
+          </div>
+          <div class="prop-meta"><span>На проверке: 1</span><span>Заезд сегодня в 15:00</span></div>
+          <p class="prop-last"><span class="muted">25.11 ·</span> работа «Wi-Fi» выполнена, 2 фото · проверка до 09.12</p>
+        </article>
+
+        <article class="card prop">
+          <div class="prop-top"><div><div class="prop-name"><a href="#">В-21</a></div><div class="muted small">1 комната · 2 гостя</div></div><span class="chip attn">Внимание</span></div>
+          <div class="areas">
+            <div class="area ok">Чистота<span>76 % высших</span></div>
+            <div class="area ok">Техника<span>в порядке</span></div>
+            <div class="area ok">Заезд<span>в порядке</span></div>
+            <div class="area attn">Комфорт<span>мебель, проверка</span></div>
+          </div>
+          <div class="prop-meta"><span>На проверке: 1</span><span>Мало заездов: 1 из 3</span></div>
+          <p class="prop-last"><span class="muted">14.11 ·</span> работа «Мебель» выполнена, 3 фото</p>
+        </article>
+
+        <article class="card prop">
+          <div class="prop-top"><div><div class="prop-name"><a href="#">Д-15</a></div><div class="muted small">2 комнаты · 4 гостя</div></div><span class="chip ok">В порядке</span></div>
+          <div class="areas">
+            <div class="area ok">Чистота<span>83 % высших</span></div>
+            <div class="area ok">Техника<span>в порядке</span></div>
+            <div class="area ok">Заезд<span>в порядке</span></div>
+            <div class="area ok">Комфорт<span>в порядке</span></div>
+          </div>
+          <div class="prop-meta"><span>Открыто: 0</span><span>Чистота: 79 % → 83 %</span></div>
+          <p class="prop-last"><span class="muted">22.11 ·</span> случай «Засор» решён с первого раза</p>
+        </article>
+
+        <article class="card prop">
+          <div class="prop-top"><div><div class="prop-name"><a href="#">М-02</a></div><div class="muted small">2 комнаты · 5 гостей</div></div><span class="chip ok">В порядке</span></div>
+          <div class="areas">
+            <div class="area ok">Чистота<span>77 % высших</span></div>
+            <div class="area ok">Техника<span>в порядке</span></div>
+            <div class="area ok">Заезд<span>в порядке</span></div>
+            <div class="area ok">Комфорт<span>в порядке</span></div>
+          </div>
+          <div class="prop-meta"><span>Открыто: 0</span><span>Без перемен</span></div>
+          <p class="prop-last"><span class="muted">27.11 ·</span> отзыв Booking: все аспекты 10</p>
+        </article>
+
+        <article class="card prop">
+          <div class="prop-top"><div><div class="prop-name"><a href="#">Р-09</a></div><div class="muted small">3 комнаты · новый объект</div></div><span class="chip none">Мало данных</span></div>
+          <div class="areas">
+            <div class="area none">Чистота<span>11 оценок</span></div>
+            <div class="area ok">Техника<span>в порядке</span></div>
+            <div class="area none">Заезд<span>11 оценок</span></div>
+            <div class="area none">Комфорт<span>мало данных</span></div>
+          </div>
+          <div class="prop-meta"><span>Открыто: 0</span><span>Тренд — с 20 оценок</span></div>
+          <p class="prop-last"><span class="muted">24.11 ·</span> уборка закрыта, 9 фото</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="cleaners">
+      <div class="card-head">
+        <h2 id="cleaners">Связано с уборками</h2>
+        <span class="badge-private">Видят менеджер и админ</span>
+      </div>
+      <p class="note">90 дней · отзывы с оценкой чистоты, у которых уборка перед заездом закрыта в приложении. «Ожидаемо» — сколько оценок ниже высшей обычно получают <b>эти же объекты</b>. Это сигнал, чтобы посмотреть фото уборок, а не оценка работы человека.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Горничная</th><th class="num">Отзывов</th><th class="num">Высших</th><th class="num">Ниже высшей</th><th class="num">Ожидаемо</th><th>Итог</th><th class="num">Уборки закрыты в приложении</th></tr></thead>
+          <tbody>
+            <tr><td>Горничная А</td><td class="num">58</td><td class="num">36</td><td class="num">22</td><td class="num">18,1</td><td><span class="chip ok">В пределах ожидаемого</span></td><td class="num">88 %</td></tr>
+            <tr><td>Горничная Б</td><td class="num">51</td><td class="num">32</td><td class="num">19</td><td class="num">11,6</td><td><span class="chip attn">Заметно чаще ожидаемого</span></td><td class="num">71 %</td></tr>
+            <tr><td>Горничная В</td><td class="num">34</td><td class="num">27</td><td class="num">7</td><td class="num">10,2</td><td><span class="chip ok">В пределах ожидаемого</span></td><td class="num">93 %</td></tr>
+            <tr><td>Горничная Г</td><td class="num">26</td><td class="num">17</td><td class="num">9</td><td class="num">6,9</td><td><span class="chip ok">В пределах ожидаемого</span></td><td class="num">80 %</td></tr>
+            <tr><td>Ещё 9 человек</td><td class="num">1–19</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td><span class="chip none">Мало данных</span></td><td class="num">62–100 %</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">«Заметно чаще» — от 20 отзывов, от 5 оценок ниже высшей и превышение ожидаемого, которое трудно объяснить случайностью (z ≥ 1,65). Просроченные уборки ни с кем не связываются. Числа в макете условные.</p>
+    </section>
+
+    <section class="card" aria-labelledby="rules">
+      <details>
+        <summary id="rules">Как считается статус</summary>
+        <div class="stack small">
+          <p><span class="chip bad">Требует мер</span> — открытый случай критической категории (горячая вода, отопление, доступ, электричество полностью, прорыв труб, затопление); случай вернулся 2 раза и больше; случай без движения дольше срока; доля высших оценок аспекта сильно ниже портфеля (от 20 оценок).</p>
+          <p><span class="chip attn">Внимание</span> — открытый случай или случай на проверке; доля высших оценок заметно ниже портфеля; 2 оценки «плохо» за 30 дней.</p>
+          <p><span class="chip ok">В порядке</span> — ничего из этого и не меньше 20 оценок за 12 месяцев.</p>
+          <p><span class="chip none">Мало данных</span> — нет открытых случаев и меньше 20 оценок: «в порядке» сказать нельзя.</p>
+          <p>Статус объекта — худший из областей. Расположение, цена и шум улицы в статус не входят.</p>
+        </div>
+      </details>
+    </section>
+  </main>
+</div>
+</body>
+</html>
