@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -12,6 +12,7 @@ import {
   OWNER,
   PEOPLE,
   READER,
+  TODAY,
   cardId,
   makeBoard,
   makeCard,
@@ -777,5 +778,124 @@ describe('after the review of stage 3', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Карточка в архиве');
     await user.click(screen.getByRole('button', { name: 'Отменить' }));
     expect(spies.shelve).toHaveBeenLastCalledWith({ cardId: cardId(1), shelf: 'active' });
+  });
+});
+
+// Owner, 2026-11-28: the day lines of the technicians' board on every column of every manager
+// board — the same divider, the column by day with the order it had within a day, a card's day its
+// due date, the cards with none last; dragging as before; the page no taller than the window.
+describe('the day lines of a column', () => {
+  /** A column's rows as they show: a line by what a reader hears, a card by its title. */
+  function rows(name: string): string[] {
+    const items = column(name).querySelector('[data-slot="board-column-items"]') as HTMLElement;
+    return [...items.children].map((child) =>
+      child.matches('[data-slot="day-divider"]')
+        ? `— ${child.querySelector('.sr-only')?.textContent}`
+        : (document.getElementById(child.getAttribute('aria-labelledby') ?? '')?.textContent ?? ''),
+    );
+  }
+
+  beforeEach(() => {
+    state.cards = [
+      makeCard(1, { title: 'Позже', due_on: '2026-11-20' }),
+      makeCard(2, { title: 'Без срока, старая' }),
+      makeCard(3, { title: 'Сегодня, старая', due_on: TODAY }),
+      makeCard(4, { title: 'Сегодня, новая', due_on: TODAY }),
+      makeCard(5, { title: 'Без срока, новая' }),
+      makeCard(6, { title: 'Просрочена', due_on: '2026-11-10' }),
+      makeCard(7, { title: 'В работе сегодня', column_key: 'in_progress', due_on: TODAY }),
+    ];
+  });
+
+  test('each day opens with its line, the newest card first within it; no due date comes last', () => {
+    show({ id: OWNER, isAdmin: false });
+
+    expect(rows('Открыто')).toEqual([
+      '— вторник, 10 ноября',
+      'Просрочена',
+      '— Сегодня, среда, 18 ноября',
+      'Сегодня, новая',
+      'Сегодня, старая',
+      '— пятница, 20 ноября',
+      'Позже',
+      '— Без срока',
+      'Без срока, новая',
+      'Без срока, старая',
+    ]);
+    expect(rows('В работе')).toEqual(['— Сегодня, среда, 18 ноября', 'В работе сегодня']);
+    // The lines are no cards: the head counts the six cards only.
+    expect(within(column('Открыто')).getByText('6')).toBeInTheDocument();
+    expect(within(column('Открыто')).getAllByRole('heading', { level: 2 })).toHaveLength(4);
+  });
+
+  test('ordered «Новые сверху» a column is in no day’s order, and has no lines', async () => {
+    const user = userEvent.setup();
+    show({ id: OWNER, isAdmin: false });
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Порядок' }), 'newest');
+
+    expect(rows('Открыто')).toEqual([
+      'Просрочена',
+      'Без срока, новая',
+      'Сегодня, новая',
+      'Сегодня, старая',
+      'Без срока, старая',
+      'Позже',
+    ]);
+  });
+
+  test('a card dragged onto another column over its line moves there, as before', () => {
+    show({ id: OWNER, isAdmin: false });
+    const line = column('В работе').querySelector('[data-slot="day-divider"]') as HTMLElement;
+    expect(line).toHaveClass('pointer-events-none');
+
+    fireEvent.dragStart(screen.getByRole('article', { name: 'Позже' }));
+    fireEvent.dragOver(line);
+    fireEvent.drop(line);
+
+    expect(spies.move).toHaveBeenCalledWith({
+      cardId: cardId(1),
+      columnId: COLUMN.in_progress,
+      stage: 'in_progress',
+    });
+  });
+
+  // The fix of 2026-11-28 (docs/rollout/board-height-1128.md): the words a reader hears are
+  // placed absolutely, so each line holds them and the column holds the lines.
+  test('the lines stay inside their scrolling column: the page is no taller than the window', () => {
+    window.history.replaceState(null, '', `/problems?board=${BOARD}`);
+    const { container } = render(
+      <div className={BOARD_PAGE_CLASS}>
+        <ManagerBoardView boardId={BOARD} viewer={{ id: OWNER, isAdmin: false }} />
+      </div>,
+    );
+
+    expectBoardFillsPage(container.firstElementChild as HTMLElement);
+    const items = column('Открыто').querySelector('[data-slot="board-column-items"]');
+    const lines = column('Открыто').querySelectorAll('[data-slot="day-divider"]');
+    expect(lines).toHaveLength(4);
+    for (const line of lines) {
+      expect(line.parentElement).toBe(items);
+      expect(line).toHaveClass('relative');
+    }
+  });
+
+  test('«Назначено мне» draws the same lines in its stages', () => {
+    state.mine = [3, 2].map((n) =>
+      myCardSchema.parse({
+        ...state.cards.find((card) => card.id === cardId(n)),
+        assignee_id: OWNER,
+        board: { id: BOARD, title: 'Проекты', owner_id: OWNER, archived_at: null },
+      }),
+    );
+    window.history.replaceState(null, '', '/problems?board=mine');
+    render(<MyCardsView viewer={{ id: OWNER, isAdmin: false }} />);
+
+    expect(rows('Открыто')).toEqual([
+      '— Сегодня, среда, 18 ноября',
+      'Сегодня, старая',
+      '— Без срока',
+      'Без срока, старая',
+    ]);
   });
 });

@@ -75,6 +75,17 @@ describe('DayDivider', () => {
     expect(screen.getByRole('heading').parentElement).toHaveClass('pt-2', 'first:pt-0');
   });
 
+  // Owner, 2026-11-28: a manager board's cards with no due date stand last, under a line of theirs.
+  test('heads the items with no date by the words it is given, the same line otherwise', () => {
+    render(<DayDivider day={null} label="Без срока" />);
+
+    const heading = screen.getByRole('heading', { level: 2 });
+    expect(heading).toHaveAccessibleName('Без срока');
+    expect(heading).toHaveClass('text-xs', 'font-normal', 'text-muted-foreground');
+    expect(heading.parentElement).toHaveClass('pointer-events-none', 'relative');
+    expect(heading.nextElementSibling).toHaveClass('h-px', 'flex-1', 'bg-border');
+  });
+
   test('may stand a level lower, under a section’s heading', () => {
     render(<DayDivider day={TODAY} today={TODAY} level={3} />);
 

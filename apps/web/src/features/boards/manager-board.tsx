@@ -8,9 +8,11 @@ import { BoardColumnFrame } from '@/components/board/board-column';
 import { BoardViewport } from '@/components/board/board-viewport';
 import { cardColorStyle, SWATCH_CLASS } from '@/components/board/card-color';
 import { useColumnDrag } from '@/components/board/use-column-drag';
+import { DayDivider } from '@/components/day-divider';
 import { StatusBadge } from '@/components/status-badge';
 import { TONE_MARK_BG } from '@/lib/design/tone-classes';
 
+import { headingDay, laneEntries } from './card-days';
 import { CardTile, type CardActions } from './card-tile';
 import type { BoardLane } from './lanes';
 import type { BoardCard } from './schema';
@@ -51,6 +53,10 @@ const LANE_MIN_WIDTH = '16rem';
  * cards (`BoardViewport`). Each lane is headed by its name in the tone of its stage; a long name ends in «…»
  * rather than widening the lane. A card goes to any other lane it may go to by the mouse or by
  * its menu; each lane may end in a quick add. An archived board is the same board without either.
+ *
+ * Ordered by due date, each day of a lane opens with the technicians' board's heading (owner,
+ * 2026-11-28: `DayDivider`, `laneEntries`), the cards with no due date last under «Без срока». The
+ * headings are no cards: not dragged, not counted; a card dropped over one drops on its lane.
  */
 export function ManagerBoard({
   lanes,
@@ -107,7 +113,16 @@ export function ManagerBoard({
             emptyText={isFiltered ? t('boards.columnEmptyFiltered') : t('boards.columnEmpty')}
             footer={footerOf?.(lane)}
           >
-            {inLane.map((card) => {
+            {laneEntries(inLane, order).map((entry) => {
+              if (entry.kind === 'day') {
+                const day = headingDay(entry.day);
+                return day === null ? (
+                  <DayDivider key={entry.key} day={null} label={t('boards.noDue')} />
+                ) : (
+                  <DayDivider key={entry.key} day={day} today={today} />
+                );
+              }
+              const card = entry.item;
               const actions = actionsFor(card);
               return (
                 <CardTile

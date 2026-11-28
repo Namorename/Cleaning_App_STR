@@ -58,15 +58,27 @@ export function dayDividerText(
     : { shown: `${word} · ${short}`, spoken: `${word}, ${long}` };
 }
 
-interface DayDividerProps {
-  /** The day of the items under it, `YYYY-MM-DD`. */
-  day: string;
-  /** Today, `YYYY-MM-DD`, in the zone the items count their days by. */
-  today: string;
+interface DayDividerLook {
   /** The heading's level: 2 under the page's title. */
   level?: 2 | 3;
   className?: string;
 }
+
+type DayDividerProps = DayDividerLook &
+  (
+    | {
+        /** The day of the items under it, `YYYY-MM-DD`. */
+        day: string;
+        /** Today, `YYYY-MM-DD`, in the zone the items count their days by. */
+        today: string;
+      }
+    | {
+        /** No day: the items under it have no date (a manager board's cards with no due date). */
+        day: null;
+        /** What stands for the day, said and shown alike: «Без срока». */
+        label: string;
+      }
+  );
 
 /**
  * The heading of a day in a list ordered by days (owner, 2026-11-27): a small muted line of words
@@ -76,11 +88,18 @@ interface DayDividerProps {
  * through, and the keyboard passes it by. A screen reader finds it as a heading and hears the day
  * in full. Those words are placed absolutely (`sr-only`), so the divider is positioned itself: in
  * a scrolling column they stay inside it rather than hanging on the page and lengthening it.
+ *
+ * Items with no date (owner, 2026-11-28: a manager board's cards with no due date, last in their
+ * column) are headed the same way, by the words the list gives for them.
  */
-export function DayDivider({ day, today, level = 2, className }: DayDividerProps) {
+export function DayDivider(props: DayDividerProps) {
+  const { level = 2, className } = props;
   const { t } = useTranslation();
   const language = useLanguage();
-  const text = dayDividerText(day, today, language, t);
+  const text: DayDividerText =
+    props.day === null
+      ? { shown: props.label, spoken: props.label }
+      : dayDividerText(props.day, props.today, language, t);
   const Heading = level === 3 ? 'h3' : 'h2';
 
   return (
