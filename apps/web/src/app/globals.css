@@ -118,10 +118,14 @@
 /*
  * The window's height, for the one box a screen that fills the window hangs on (the shell's <main>
  * while it holds a board): the dynamic viewport where the browser knows it, else the plain one.
+ * The fallback sits outside `@supports` on purpose: written as two `height`s in a row, the build's
+ * minifier drops the first, since every browser Tailwind builds for knows `dvh`.
  */
 @utility h-window {
   height: 100vh;
-  height: 100dvh;
+  @supports (height: 100dvh) {
+    height: 100dvh;
+  }
 }
 
 @layer base {

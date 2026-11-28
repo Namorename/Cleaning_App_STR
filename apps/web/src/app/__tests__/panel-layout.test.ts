@@ -157,6 +157,9 @@ describe('the shell under a board', () => {
   test('the window’s height is the dynamic viewport, the plain one where that is unknown', () => {
     const css = readFileSync(path.join(__dirname, '..', 'globals.css'), 'utf8');
 
-    expect(css).toMatch(/@utility h-window \{\s*height: 100vh;\s*height: 100dvh;\s*\}/);
+    // In a `@supports` block, not a second `height` in a row: the minifier would drop the first.
+    expect(css).toMatch(
+      /@utility h-window \{\s*height: 100vh;\s*@supports \(height: 100dvh\) \{\s*height: 100dvh;\s*\}\s*\}/,
+    );
   });
 });
