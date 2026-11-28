@@ -115,6 +115,15 @@
   }
 }
 
+/*
+ * The window's height, for the one box a screen that fills the window hangs on (the shell's <main>
+ * while it holds a board): the dynamic viewport where the browser knows it, else the plain one.
+ */
+@utility h-window {
+  height: 100vh;
+  height: 100dvh;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

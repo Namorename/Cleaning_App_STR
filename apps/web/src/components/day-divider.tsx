@@ -74,7 +74,8 @@ interface DayDividerProps {
  * before the first item of its day; with a little room above it, so the days breathe, and none
  * when it opens its list. It takes no pointer: a drag over it is its column's, a click falls
  * through, and the keyboard passes it by. A screen reader finds it as a heading and hears the day
- * in full.
+ * in full. Those words are placed absolutely (`sr-only`), so the divider is positioned itself: in
+ * a scrolling column they stay inside it rather than hanging on the page and lengthening it.
  */
 export function DayDivider({ day, today, level = 2, className }: DayDividerProps) {
   const { t } = useTranslation();
@@ -86,7 +87,7 @@ export function DayDivider({ day, today, level = 2, className }: DayDividerProps
     <div
       data-slot="day-divider"
       className={cn(
-        'pointer-events-none flex items-center gap-2 pt-2 select-none first:pt-0',
+        'pointer-events-none relative flex items-center gap-2 pt-2 select-none first:pt-0',
         className,
       )}
     >

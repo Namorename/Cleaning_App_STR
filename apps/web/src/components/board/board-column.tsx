@@ -52,6 +52,9 @@ interface BoardColumnFrameProps {
  * the top or the bottom of the column — over its head or its footer too — scrolls it. A slim inner
  * margin keeps the focus ring of the first and the last card inside the scrolling box, and the room
  * of the scrollbar is kept in every column, so the cards are as wide in a long column as in a short.
+ * The scrolling box is positioned (`relative`): whatever an item places absolutely — the
+ * screen-reader words of a day heading — is held and clipped by it. Without that the page was its
+ * containing block, and every such word far down a column lengthened the page (2026-11-28).
  */
 export function BoardColumnFrame({
   label,
@@ -109,7 +112,7 @@ export function BoardColumnFrame({
       <div
         ref={list}
         data-slot="board-column-items"
-        className="-m-1 flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto p-1 md:[scrollbar-gutter:stable]"
+        className="relative -m-1 flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto p-1 md:[scrollbar-gutter:stable]"
       >
         {isEmpty ? (
           <p className="py-6 text-center text-sm text-muted-foreground">{emptyText}</p>

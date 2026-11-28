@@ -62,6 +62,9 @@ describe('DayDivider', () => {
 
     const divider = screen.getByRole('heading').parentElement as HTMLElement;
     expect(divider).toHaveClass('pointer-events-none', 'select-none');
+    // Holds its screen-reader words (placed absolutely): in a scrolling column they stay inside it.
+    expect(divider).toHaveClass('relative');
+    expect(divider.querySelector('.sr-only')?.parentElement?.parentElement).toBe(divider);
     expect(divider.querySelector('[tabindex], a, button')).toBeNull();
     expect(divider).not.toHaveAttribute('draggable');
   });

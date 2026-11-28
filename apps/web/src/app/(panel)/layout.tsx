@@ -26,7 +26,11 @@ import { createClient } from '@/lib/supabase/server';
  * the top bar and its sheet (the owner's decision 14), and the page takes the
  * whole width. `--page-chrome` is what the shell takes of the window's height
  * — the bar and the page's padding — for a screen that fills the rest (the
- * calendar).
+ * calendar). A board needs no count: from `md` up, while one shows
+ * (`[data-board-fill]`), `<main>` itself is the window's height and a column
+ * of flex boxes the board's page fills (`BOARD_PAGE_CLASS`), so the padding,
+ * the rows above the board and the line under it share the window and the
+ * page never scrolls while the board fits (2026-11-28).
  *
  * Reads the language cookie too: entered from the sign-in without a reload,
  * the page learns the language the profile set there (`LanguageSync`).
@@ -57,7 +61,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
         theme={theme}
         access={access}
       />
-      <main className="min-h-0 min-w-0 flex-1 p-4 [--page-chrome:5.5rem] md:p-6 md:[--page-chrome:3rem]">
+      <main className="min-h-0 min-w-0 flex-1 p-4 [--page-chrome:5.5rem] md:p-6 md:[--page-chrome:3rem] md:has-[[data-board-fill]]:flex md:has-[[data-board-fill]]:h-window md:has-[[data-board-fill]]:flex-col">
         {children}
       </main>
     </div>

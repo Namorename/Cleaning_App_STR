@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 /**
@@ -122,5 +125,38 @@ describe('the panel’s shell', () => {
     signedIn = { email: 'field@test.local', app_metadata: {} };
 
     await expect(PanelLayout({ children: null })).rejects.toThrow('redirect:/login');
+  });
+});
+
+// The owner's report of 2026-11-28: a board page scrolled, with empty room under the board. The
+// one box with the window's height is <main>, from md up and only while a board shows; the board's
+// page fills it in a flex column (components/board/board-viewport.tsx), nothing counts a height.
+describe('the shell under a board', () => {
+  test('<main> is the window’s height and a flex column while a board shows, from md up', async () => {
+    signedIn = { email: 'office@test.local', app_metadata: { role: 'manager' } };
+
+    const shell = await PanelLayout({ children: null });
+
+    const main = elementsOf(shell).find((element) => element.type === 'main');
+    const classes = String(main?.props.className).split(' ');
+    expect(classes).toEqual(
+      expect.arrayContaining([
+        'min-h-0',
+        'md:has-[[data-board-fill]]:flex',
+        'md:has-[[data-board-fill]]:flex-col',
+        'md:has-[[data-board-fill]]:h-window',
+      ]),
+    );
+    // Not before md, and not without a board: the list, the archive and a phone grow the page.
+    expect(classes.filter((name) => /(^|:)(h-window|flex-col)$/.test(name))).toEqual([
+      'md:has-[[data-board-fill]]:h-window',
+      'md:has-[[data-board-fill]]:flex-col',
+    ]);
+  });
+
+  test('the window’s height is the dynamic viewport, the plain one where that is unknown', () => {
+    const css = readFileSync(path.join(__dirname, '..', 'globals.css'), 'utf8');
+
+    expect(css).toMatch(/@utility h-window \{\s*height: 100vh;\s*height: 100dvh;\s*\}/);
   });
 });

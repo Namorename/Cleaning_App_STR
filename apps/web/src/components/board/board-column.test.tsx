@@ -182,6 +182,8 @@ describe('BoardColumnFrame', () => {
     const column = screen.getByRole('region', { name: 'Открыто' });
     const items = column.querySelector('[data-slot="board-column-items"]');
     expect(items).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto', 'overflow-x-hidden');
+    // Holds what its items place absolutely: else that hangs on the page and lengthens it.
+    expect(items).toHaveClass('relative');
     expect(within(items as HTMLElement).getAllByRole('article')).toHaveLength(2);
     const head = within(column).getByText('2').closest('header');
     expect(items?.contains(head)).toBe(false);
@@ -249,16 +251,16 @@ describe('BoardViewport', () => {
     const grid = container.querySelector('[data-slot="manager-board"]') as HTMLElement;
     const frame = grid.parentElement as HTMLElement;
     expect(frame).toHaveAttribute('data-board-fill');
-    expect(frame).toHaveClass('overflow-x-auto', 'min-h-0', 'flex-1');
+    expect(frame).toHaveClass('overflow-x-auto', 'min-h-0', 'flex-1', 'relative');
     expect(grid).toHaveClass('grid', 'md:min-h-0', 'md:items-stretch', 'items-start');
     expect(grid.style.gridTemplateColumns).toBe('repeat(2, 1fr)');
   });
 
-  test('the page is the window less the shell only while a board shows, and only from md up', () => {
-    expect(BOARD_PAGE_CLASS).toContain(
-      'md:has-[[data-board-fill]]:h-[calc(100dvh_-_var(--page-chrome,3rem))]',
+  test('the page fills the window-high shell in a flex column: no height of its own, nothing counted', () => {
+    expect(BOARD_PAGE_CLASS.split(' ')).toEqual(
+      expect.arrayContaining(['flex', 'flex-col', 'flex-1', 'min-h-0']),
     );
-    expect(BOARD_PAGE_CLASS).not.toMatch(/(^|\s)h-/);
+    expect(BOARD_PAGE_CLASS).not.toMatch(/(^|\s|:)h-|calc|page-chrome|vh/);
     expect(BOARD_STAGE_CLASS).toContain('min-h-0');
     expect(BOARD_STAGE_CLASS).toContain('md:group-has-[[data-board-fill]]/board-page:min-h-64');
   });

@@ -21,4 +21,34 @@ export function expectBoardFillsPage(page: HTMLElement): void {
     expect(parent.className).toMatch(/(^|\s)flex-col(\s|$)/);
     box = parent;
   }
+  expectNothingEscapesTheScrollers(board as HTMLElement);
+}
+
+const SCROLLER = /(^|\s)overflow(-[xy])?-(auto|scroll|hidden|clip)(\s|$)/;
+const PLACED = /(^|\s)(relative|absolute|fixed|sticky)(\s|$)/;
+const PLACED_OUT = /(^|\s)(sr-only|absolute)(\s|$)/;
+
+/**
+ * Nothing placed absolutely inside a board — a screen-reader label (`sr-only`) is — may hang on a
+ * box outside the column or frame that scrolls it: its containing block would be the page, the
+ * scroller would not clip it, and the page would grow by its offset however tall the window is
+ * (the day dividers of 2026-11-27 lengthened the page by thousands of pixels). Every such box needs
+ * a positioned box between itself and its nearest scroller, or the scroller itself positioned.
+ */
+export function expectNothingEscapesTheScrollers(board: HTMLElement): void {
+  const escaping = [...board.querySelectorAll<HTMLElement>('*')]
+    .filter((element) => PLACED_OUT.test(element.className))
+    .filter((element) => {
+      for (let up = element.parentElement; up !== null; up = up.parentElement) {
+        if (PLACED.test(up.className)) {
+          return false;
+        }
+        if (SCROLLER.test(up.className) || up === board) {
+          return true;
+        }
+      }
+      return true;
+    })
+    .map((element) => element.textContent);
+  expect(escaping).toEqual([]);
 }
